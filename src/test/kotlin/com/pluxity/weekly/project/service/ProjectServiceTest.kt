@@ -1,0 +1,195 @@
+package com.pluxity.weekly.project.service
+
+import com.pluxity.weekly.auth.user.entity.RoleType
+import com.pluxity.weekly.auth.user.repository.UserRepository
+import com.pluxity.weekly.authorization.AuthorizationService
+import com.pluxity.weekly.core.constant.ErrorCode
+import com.pluxity.weekly.core.exception.CustomException
+import com.pluxity.weekly.project.dto.dummyProjectRequest
+import com.pluxity.weekly.project.dto.dummyProjectUpdateRequest
+import com.pluxity.weekly.project.entity.Project
+import com.pluxity.weekly.project.entity.ProjectStatus
+import com.pluxity.weekly.project.entity.dummyProject
+import com.pluxity.weekly.project.repository.ProjectRepository
+import com.pluxity.weekly.test.entity.dummyRole
+import com.pluxity.weekly.test.entity.dummyUser
+import io.kotest.assertions.throwables.shouldThrow
+import io.kotest.core.spec.style.BehaviorSpec
+import io.kotest.matchers.shouldBe
+import io.mockk.every
+import io.mockk.just
+import io.mockk.mockk
+import io.mockk.runs
+import io.mockk.verify
+import org.springframework.data.repository.findByIdOrNull
+import java.time.LocalDate
+
+class ProjectServiceTest :
+    BehaviorSpec({
+
+        val projectRepository: ProjectRepository = mockk()
+        val userRepository: UserRepository = mockk()
+        val authorizationService: AuthorizationService = mockk()
+        val service = ProjectService(projectRepository, userRepository, authorizationService)
+
+        val adminUser =
+            dummyUser(id = 1L, name = "관리자").apply {
+                addRole(dummyRole(id = 1L, name = "ADMIN").apply { auth = RoleType.ADMIN.name })
+            }
+
+        beforeSpec {
+            every { authorizationService.currentUser() } returns adminUser
+            every { authorizationService.requireProjectManager(any(), any()) } just runs
+            every { authorizationService.requireAdmin(any()) } just runs
+            every { authorizationService.visibleProjectIds(any()) } returns null
+        }
+
+        Given("프로젝트 전체 조회") {
+            When("프로젝트 목록을 조회하면") {
+                val entities =
+                    listOf(
+                        dummyProject(id = 1L, name = "프로젝트A"),
+                        dummyProject(id = 2L, name = "프로젝트B"),
+                        dummyProject(id = 3L, name = "프로젝트C"),
+                    )
+
+                every { projectRepository.findByFilter(any()) } returns entities
+                every { projectRepository.findMembersByProjectIds(any()) } returns emptyList()
+                every { userRepository.findAllById(any<List<Long>>()) } returns emptyList()
+
+                val result = service.findAll()
+
+                Then("전체 목록이 반환된다") {
+                    result.size shouldBe 3
+                    result[0].name shouldBe "프로젝트A"
+                }
+            }
+        }
+
+        Given("프로젝트 단건 조회") {
+            When("존재하는 프로젝트를 조회하면") {
+                val entity =
+                    dummyProject(
+                        id = 1L,
+                        name = "테스트 프로젝트",
+                        description = "설명",
+                        status = ProjectStatus.IN_PROGRESS,
+                        startDate = LocalDate.of(2026, 1, 1),
+                        dueDate = LocalDate.of(2026, 3, 31),
+                        pmId = 10L,
+                    )
+
+                every { projectRepository.findByIdOrNull(1L) } returns entity
+                every { projectRepository.findMembersByProjectId(1L) } returns emptyList()
+                every { userRepository.findByIdOrNull(10L) } returns dummyUser(id = 10L, name = "PM유저")
+
+                val result = service.findById(1L)
+
+                Then("프로젝트 정보가 반환된다") {
+                    result.id shouldBe 1L
+                    result.name shouldBe "테스트 프로젝트"
+                    result.description shouldBe "설명"
+                    result.status shouldBe ProjectStatus.IN_PROGRESS
+                    result.startDate shouldBe LocalDate.of(2026, 1, 1)
+                    result.dueDate shouldBe LocalDate.of(2026, 3, 31)
+                    result.pmId shouldBe 10L
+                }
+            }
+
+            When("존재하지 않는 프로젝트를 조회하면") {
+                every { projectRepository.findByIdOrNull(999L) } returns null
+
+                val exception =
+                    shouldThrow<CustomException> {
+                        service.findById(999L)
+                    }
+
+                Then("NOT_FOUND 예외가 발생한다") {
+                    exception.code shouldBe ErrorCode.NOT_FOUND_PROJECT
+                }
+            }
+        }
+
+        Given("프로젝트 생성") {
+            When("유효한 요청으로 프로젝트를 생성하면") {
+                val request =
+                    dummyProjectRequest(
+                        name = "신규 프로젝트",
+                        status = ProjectStatus.TODO,
+                        pmId = 5L,
+                    )
+                val saved = dummyProject(id = 1L, name = "신규 프로젝트", pmId = 5L)
+
+                every { projectRepository.save(any<Project>()) } returns saved
+
+                val result = service.create(request)
+
+                Then("생성된 프로젝트의 ID가 반환된다") {
+                    result shouldBe 1L
+                }
+            }
+        }
+
+        Given("프로젝트 수정") {
+            When("존재하는 프로젝트를 수정하면") {
+                val entity = dummyProject(id = 1L, name = "기존 프로젝트")
+                val request =
+                    dummyProjectUpdateRequest(
+                        name = "수정된 프로젝트",
+                        status = ProjectStatus.IN_PROGRESS,
+                        pmId = 10L,
+                    )
+
+                every { projectRepository.findByIdOrNull(1L) } returns entity
+
+                service.update(1L, request)
+
+                Then("프로젝트 정보가 수정된다") {
+                    entity.name shouldBe "수정된 프로젝트"
+                    entity.status shouldBe ProjectStatus.IN_PROGRESS
+                    entity.pmId shouldBe 10L
+                }
+            }
+
+            When("존재하지 않는 프로젝트를 수정하면") {
+                every { projectRepository.findByIdOrNull(999L) } returns null
+
+                val exception =
+                    shouldThrow<CustomException> {
+                        service.update(999L, dummyProjectUpdateRequest())
+                    }
+
+                Then("NOT_FOUND 예외가 발생한다") {
+                    exception.code shouldBe ErrorCode.NOT_FOUND_PROJECT
+                }
+            }
+        }
+
+        Given("프로젝트 삭제") {
+            When("존재하는 프로젝트를 삭제하면") {
+                val entity = dummyProject(id = 1L, name = "삭제대상 프로젝트")
+
+                every { projectRepository.findByIdOrNull(1L) } returns entity
+                every { projectRepository.delete(any<Project>()) } just runs
+
+                service.delete(1L)
+
+                Then("삭제가 수행된다") {
+                    verify(exactly = 1) { projectRepository.delete(entity) }
+                }
+            }
+
+            When("존재하지 않는 프로젝트를 삭제하면") {
+                every { projectRepository.findByIdOrNull(999L) } returns null
+
+                val exception =
+                    shouldThrow<CustomException> {
+                        service.delete(999L)
+                    }
+
+                Then("NOT_FOUND 예외가 발생한다") {
+                    exception.code shouldBe ErrorCode.NOT_FOUND_PROJECT
+                }
+            }
+        }
+    })

@@ -1,0 +1,120 @@
+package com.pluxity.weekly.auth.user.entity
+
+import com.pluxity.weekly.core.constant.ErrorCode
+import com.pluxity.weekly.core.entity.IdentityIdEntity
+import com.pluxity.weekly.core.exception.CustomException
+import jakarta.persistence.CascadeType
+import jakarta.persistence.Column
+import jakarta.persistence.Entity
+import jakarta.persistence.OneToMany
+import jakarta.persistence.Table
+import java.time.LocalDateTime
+
+@Entity
+@Table(name = "users")
+class User(
+    @Column(nullable = false, unique = true)
+    var username: String,
+    @Column(nullable = false)
+    var password: String,
+    @Column(nullable = false, length = 20)
+    var name: String,
+    @Column(length = 20)
+    var code: String?,
+    var phoneNumber: String? = null,
+    var department: String? = null,
+) : IdentityIdEntity() {
+    @Column(name = "profile_image_id")
+    var profileImageId: Long? = null
+
+    var lastPasswordChangeDate: LocalDateTime = LocalDateTime.now()
+
+    @OneToMany(mappedBy = "user", cascade = [CascadeType.PERSIST, CascadeType.MERGE])
+    var userRoles: MutableSet<UserRole> = LinkedHashSet()
+
+    fun changePassword(password: String) {
+        this.password = password
+        this.lastPasswordChangeDate = LocalDateTime.now()
+    }
+
+    fun addRoles(roles: List<Role>) {
+        val duplicateRoles = roles.filter { this.hasRole(it) }
+
+        if (duplicateRoles.isNotEmpty()) {
+            val duplicateNames = duplicateRoles.joinToString(", ") { it.name }
+            throw CustomException(ErrorCode.DUPLICATE_ROLE, duplicateNames)
+        }
+
+        roles.forEach { addRole(it) }
+    }
+
+    fun addRole(role: Role) {
+        if (hasRole(role)) throw CustomException(ErrorCode.DUPLICATE_ROLE, role.name)
+        val userRole = UserRole(user = this, role = role)
+        this.userRoles.add(userRole)
+    }
+
+    fun removeRole(role: Role) {
+        val userRoleToRemove =
+            userRoles
+                .firstOrNull { it.role == role }
+                ?: throw CustomException(ErrorCode.NOT_FOUND_USER_ROLE, role.name)
+
+        this.userRoles.remove(userRoleToRemove)
+    }
+
+    fun updateRoles(newRoles: List<Role>) {
+        val newRoleIds = newRoles.mapNotNull { it.id }.toSet()
+
+        this.userRoles.removeIf { it.role.id !in newRoleIds }
+
+        val currentRoleIds = this.userRoles.mapNotNull { it.role.id }.toSet()
+
+        newRoles
+            .filterNot { currentRoleIds.contains(it.id) }
+            .forEach { addRole(it) }
+    }
+
+    fun getRoles(): List<Role> = userRoles.map { it.role }
+
+    fun hasRole(role: Role): Boolean = userRoles.any { it.role.id == role.id }
+
+    fun changeName(name: String) {
+        this.name = name
+    }
+
+    fun changeCode(code: String) {
+        this.code = code
+    }
+
+    fun changePhoneNumber(phoneNumber: String) {
+        this.phoneNumber = phoneNumber
+    }
+
+    fun changeDepartment(department: String) {
+        this.department = department
+    }
+
+    fun changeProfileImageId(profileImageId: Long?) {
+        this.profileImageId = profileImageId
+    }
+
+    fun isAdmin(): Boolean = userRoles.any { it.role.auth == RoleType.ADMIN.roleName }
+
+    fun isPasswordChangeRequired(): Boolean =
+        lastPasswordChangeDate.isBefore(
+            LocalDateTime
+                .now()
+                .minusDays(PASSWORD_CHANGE_DAYS),
+        )
+
+    fun initPassword(password: String) {
+        this.password = password
+        this.lastPasswordChangeDate = LocalDateTime.now().minusDays(INIT_PASSWORD_CHANGE_DAY)
+    }
+
+    companion object {
+        private const val PASSWORD_CHANGE_DAYS: Long = 90L
+        private const val INIT_PASSWORD_CHANGE_DAY: Long = PASSWORD_CHANGE_DAYS + 1
+    }
+}

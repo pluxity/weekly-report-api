@@ -1,0 +1,58 @@
+package com.pluxity.weekly.core.constant
+
+import org.springframework.http.HttpStatus
+
+enum class ErrorCode(
+    private val httpStatus: HttpStatus,
+    private val message: String,
+) : Code {
+    // ── Auth ──
+    INVALID_ID_OR_PASSWORD(HttpStatus.BAD_REQUEST, "아이디 또는 비밀번호가 틀렸습니다."),
+    INVALID_ACCESS_TOKEN(HttpStatus.UNAUTHORIZED, "ACCESS 토큰이 유효하지 않습니다."),
+    INVALID_REFRESH_TOKEN(HttpStatus.UNAUTHORIZED, "REFRESH 토큰이 유효하지 않습니다."),
+    EXPIRED_ACCESS_TOKEN(HttpStatus.UNAUTHORIZED, "ACCESS 토큰이 만료되었습니다."),
+    EXPIRED_REFRESH_TOKEN(HttpStatus.UNAUTHORIZED, "REFRESH 토큰이 만료되었습니다."),
+    PERMISSION_DENIED(HttpStatus.FORBIDDEN, "해당 작업에 대한 권한이 없습니다."),
+
+    // ── User / Role ──
+    DUPLICATE_USERNAME(HttpStatus.BAD_REQUEST, "%s는 이미 존재 하는 아이디 입니다."),
+    NOT_FOUND_USER(HttpStatus.NOT_FOUND, "ID가 %s인 사용자를 찾을 수 없습니다."),
+    NOT_FOUND_ROLE(HttpStatus.NOT_FOUND, "ID가 %s인 Role을 찾을 수 없습니다."),
+    DUPLICATE_ROLE(HttpStatus.BAD_REQUEST, "이미 할당된 Role입니다: %s"),
+    NOT_FOUND_USER_ROLE(HttpStatus.NOT_FOUND, "사용자에게 할당되지 않은 Role입니다: %s"),
+
+    // ── Team ──
+    NOT_FOUND_TEAM(HttpStatus.NOT_FOUND, "ID가 %s인 팀을 찾을 수 없습니다."),
+    NOT_FOUND_TEAM_MEMBER(HttpStatus.NOT_FOUND, "팀 %s에 사용자 %s이(가) 소속되어 있지 않습니다."),
+    DUPLICATE_TEAM_MEMBER(HttpStatus.BAD_REQUEST, "사용자 %s은(는) 이미 팀 %s에 소속되어 있습니다."),
+
+    // ── Project / Epic / Task ──
+    NOT_FOUND_PROJECT(HttpStatus.NOT_FOUND, "ID가 %s인 프로젝트를 찾을 수 없습니다."),
+    NOT_FOUND_EPIC(HttpStatus.NOT_FOUND, "ID가 %s인 에픽을 찾을 수 없습니다."),
+    DUPLICATE_EPIC_ASSIGNMENT(HttpStatus.BAD_REQUEST, "사용자 %s은(는) 이미 에픽 %s에 배정되어 있습니다."),
+    NOT_FOUND_EPIC_ASSIGNMENT(HttpStatus.NOT_FOUND, "에픽 %s에 사용자 %s이(가) 배정되어 있지 않습니다."),
+    NOT_FOUND_TASK(HttpStatus.NOT_FOUND, "ID가 %s인 태스크를 찾을 수 없습니다."),
+    DUPLICATE_TASK(HttpStatus.BAD_REQUEST, "에픽 '%s'에 이미 '%s' 태스크가 존재합니다."),
+
+    // ── Chat / LLM ──
+    LLM_SERVICE_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "LLM 서비스에 연결할 수 없습니다."),
+    LLM_INVALID_RESPONSE(HttpStatus.INTERNAL_SERVER_ERROR, "LLM 응답을 파싱할 수 없습니다."),
+    LLM_AMBIGUOUS_REQUEST(HttpStatus.BAD_REQUEST, "%s"),
+    CHAT_ALREADY_PROCESSING(HttpStatus.TOO_MANY_REQUESTS, "이전 요청을 처리 중입니다. 잠시 후 다시 시도해주세요."),
+
+    // ── Common (DB / Request) ──
+    DUPLICATE_RESOURCE_ID(HttpStatus.BAD_REQUEST, "중복된 리소스 ID가 포함되어 있습니다."),
+    REFERENCED_RESOURCE_NOT_FOUND(HttpStatus.BAD_REQUEST, "참조 대상이 존재하지 않습니다."),
+    RESOURCE_STILL_REFERENCED(HttpStatus.CONFLICT, "다른 데이터에서 참조 중이므로 삭제할 수 없습니다."),
+    MISSING_REQUIRED_VALUE(HttpStatus.BAD_REQUEST, "필수 값이 누락되었습니다."),
+    DATA_INTEGRITY_VIOLATION(HttpStatus.BAD_REQUEST, "데이터 무결성 제약 조건 위반입니다."),
+    ;
+
+    override fun getHttpStatus(): HttpStatus = httpStatus
+
+    override fun getMessage(): String = message
+
+    override fun getStatusName(): String = httpStatus.name
+
+    override fun getCodeName(): String = name
+}

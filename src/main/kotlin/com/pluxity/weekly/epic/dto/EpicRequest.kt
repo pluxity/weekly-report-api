@@ -1,0 +1,30 @@
+package com.pluxity.weekly.epic.dto
+
+import com.pluxity.weekly.epic.entity.EpicStatus
+import io.swagger.v3.oas.annotations.media.Schema
+import jakarta.validation.constraints.NotBlank
+import jakarta.validation.constraints.NotNull
+import jakarta.validation.constraints.Size
+import java.time.LocalDate
+
+@Schema(description = "에픽 등록/수정 요청")
+data class EpicRequest(
+    @field:Schema(description = "프로젝트 ID", example = "1", required = true)
+    @field:NotNull(message = "프로젝트 ID는 필수입니다")
+    val projectId: Long,
+    @field:Schema(description = "에픽명 (최대 255자)", example = "사용자 인증 모듈", required = true, maxLength = 255)
+    @field:NotBlank(message = "에픽명은 필수입니다")
+    @field:Size(max = 255, message = "에픽명은 최대 255자까지 입력 가능합니다")
+    val name: String,
+    @field:Schema(description = "설명 (최대 1000자)", example = "에픽 설명입니다")
+    @field:Size(max = 1000, message = "설명은 최대 1000자까지 입력 가능합니다")
+    val description: String? = null,
+    @field:Schema(description = "상태", example = "TODO")
+    val status: EpicStatus = EpicStatus.TODO,
+    @field:Schema(description = "시작일", example = "2026-01-01")
+    val startDate: LocalDate? = null,
+    @field:Schema(description = "마감일", example = "2026-03-31")
+    val dueDate: LocalDate? = null,
+    @field:Schema(description = "배정 사용자 ID 목록", example = "[1, 2]")
+    val userIds: List<Long>? = null,
+)
