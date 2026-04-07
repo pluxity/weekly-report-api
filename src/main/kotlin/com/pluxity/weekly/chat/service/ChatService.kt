@@ -4,6 +4,7 @@ import com.pluxity.weekly.authorization.AuthorizationService
 import com.pluxity.weekly.chat.context.ContextBuilder
 import com.pluxity.weekly.chat.dto.ChatActionResponse
 import com.pluxity.weekly.chat.dto.LlmAction
+import com.pluxity.weekly.chat.exception.ChatClarifyException
 import com.pluxity.weekly.chat.llm.LlmService
 import com.pluxity.weekly.core.constant.ErrorCode
 import com.pluxity.weekly.core.exception.CustomException
@@ -93,9 +94,8 @@ class ChatService(
                                 target = target,
                                 readResult = chatReadHandler.handle(action),
                             )
-                        action.action == "clarify" -> throw CustomException(
-                            ErrorCode.LLM_AMBIGUOUS_REQUEST,
-                            action.message ?: "좀 더 구체적으로 말씀해주세요.",
+                        action.action == "clarify" -> throw ChatClarifyException(
+                            message = action.message ?: "좀 더 구체적으로 말씀해주세요.",
                         )
                         action.action == "create" && target in listOf("project", "epic") -> {
                             val selectFields = selectFieldResolver.resolve(action)
@@ -108,11 +108,7 @@ class ChatService(
                         }
                         !action.missingFields.isNullOrEmpty() ||
                             (action.action in listOf("update", "delete") && action.id == null) -> {
-                            val message = buildClarifyMessage(action)
-                            throw CustomException(
-                                ErrorCode.LLM_AMBIGUOUS_REQUEST,
-                                message,
-                            )
+                            throw buildClarifyException(action)
                         }
                         else -> {
                             val resultId = chatExecutor.execute(action)
@@ -135,21 +131,27 @@ class ChatService(
         }
     }
 
-    private fun buildClarifyMessage(action: LlmAction): String {
+    private fun buildClarifyException(action: LlmAction): ChatClarifyException {
         val base = action.message ?: "대상을 특정할 수 없습니다."
         val candidates = action.candidates
         val missingFields = action.missingFields
 
-        if (candidates.isNullOrEmpty() || missingFields.isNullOrEmpty()) return base
-
-        val field = missingFields.first()
-        val names = selectFieldResolver.resolveCandidateNames(field, action.target, candidates)
-
-        return if (names.isNotEmpty()) {
-            "$base (${names.joinToString(", ")})"
-        } else {
-            base
+        if (candidates.isNullOrEmpty() || missingFields.isNullOrEmpty()) {
+            return ChatClarifyException(message = base)
         }
+
+        val names =
+            missingFields
+                .firstNotNullOfOrNull { field ->
+                    selectFieldResolver
+                        .resolveCandidateNames(field, action.target, candidates)
+                        .takeIf { it.isNotEmpty() }
+                }.orEmpty()
+
+        return ChatClarifyException(
+            message = base,
+            candidates = names.ifEmpty { null },
+        )
     }
 
     private fun saveHistory(

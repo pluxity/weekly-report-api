@@ -2,7 +2,7 @@ package com.pluxity.weekly.core.response
 
 import org.springframework.http.HttpStatus
 
-class ErrorResponseBody(
+open class ErrorResponseBody(
     status: HttpStatus,
     message: String?,
     val code: String,

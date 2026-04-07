@@ -2,7 +2,7 @@ package com.pluxity.weekly.core.exception
 
 import com.pluxity.weekly.core.constant.Code
 
-class CustomException(
+open class CustomException(
     val code: Code,
     @Transient vararg val params: Any?,
 ) : RuntimeException(formatMessage(code, params)) {

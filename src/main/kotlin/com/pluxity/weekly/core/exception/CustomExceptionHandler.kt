@@ -1,6 +1,8 @@
 package com.pluxity.weekly.core.exception
 
+import com.pluxity.weekly.chat.exception.ChatClarifyException
 import com.pluxity.weekly.core.constant.ErrorCode
+import com.pluxity.weekly.core.response.ClarifyErrorResponseBody
 import com.pluxity.weekly.core.response.ErrorResponseBody
 import io.github.oshai.kotlinlogging.KotlinLogging
 import jakarta.persistence.EntityNotFoundException
@@ -37,6 +39,24 @@ class CustomExceptionHandler {
                     error = HttpStatus.INTERNAL_SERVER_ERROR.name,
                 ),
             ).also { log.error(e) { "Unhandled Exception" } }
+
+    @ExceptionHandler(ChatClarifyException::class)
+    fun handleChatClarifyException(e: ChatClarifyException): ResponseEntity<ClarifyErrorResponseBody> =
+        ResponseEntity
+            .status(e.code.getHttpStatus())
+            .body(
+                ClarifyErrorResponseBody(
+                    status = e.code.getHttpStatus(),
+                    message = e.message,
+                    code =
+                        e.code
+                            .getHttpStatus()
+                            .value()
+                            .toString(),
+                    error = e.code.getCodeName(),
+                    candidates = e.candidates,
+                ),
+            ).also { log.info { "ChatClarifyException: ${e.message}, candidates=${e.candidates}" } }
 
     @ExceptionHandler(CustomException::class)
     fun handleCustomException(e: CustomException): ResponseEntity<ErrorResponseBody> =
