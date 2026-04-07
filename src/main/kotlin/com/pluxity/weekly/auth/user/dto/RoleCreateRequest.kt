@@ -10,8 +10,6 @@ data class RoleCreateRequest(
     val name: String,
     @field:Schema(description = "역할 설명", defaultValue = "역할 설명")
     val description: String?,
-    @field:Schema(description = "권한 아이디")
-    val permissionIds: List<Long> = emptyList(),
     @field:Schema(description = "사용자 권한", defaultValue = "USER")
     val authority: RoleType = RoleType.USER,
 )

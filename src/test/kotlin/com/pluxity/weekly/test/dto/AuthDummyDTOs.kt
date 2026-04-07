@@ -70,12 +70,10 @@ fun dummySignInRequest(
 fun dummyRoleCreateRequest(
     name: String = "일반 사용자",
     description: String? = "기본 역할",
-    permissionIds: List<Long> = emptyList(),
     authority: RoleType = RoleType.USER,
-): RoleCreateRequest = RoleCreateRequest(name, description, permissionIds, authority)
+): RoleCreateRequest = RoleCreateRequest(name, description, authority)
 
 fun dummyRoleUpdateRequest(
     name: String? = "수정된 역할",
     description: String? = "수정된 설명",
-    permissionIds: List<Long>? = emptyList(),
-): RoleUpdateRequest = RoleUpdateRequest(name, description, permissionIds)
+): RoleUpdateRequest = RoleUpdateRequest(name, description)

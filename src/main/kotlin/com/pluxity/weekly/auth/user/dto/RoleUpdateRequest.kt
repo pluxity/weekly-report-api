@@ -7,6 +7,4 @@ data class RoleUpdateRequest(
     val name: String? = null,
     @field:Schema(description = "역할 설명", defaultValue = "역할 설명")
     val description: String? = null,
-    @field:Schema(description = "권한 아이디")
-    val permissionIds: List<Long>?,
 )

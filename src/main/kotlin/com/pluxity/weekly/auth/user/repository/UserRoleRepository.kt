@@ -18,6 +18,6 @@ interface UserRoleRepository : JpaRepository<UserRole, Long> {
         @Param("role") role: Role,
     )
 
-    @EntityGraph(attributePaths = ["user", "role.rolePermissions"])
+    @EntityGraph(attributePaths = ["user", "role"])
     override fun findAll(): List<UserRole>
 }
