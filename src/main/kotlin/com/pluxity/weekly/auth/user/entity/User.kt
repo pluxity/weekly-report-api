@@ -22,7 +22,6 @@ class User(
     @Column(length = 20)
     var code: String?,
     var phoneNumber: String? = null,
-    var department: String? = null,
     @Column(unique = true)
     var email: String? = null,
 ) : IdentityIdEntity() {
@@ -91,10 +90,6 @@ class User(
 
     fun changePhoneNumber(phoneNumber: String) {
         this.phoneNumber = phoneNumber
-    }
-
-    fun changeDepartment(department: String) {
-        this.department = department
     }
 
     fun changeEmail(email: String?) {

@@ -24,9 +24,6 @@ data class UserCreateRequest(
     @field:Size(max = 20, message = "연락처는 20자 이하 여야 합니다.")
     @field:Schema(description = "연락처", example = "010-1234-5678")
     val phoneNumber: String? = null,
-    @field:Size(max = 50, message = "부서는 50자 이하 여야 합니다.")
-    @field:Schema(description = "부서", example = "개발팀")
-    val department: String? = null,
     @field:Schema(description = "이메일", example = "hong@pluxity.com")
     val email: String? = null,
     @field:Schema(description = "프로필 이미지 파일 ID", example = "1")
