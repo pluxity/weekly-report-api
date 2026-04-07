@@ -92,15 +92,15 @@ class TeamsAuthFilter(
 
         log.info { "Graph API 사용자 조회 성공 - mail: ${graphUser.mail}, displayName: ${graphUser.displayName}" }
 
-        val username = graphUser.mail?.substringBefore("@")
-        if (username.isNullOrBlank()) {
+        val email = graphUser.mail
+        if (email.isNullOrBlank()) {
             log.warn { "Graph API 응답에 mail 없음 - aadObjectId: $aadObjectId" }
             return null
         }
 
-        val user = userRepository.findByUsername(username)
+        val user = userRepository.findByEmail(email)
         if (user == null) {
-            log.warn { "매칭되는 사용자 없음 - username: $username (mail: ${graphUser.mail})" }
+            log.warn { "매칭되는 사용자 없음 - email: $email" }
             return null
         }
 

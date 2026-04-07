@@ -9,6 +9,7 @@ data class UserLoggedInResponse(
     val code: String?,
     val phoneNumber: String?,
     val department: String?,
+    val email: String?,
     val isLoggedIn: Boolean,
     val roles: List<RoleResponse>?,
 )
@@ -21,6 +22,7 @@ fun User.toLoggedInResponse(isLoggedIn: Boolean): UserLoggedInResponse =
         code = this.code,
         phoneNumber = this.phoneNumber,
         department = this.department,
+        email = this.email,
         isLoggedIn = isLoggedIn,
         roles = this.getRoles().map { it.toResponse() },
     )
