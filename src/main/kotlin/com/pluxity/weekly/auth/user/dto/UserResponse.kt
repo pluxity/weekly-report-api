@@ -15,8 +15,6 @@ data class UserResponse(
     val code: String?,
     @field:Schema(description = "연락처", example = "010-1234-5678")
     val phoneNumber: String?,
-    @field:Schema(description = "부서", example = "개발팀")
-    val department: String?,
     @field:Schema(description = "이메일", example = "hong@pluxity.com")
     val email: String?,
     @field:Schema(description = "비밀번호 변경 필요 여부")
@@ -32,7 +30,6 @@ fun User.toResponse(): UserResponse =
         name = this.name,
         code = this.code,
         phoneNumber = this.phoneNumber,
-        department = this.department,
         email = this.email,
         shouldChangePassword = this.isPasswordChangeRequired(),
         roles = this.userRoles.sortedByDescending { it.role.id }.map { it.role.toResponse() },

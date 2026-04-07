@@ -57,7 +57,6 @@ class UserService(
                 name = request.name,
                 code = request.code,
                 phoneNumber = request.phoneNumber,
-                department = request.department,
                 email = request.email,
             )
 
@@ -190,9 +189,6 @@ class UserService(
         }
         if (request.phoneNumber != null) {
             user.changePhoneNumber(request.phoneNumber)
-        }
-        if (request.department != null) {
-            user.changeDepartment(request.department)
         }
         if (request.email != null) {
             user.changeEmail(request.email)

@@ -10,8 +10,6 @@ data class UserUpdateRequest(
     val code: String? = null,
     @field:Schema(description = "연락처", example = "010-1234-5678")
     val phoneNumber: String? = null,
-    @field:Schema(description = "부서", example = "개발팀")
-    val department: String? = null,
     @field:Schema(description = "이메일", example = "hong@pluxity.com")
     val email: String? = null,
     @field:Schema(description = "프로필 이미지 파일 ID", example = "1")
