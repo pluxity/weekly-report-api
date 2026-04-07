@@ -13,7 +13,8 @@ fun dummyUser(
     code: String? = "code",
     phoneNumber: String? = null,
     department: String? = null,
-): User = User(username, password, name, code, phoneNumber, department).withId(id)
+    email: String? = null,
+): User = User(username, password, name, code, phoneNumber, department, email).withId(id)
 
 fun dummyRole(
     id: Long? = 1L,

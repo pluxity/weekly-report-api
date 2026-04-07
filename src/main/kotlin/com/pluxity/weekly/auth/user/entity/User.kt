@@ -23,6 +23,8 @@ class User(
     var code: String?,
     var phoneNumber: String? = null,
     var department: String? = null,
+    @Column(unique = true)
+    var email: String? = null,
 ) : IdentityIdEntity() {
     @Column(name = "profile_image_id")
     var profileImageId: Long? = null
@@ -93,6 +95,10 @@ class User(
 
     fun changeDepartment(department: String) {
         this.department = department
+    }
+
+    fun changeEmail(email: String?) {
+        this.email = email
     }
 
     fun changeProfileImageId(profileImageId: Long?) {

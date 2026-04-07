@@ -58,6 +58,7 @@ class UserService(
                 code = request.code,
                 phoneNumber = request.phoneNumber,
                 department = request.department,
+                email = request.email,
             )
 
         user.changeProfileImageId(request.profileImageId)
@@ -192,6 +193,9 @@ class UserService(
         }
         if (request.department != null) {
             user.changeDepartment(request.department)
+        }
+        if (request.email != null) {
+            user.changeEmail(request.email)
         }
         if (request.profileImageId != null) {
             user.changeProfileImageId(request.profileImageId)
