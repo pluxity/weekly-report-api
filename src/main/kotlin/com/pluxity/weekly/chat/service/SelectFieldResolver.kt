@@ -130,7 +130,7 @@ class SelectFieldResolver(
     }
 
     private fun resolveStatusCandidates(): SelectField {
-        val statuses = listOf("TODO", "IN_PROGRESS", "DONE")
+        val statuses = listOf("TODO", "IN_PROGRESS")
         return SelectField(
             field = "status",
             candidates = statuses.map { Candidate(it, it) },

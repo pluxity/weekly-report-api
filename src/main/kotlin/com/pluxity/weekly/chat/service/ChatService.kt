@@ -107,7 +107,7 @@ class ChatService(
                             )
                         }
                         !action.missingFields.isNullOrEmpty() ||
-                            (action.action in listOf("update", "delete") && action.id == null) -> {
+                            (action.action in listOf("update", "delete", "review_request") && action.id == null) -> {
                             throw buildClarifyException(action)
                         }
                         else -> {
@@ -179,7 +179,7 @@ class ChatService(
                         } ?: 0
                     "read ${r.target} ${count}건"
                 }
-                "create", "update", "delete" -> "${r.action} ${r.target} id=${r.id ?: "pending"}"
+                "create", "update", "delete", "review_request" -> "${r.action} ${r.target} id=${r.id ?: "pending"}"
                 else -> "${r.action} ${r.target}"
             }
         }
