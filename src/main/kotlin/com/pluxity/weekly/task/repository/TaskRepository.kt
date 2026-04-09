@@ -8,11 +8,6 @@ import org.springframework.data.jpa.repository.JpaRepository
 interface TaskRepository :
     JpaRepository<Task, Long>,
     TaskCustomRepository {
-    fun findByEpicInAndAssigneeId(
-        epics: List<Epic>,
-        assigneeId: Long,
-    ): List<Task>
-
     fun existsByEpicIdAndName(
         epicId: Long,
         name: String,
@@ -23,6 +18,8 @@ interface TaskRepository :
     fun findByAssigneeIdIn(assigneeIds: List<Long>): List<Task>
 
     fun findByEpicIn(epics: List<Epic>): List<Task>
+
+    fun findByEpicId(epicId: Long): List<Task>
 
     fun findByStatus(status: TaskStatus): List<Task>
 

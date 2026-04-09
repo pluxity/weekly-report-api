@@ -159,6 +159,24 @@ class TaskServiceTest :
             }
         }
 
+        Given("DONE 에픽에 태스크 생성 차단") {
+            When("DONE 상태 에픽에 태스크를 생성하려 하면") {
+                val doneEpic = dummyEpic(id = 99L, status = com.pluxity.weekly.epic.entity.EpicStatus.DONE)
+                val request = dummyTaskRequest(epicId = 99L, name = "신규")
+
+                every { epicRepository.findByIdOrNull(99L) } returns doneEpic
+
+                val exception =
+                    shouldThrow<CustomException> {
+                        service.create(request)
+                    }
+
+                Then("INVALID_STATUS_TRANSITION 예외가 발생한다") {
+                    exception.code shouldBe ErrorCode.INVALID_STATUS_TRANSITION
+                }
+            }
+        }
+
         Given("태스크 수정") {
             When("존재하는 태스크를 수정하면") {
                 val epic = dummyEpic(id = 1L)
@@ -268,7 +286,7 @@ class TaskServiceTest :
                     }
 
                 Then("INVALID_TASK_STATUS_TRANSITION 예외가 발생한다") {
-                    exception.code shouldBe ErrorCode.INVALID_TASK_STATUS_TRANSITION
+                    exception.code shouldBe ErrorCode.INVALID_STATUS_TRANSITION
                 }
             }
         }
@@ -309,7 +327,7 @@ class TaskServiceTest :
                     }
 
                 Then("INVALID_TASK_STATUS_TRANSITION 예외가 발생한다") {
-                    exception.code shouldBe ErrorCode.INVALID_TASK_STATUS_TRANSITION
+                    exception.code shouldBe ErrorCode.INVALID_STATUS_TRANSITION
                 }
             }
         }
@@ -446,7 +464,7 @@ class TaskServiceTest :
                     }
 
                 Then("INVALID_TASK_STATUS_TRANSITION 예외가 발생한다") {
-                    exception.code shouldBe ErrorCode.INVALID_TASK_STATUS_TRANSITION
+                    exception.code shouldBe ErrorCode.INVALID_STATUS_TRANSITION
                 }
             }
 
@@ -460,7 +478,7 @@ class TaskServiceTest :
                     }
 
                 Then("INVALID_TASK_STATUS_TRANSITION 예외가 발생한다") {
-                    exception.code shouldBe ErrorCode.INVALID_TASK_STATUS_TRANSITION
+                    exception.code shouldBe ErrorCode.INVALID_STATUS_TRANSITION
                 }
             }
 
@@ -474,7 +492,7 @@ class TaskServiceTest :
                     }
 
                 Then("status 필드가 없어도 INVALID_TASK_STATUS_TRANSITION 예외가 발생한다") {
-                    exception.code shouldBe ErrorCode.INVALID_TASK_STATUS_TRANSITION
+                    exception.code shouldBe ErrorCode.INVALID_STATUS_TRANSITION
                     entity.name shouldBe "완료된 태스크"
                 }
             }

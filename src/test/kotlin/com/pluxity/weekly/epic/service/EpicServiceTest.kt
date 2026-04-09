@@ -14,6 +14,7 @@ import com.pluxity.weekly.epic.entity.dummyEpicAssignment
 import com.pluxity.weekly.epic.repository.EpicRepository
 import com.pluxity.weekly.project.entity.dummyProject
 import com.pluxity.weekly.project.repository.ProjectRepository
+import com.pluxity.weekly.task.repository.TaskRepository
 import com.pluxity.weekly.teams.event.TeamsNotificationEvent
 import com.pluxity.weekly.test.entity.dummyRole
 import com.pluxity.weekly.test.entity.dummyUser
@@ -34,10 +35,11 @@ class EpicServiceTest :
 
         val epicRepository: EpicRepository = mockk()
         val projectRepository: ProjectRepository = mockk()
+        val taskRepository: TaskRepository = mockk()
         val userRepository: UserRepository = mockk()
         val authorizationService: AuthorizationService = mockk()
         val eventPublisher: ApplicationEventPublisher = mockk()
-        val service = EpicService(epicRepository, projectRepository, userRepository, authorizationService, eventPublisher)
+        val service = EpicService(epicRepository, projectRepository, taskRepository, userRepository, authorizationService, eventPublisher)
 
         val adminUser =
             dummyUser(id = 1L, name = "관리자").apply {
@@ -258,6 +260,79 @@ class EpicServiceTest :
 
                 Then("NOT_FOUND 예외가 발생한다") {
                     exception.code shouldBe ErrorCode.NOT_FOUND_EPIC_ASSIGNMENT
+                }
+            }
+        }
+
+        Given("DONE 프로젝트에 에픽 생성 차단") {
+            When("DONE 상태 프로젝트에 에픽을 생성하려 하면") {
+                val doneProject =
+                    dummyProject(id = 50L, status = com.pluxity.weekly.project.entity.ProjectStatus.DONE)
+                val request = dummyEpicRequest(projectId = 50L, name = "신규 에픽")
+
+                every { projectRepository.findByIdOrNull(50L) } returns doneProject
+
+                val exception =
+                    shouldThrow<CustomException> {
+                        service.create(request)
+                    }
+
+                Then("INVALID_STATUS_TRANSITION 예외가 발생한다") {
+                    exception.code shouldBe ErrorCode.INVALID_STATUS_TRANSITION
+                }
+            }
+        }
+
+        Given("에픽 DONE 가드") {
+            When("DONE 상태 에픽을 update 로 수정하려 하면") {
+                val entity = dummyEpic(id = 60L, status = EpicStatus.DONE, name = "완료된 에픽")
+                every { epicRepository.findByIdOrNull(60L) } returns entity
+
+                val exception =
+                    shouldThrow<CustomException> {
+                        service.update(60L, dummyEpicUpdateRequest(name = "이름만 변경"))
+                    }
+
+                Then("INVALID_STATUS_TRANSITION 예외가 발생한다") {
+                    exception.code shouldBe ErrorCode.INVALID_STATUS_TRANSITION
+                    entity.name shouldBe "완료된 에픽"
+                }
+            }
+
+            When("하위 태스크 중 DONE 이 아닌 게 있는데 status=DONE 으로 변경하려 하면") {
+                val entity = dummyEpic(id = 61L, status = EpicStatus.IN_PROGRESS)
+                val task1 =
+                    com.pluxity.weekly.task.entity
+                        .dummyTask(id = 1L, status = com.pluxity.weekly.task.entity.TaskStatus.DONE)
+                val task2 =
+                    com.pluxity.weekly.task.entity
+                        .dummyTask(id = 2L, status = com.pluxity.weekly.task.entity.TaskStatus.IN_PROGRESS)
+
+                every { epicRepository.findByIdOrNull(61L) } returns entity
+                every { taskRepository.findByEpicId(61L) } returns listOf(task1, task2)
+
+                val exception =
+                    shouldThrow<CustomException> {
+                        service.update(61L, dummyEpicUpdateRequest(status = EpicStatus.DONE))
+                    }
+
+                Then("TASK_NOT_ALL_DONE 예외가 발생한다") {
+                    exception.code shouldBe ErrorCode.TASK_NOT_ALL_DONE
+                }
+            }
+
+            When("하위 태스크가 0개인 에픽을 status=DONE 으로 변경하려 하면") {
+                val entity = dummyEpic(id = 62L, status = EpicStatus.IN_PROGRESS)
+                every { epicRepository.findByIdOrNull(62L) } returns entity
+                every { taskRepository.findByEpicId(62L) } returns emptyList()
+
+                val exception =
+                    shouldThrow<CustomException> {
+                        service.update(62L, dummyEpicUpdateRequest(status = EpicStatus.DONE))
+                    }
+
+                Then("TASK_NOT_ALL_DONE 예외가 발생한다 (빈 컨테이너 차단)") {
+                    exception.code shouldBe ErrorCode.TASK_NOT_ALL_DONE
                 }
             }
         }

@@ -7,6 +7,7 @@ import com.pluxity.weekly.chat.dto.TaskSearchFilter
 import com.pluxity.weekly.core.constant.ErrorCode
 import com.pluxity.weekly.core.exception.CustomException
 import com.pluxity.weekly.epic.entity.Epic
+import com.pluxity.weekly.epic.entity.EpicStatus
 import com.pluxity.weekly.epic.repository.EpicRepository
 import com.pluxity.weekly.task.dto.ActionLink
 import com.pluxity.weekly.task.dto.PendingReviewActions
@@ -58,13 +59,17 @@ class TaskService(
     fun create(request: TaskRequest): Long {
         val user = authorizationService.currentUser()
         authorizationService.requireEpicAccess(user, request.epicId)
+        val epic = getEpicById(request.epicId)
+        if (epic.status == EpicStatus.DONE) {
+            throw CustomException(ErrorCode.INVALID_STATUS_TRANSITION, epic.status, "create task")
+        }
         if (taskRepository.existsByEpicIdAndName(request.epicId, request.name)) {
             throw CustomException(ErrorCode.DUPLICATE_TASK, request.epicId, request.name)
         }
         return taskRepository
             .save(
                 Task(
-                    epic = getEpicById(request.epicId),
+                    epic = epic,
                     name = request.name,
                     description = request.description,
                     status = request.status,
@@ -85,11 +90,11 @@ class TaskService(
         val task = getTaskById(id)
         authorizationService.requireTaskOwner(user, task)
         if (task.status == TaskStatus.DONE) {
-            throw CustomException(ErrorCode.INVALID_TASK_STATUS_TRANSITION, task.status, "update")
+            throw CustomException(ErrorCode.INVALID_STATUS_TRANSITION, task.status, "update")
         }
         request.status?.let { newStatus ->
             if (task.status == TaskStatus.IN_REVIEW || newStatus == TaskStatus.IN_REVIEW || newStatus == TaskStatus.DONE) {
-                throw CustomException(ErrorCode.INVALID_TASK_STATUS_TRANSITION, task.status, newStatus)
+                throw CustomException(ErrorCode.INVALID_STATUS_TRANSITION, task.status, newStatus)
             }
         }
         task.update(
@@ -110,7 +115,7 @@ class TaskService(
         val task = getTaskById(id)
         authorizationService.requireTaskOwner(user, task)
         if (task.status != TaskStatus.TODO && task.status != TaskStatus.IN_PROGRESS) {
-            throw CustomException(ErrorCode.INVALID_TASK_STATUS_TRANSITION, task.status, TaskApprovalAction.REVIEW_REQUEST)
+            throw CustomException(ErrorCode.INVALID_STATUS_TRANSITION, task.status, TaskApprovalAction.REVIEW_REQUEST)
         }
         task.update(status = TaskStatus.IN_REVIEW)
         writeLog(task, user, TaskApprovalAction.REVIEW_REQUEST)
@@ -130,7 +135,7 @@ class TaskService(
         val task = getTaskById(id)
         authorizationService.requireTaskReviewer(user, task)
         if (task.status != TaskStatus.IN_REVIEW) {
-            throw CustomException(ErrorCode.INVALID_TASK_STATUS_TRANSITION, task.status, TaskApprovalAction.APPROVE)
+            throw CustomException(ErrorCode.INVALID_STATUS_TRANSITION, task.status, TaskApprovalAction.APPROVE)
         }
         task.update(status = TaskStatus.DONE)
         writeLog(task, user, TaskApprovalAction.APPROVE)
@@ -153,7 +158,7 @@ class TaskService(
         val task = getTaskById(id)
         authorizationService.requireTaskReviewer(user, task)
         if (task.status != TaskStatus.IN_REVIEW) {
-            throw CustomException(ErrorCode.INVALID_TASK_STATUS_TRANSITION, task.status, TaskApprovalAction.REJECT)
+            throw CustomException(ErrorCode.INVALID_STATUS_TRANSITION, task.status, TaskApprovalAction.REJECT)
         }
         val normalizedReason = reason?.takeIf { it.isNotBlank() }
         task.update(status = TaskStatus.IN_PROGRESS)

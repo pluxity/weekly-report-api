@@ -5,6 +5,7 @@ import com.pluxity.weekly.auth.user.repository.UserRepository
 import com.pluxity.weekly.authorization.AuthorizationService
 import com.pluxity.weekly.core.constant.ErrorCode
 import com.pluxity.weekly.core.exception.CustomException
+import com.pluxity.weekly.epic.repository.EpicRepository
 import com.pluxity.weekly.project.dto.dummyProjectRequest
 import com.pluxity.weekly.project.dto.dummyProjectUpdateRequest
 import com.pluxity.weekly.project.entity.Project
@@ -28,9 +29,10 @@ class ProjectServiceTest :
     BehaviorSpec({
 
         val projectRepository: ProjectRepository = mockk()
+        val epicRepository: EpicRepository = mockk()
         val userRepository: UserRepository = mockk()
         val authorizationService: AuthorizationService = mockk()
-        val service = ProjectService(projectRepository, userRepository, authorizationService)
+        val service = ProjectService(projectRepository, epicRepository, userRepository, authorizationService)
 
         val adminUser =
             dummyUser(id = 1L, name = "관리자").apply {
@@ -189,6 +191,60 @@ class ProjectServiceTest :
 
                 Then("NOT_FOUND 예외가 발생한다") {
                     exception.code shouldBe ErrorCode.NOT_FOUND_PROJECT
+                }
+            }
+        }
+
+        Given("프로젝트 DONE 가드") {
+            When("DONE 상태 프로젝트를 update 로 수정하려 하면") {
+                val entity = dummyProject(id = 70L, status = ProjectStatus.DONE, name = "완료된 프로젝트")
+                every { projectRepository.findByIdOrNull(70L) } returns entity
+
+                val exception =
+                    shouldThrow<CustomException> {
+                        service.update(70L, dummyProjectUpdateRequest(name = "이름만 변경"))
+                    }
+
+                Then("INVALID_STATUS_TRANSITION 예외가 발생한다") {
+                    exception.code shouldBe ErrorCode.INVALID_STATUS_TRANSITION
+                    entity.name shouldBe "완료된 프로젝트"
+                }
+            }
+
+            When("하위 에픽 중 DONE 이 아닌 게 있는데 status=DONE 으로 변경하려 하면") {
+                val entity = dummyProject(id = 71L, status = ProjectStatus.IN_PROGRESS)
+                val epic1 =
+                    com.pluxity.weekly.epic.entity
+                        .dummyEpic(id = 1L, status = com.pluxity.weekly.epic.entity.EpicStatus.DONE)
+                val epic2 =
+                    com.pluxity.weekly.epic.entity
+                        .dummyEpic(id = 2L, status = com.pluxity.weekly.epic.entity.EpicStatus.IN_PROGRESS)
+
+                every { projectRepository.findByIdOrNull(71L) } returns entity
+                every { epicRepository.findByProjectId(71L) } returns listOf(epic1, epic2)
+
+                val exception =
+                    shouldThrow<CustomException> {
+                        service.update(71L, dummyProjectUpdateRequest(status = ProjectStatus.DONE))
+                    }
+
+                Then("EPIC_NOT_ALL_DONE 예외가 발생한다") {
+                    exception.code shouldBe ErrorCode.EPIC_NOT_ALL_DONE
+                }
+            }
+
+            When("하위 에픽이 0개인 프로젝트를 status=DONE 으로 변경하려 하면") {
+                val entity = dummyProject(id = 72L, status = ProjectStatus.IN_PROGRESS)
+                every { projectRepository.findByIdOrNull(72L) } returns entity
+                every { epicRepository.findByProjectId(72L) } returns emptyList()
+
+                val exception =
+                    shouldThrow<CustomException> {
+                        service.update(72L, dummyProjectUpdateRequest(status = ProjectStatus.DONE))
+                    }
+
+                Then("EPIC_NOT_ALL_DONE 예외가 발생한다 (빈 컨테이너 차단)") {
+                    exception.code shouldBe ErrorCode.EPIC_NOT_ALL_DONE
                 }
             }
         }
