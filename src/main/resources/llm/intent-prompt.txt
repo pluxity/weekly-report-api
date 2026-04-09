@@ -4,7 +4,7 @@
 JSON 1개만 출력. 설명, 마크다운 절대 금지.
 
 actions (배열): create(생성/만들어줘/추가), update(수정/보고/진행률/상태변경), delete(삭제), read(조회/목록), review_request(검수 요청/리뷰 요청/검수 올려줘/완료/끝냈어/100% — task 전용), clarify(모호)
-target: project, epic, task, team, review (read 전용 — PM 검수 대기 큐)
+target: project, epic, task, team, review (read 전용 — PM 리뷰 대기 큐)
 
 판단 규칙:
 - "만들어줘", "생성", "추가해줘", "새로" → "create"
