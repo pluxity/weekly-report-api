@@ -14,10 +14,10 @@ import com.pluxity.weekly.task.entity.Task
 import com.pluxity.weekly.task.entity.TaskApprovalAction
 import com.pluxity.weekly.task.entity.TaskApprovalLog
 import com.pluxity.weekly.task.entity.TaskStatus
-import java.time.LocalDateTime
 import com.pluxity.weekly.task.entity.dummyTask
 import com.pluxity.weekly.task.repository.TaskApprovalLogRepository
 import com.pluxity.weekly.task.repository.TaskRepository
+import com.pluxity.weekly.teams.converter.TaskReviewCardBuilder
 import com.pluxity.weekly.teams.event.TeamsNotificationEvent
 import com.pluxity.weekly.test.entity.dummyRole
 import com.pluxity.weekly.test.entity.dummyUser
@@ -33,6 +33,7 @@ import io.mockk.verify
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.data.repository.findByIdOrNull
 import java.time.LocalDate
+import java.time.LocalDateTime
 
 class TaskServiceTest :
     BehaviorSpec({
@@ -43,6 +44,7 @@ class TaskServiceTest :
         val userRepository: UserRepository = mockk()
         val authorizationService: AuthorizationService = mockk()
         val eventPublisher: ApplicationEventPublisher = mockk(relaxed = true)
+        val taskReviewCardBuilder: TaskReviewCardBuilder = mockk(relaxed = true)
         val service =
             TaskService(
                 taskRepository,
@@ -51,6 +53,7 @@ class TaskServiceTest :
                 userRepository,
                 authorizationService,
                 eventPublisher,
+                taskReviewCardBuilder,
             )
 
         val adminUser =

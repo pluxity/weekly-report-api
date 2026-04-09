@@ -23,6 +23,7 @@ import com.pluxity.weekly.task.entity.TaskApprovalLog
 import com.pluxity.weekly.task.entity.TaskStatus
 import com.pluxity.weekly.task.repository.TaskApprovalLogRepository
 import com.pluxity.weekly.task.repository.TaskRepository
+import com.pluxity.weekly.teams.converter.TaskReviewCardBuilder
 import com.pluxity.weekly.teams.event.TeamsNotificationEvent
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.data.repository.findByIdOrNull
@@ -38,6 +39,7 @@ class TaskService(
     private val userRepository: UserRepository,
     private val authorizationService: AuthorizationService,
     private val eventPublisher: ApplicationEventPublisher,
+    private val taskReviewCardBuilder: TaskReviewCardBuilder,
 ) {
     fun findAll(): List<TaskResponse> = search(TaskSearchFilter())
 
@@ -120,10 +122,19 @@ class TaskService(
         task.update(status = TaskStatus.IN_REVIEW)
         writeLog(task, user, TaskApprovalAction.REVIEW_REQUEST)
         task.epic.project.pmId?.let { pmId ->
+            val card =
+                taskReviewCardBuilder.build(
+                    taskId = task.requiredId,
+                    taskName = task.name,
+                    projectName = task.epic.project.name,
+                    epicName = task.epic.name,
+                    requesterName = user.name,
+                )
             eventPublisher.publishEvent(
                 TeamsNotificationEvent(
                     userId = pmId,
-                    message = "[검수 요청] '${task.name}' 태스크가 검수 요청되었습니다. 검수자: ${user.name}",
+                    message = "[리뷰 요청] '${task.name}' 태스크가 리뷰 요청되었습니다. 검수자: ${user.name}",
+                    card = card,
                 ),
             )
         }

@@ -6,6 +6,7 @@ import com.pluxity.weekly.epic.dto.EpicRequest
 import com.pluxity.weekly.epic.service.EpicService
 import com.pluxity.weekly.project.dto.ProjectRequest
 import com.pluxity.weekly.project.service.ProjectService
+import com.pluxity.weekly.task.service.TaskService
 import com.pluxity.weekly.teams.converter.AdaptiveCardConverter
 import com.pluxity.weekly.teams.dto.Activity
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -22,6 +23,7 @@ class AsyncChatHandler(
     private val messageSender: TeamsMessageSender,
     private val projectService: ProjectService,
     private val epicService: EpicService,
+    private val taskService: TaskService,
 ) {
     @Async
     fun handleMessage(activity: Activity) {
@@ -113,6 +115,26 @@ class AsyncChatHandler(
                                     ),
                                 )
                             cardConverter.textMessage("에픽 생성이 완료되었습니다. (ID: $id)")
+                        }
+                    }
+                    action == "approve" && target == "task" -> {
+                        val taskId = (formData["taskId"] as? Number)?.toLong()
+                        if (taskId == null) {
+                            cardConverter.textMessage("태스크 ID 를 읽을 수 없습니다.")
+                        } else {
+                            taskService.approve(taskId)
+                            cardConverter.textMessage("태스크 승인이 완료되었습니다. (ID: $taskId)")
+                        }
+                    }
+                    action == "reject" && target == "task" -> {
+                        val taskId = (formData["taskId"] as? Number)?.toLong()
+                        if (taskId == null) {
+                            cardConverter.textMessage("태스크 ID 를 읽을 수 없습니다.")
+                        } else {
+                            val reason = (formData["reason"] as? String)?.takeIf { it.isNotBlank() }
+                            taskService.reject(taskId, reason)
+                            val suffix = reason?.let { " 사유: $it" } ?: ""
+                            cardConverter.textMessage("태스크 반려가 완료되었습니다. (ID: $taskId)$suffix")
                         }
                     }
                     else -> cardConverter.textMessage("지원하지 않는 폼 요청입니다. (action: $action, target: $target)")
