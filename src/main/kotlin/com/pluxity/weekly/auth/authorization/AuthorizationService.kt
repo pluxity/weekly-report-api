@@ -38,6 +38,13 @@ class AuthorizationService(
         throw CustomException(ErrorCode.PERMISSION_DENIED)
     }
 
+    /** PM 이 관리하는 프로젝트 ID 목록. ADMIN 이면 null(전체) 반환 */
+    fun pmScopedProjectIds(user: User): List<Long>? {
+        if (user.hasRole(UserType.ADMIN)) return null
+        if (!user.hasRole(UserType.PM)) throw CustomException(ErrorCode.PERMISSION_DENIED)
+        return projectRepository.findByPmId(user.requiredId).map { it.requiredId }
+    }
+
     /** ADMIN 또는 해당 프로젝트의 PM만 허용 — 프로젝트 수정/삭제 */
     fun requireProjectManager(
         user: User,
@@ -89,6 +96,17 @@ class AuthorizationService(
         if (task.assignee?.requiredId != user.requiredId) {
             throw CustomException(ErrorCode.PERMISSION_DENIED)
         }
+    }
+
+    /** ADMIN 또는 태스크가 속한 에픽의 프로젝트 PM만 허용 — 태스크 승인/반려 */
+    fun requireTaskReviewer(
+        user: User,
+        task: Task,
+    ) {
+        if (user.hasRole(UserType.ADMIN)) return
+        val pmId = task.epic.project.pmId
+        if (user.hasRole(UserType.PM) && pmId != null && pmId == user.requiredId) return
+        throw CustomException(ErrorCode.PERMISSION_DENIED)
     }
 
     /** target + action 조합의 사전 권한 체크 — Chat context 빌드 전 호출 */

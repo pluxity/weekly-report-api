@@ -2,6 +2,7 @@ package com.pluxity.weekly.task.repository
 
 import com.pluxity.weekly.epic.entity.Epic
 import com.pluxity.weekly.task.entity.Task
+import com.pluxity.weekly.task.entity.TaskStatus
 import org.springframework.data.jpa.repository.JpaRepository
 
 interface TaskRepository :
@@ -22,4 +23,11 @@ interface TaskRepository :
     fun findByAssigneeIdIn(assigneeIds: List<Long>): List<Task>
 
     fun findByEpicIn(epics: List<Epic>): List<Task>
+
+    fun findByStatus(status: TaskStatus): List<Task>
+
+    fun findByStatusAndEpicProjectIdIn(
+        status: TaskStatus,
+        projectIds: List<Long>,
+    ): List<Task>
 }
