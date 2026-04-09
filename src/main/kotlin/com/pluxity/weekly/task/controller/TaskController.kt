@@ -130,11 +130,11 @@ class TaskController(
             ),
         ],
     )
-    @PostMapping("/approve/{taskId}")
+    @PostMapping("/{id}/approve")
     fun approve(
-        @PathVariable taskId: Long,
+        @PathVariable id: Long,
     ): ResponseEntity<Void> {
-        service.approve(taskId)
+        service.approve(id)
         return ResponseEntity.noContent().build()
     }
 
@@ -149,12 +149,12 @@ class TaskController(
             ),
         ],
     )
-    @PostMapping("/reject/{taskId}")
+    @PostMapping("/{id}/reject")
     fun reject(
-        @PathVariable taskId: Long,
+        @PathVariable id: Long,
         @RequestBody @Valid request: TaskRejectRequest,
     ): ResponseEntity<Void> {
-        service.reject(taskId, request.reason)
+        service.reject(id, request.reason)
         return ResponseEntity.noContent().build()
     }
 

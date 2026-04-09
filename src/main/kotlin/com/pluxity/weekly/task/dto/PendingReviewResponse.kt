@@ -42,6 +42,6 @@ data class PendingReviewActions(
 data class ActionLink(
     @field:Schema(description = "HTTP 메서드", example = "POST")
     val method: String,
-    @field:Schema(description = "호출 URL", example = "/tasks/approve/42")
+    @field:Schema(description = "호출 URL", example = "/tasks/42/approve")
     val url: String,
 )
