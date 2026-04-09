@@ -3,6 +3,9 @@ package com.pluxity.weekly.task.controller
 import com.pluxity.weekly.core.annotation.ResponseCreated
 import com.pluxity.weekly.core.response.DataResponseBody
 import com.pluxity.weekly.core.response.ErrorResponseBody
+import com.pluxity.weekly.task.dto.PendingReviewResponse
+import com.pluxity.weekly.task.dto.TaskApprovalLogResponse
+import com.pluxity.weekly.task.dto.TaskRejectRequest
 import com.pluxity.weekly.task.dto.TaskRequest
 import com.pluxity.weekly.task.dto.TaskResponse
 import com.pluxity.weekly.task.dto.TaskUpdateRequest
@@ -96,6 +99,94 @@ class TaskController(
         service.update(id, request)
         return ResponseEntity.noContent().build()
     }
+
+    @Operation(summary = "태스크 검수 요청", description = "담당자가 본인 태스크를 IN_REVIEW 로 전이시키고 PM 에게 알림을 발송합니다")
+    @ApiResponses(
+        value = [
+            ApiResponse(responseCode = "204", description = "검수 요청 성공"),
+            ApiResponse(
+                responseCode = "400",
+                description = "잘못된 상태 전이",
+                content = [Content(mediaType = "application/json", schema = Schema(implementation = ErrorResponseBody::class))],
+            ),
+        ],
+    )
+    @PostMapping("/{id}/review-request")
+    fun requestReview(
+        @PathVariable id: Long,
+    ): ResponseEntity<Void> {
+        service.requestReview(id)
+        return ResponseEntity.noContent().build()
+    }
+
+    @Operation(summary = "태스크 승인", description = "PM 이 검수 중인 태스크를 승인하여 DONE 으로 전이시킵니다")
+    @ApiResponses(
+        value = [
+            ApiResponse(responseCode = "204", description = "승인 성공"),
+            ApiResponse(
+                responseCode = "400",
+                description = "잘못된 상태 전이",
+                content = [Content(mediaType = "application/json", schema = Schema(implementation = ErrorResponseBody::class))],
+            ),
+        ],
+    )
+    @PostMapping("/approve/{taskId}")
+    fun approve(
+        @PathVariable taskId: Long,
+    ): ResponseEntity<Void> {
+        service.approve(taskId)
+        return ResponseEntity.noContent().build()
+    }
+
+    @Operation(summary = "태스크 반려", description = "PM 이 검수 중인 태스크를 반려하여 IN_PROGRESS 로 복귀시킵니다")
+    @ApiResponses(
+        value = [
+            ApiResponse(responseCode = "204", description = "반려 성공"),
+            ApiResponse(
+                responseCode = "400",
+                description = "잘못된 요청",
+                content = [Content(mediaType = "application/json", schema = Schema(implementation = ErrorResponseBody::class))],
+            ),
+        ],
+    )
+    @PostMapping("/reject/{taskId}")
+    fun reject(
+        @PathVariable taskId: Long,
+        @RequestBody @Valid request: TaskRejectRequest,
+    ): ResponseEntity<Void> {
+        service.reject(taskId, request.reason)
+        return ResponseEntity.noContent().build()
+    }
+
+    @Operation(
+        summary = "검수 대기 큐 조회",
+        description = "현재 로그인한 PM/ADMIN 에게 들어온 IN_REVIEW 태스크 목록을 오래 기다린 순으로 조회합니다",
+    )
+    @ApiResponses(
+        value = [
+            ApiResponse(responseCode = "200", description = "조회 성공"),
+            ApiResponse(
+                responseCode = "403",
+                description = "권한 없음 (PM/ADMIN 아님)",
+                content = [Content(mediaType = "application/json", schema = Schema(implementation = ErrorResponseBody::class))],
+            ),
+        ],
+    )
+    @GetMapping("/pending-reviews")
+    fun findPendingReviews(): ResponseEntity<DataResponseBody<List<PendingReviewResponse>>> =
+        ResponseEntity.ok(DataResponseBody(service.findPendingReviews()))
+
+    @Operation(summary = "태스크 승인 로그 조회", description = "태스크의 전체 검수/승인/반려 이력을 시간순으로 조회합니다")
+    @ApiResponses(
+        value = [
+            ApiResponse(responseCode = "200", description = "조회 성공"),
+        ],
+    )
+    @GetMapping("/{id}/approval-logs")
+    fun findApprovalLogs(
+        @PathVariable id: Long,
+    ): ResponseEntity<DataResponseBody<List<TaskApprovalLogResponse>>> =
+        ResponseEntity.ok(DataResponseBody(service.findApprovalLogs(id)))
 
     @Operation(summary = "태스크 삭제", description = "태스크를 삭제합니다")
     @ApiResponses(
