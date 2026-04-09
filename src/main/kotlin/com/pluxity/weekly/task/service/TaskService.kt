@@ -133,7 +133,7 @@ class TaskService(
             eventPublisher.publishEvent(
                 TeamsNotificationEvent(
                     userId = pmId,
-                    message = "[리뷰 요청] '${task.name}' 태스크가 리뷰 요청되었습니다. 검수자: ${user.name}",
+                    message = "[리뷰 요청] '${task.name}' 태스크가 리뷰 요청되었습니다. 요청자: ${user.name}",
                     card = card,
                 ),
             )
@@ -219,8 +219,8 @@ class TaskService(
                     reviewRequestedAt = requestedAt,
                     actions =
                         PendingReviewActions(
-                            approve = ActionLink(method = "POST", url = "/tasks/approve/${task.requiredId}"),
-                            reject = ActionLink(method = "POST", url = "/tasks/reject/${task.requiredId}"),
+                            approve = ActionLink(method = "POST", url = "/tasks/${task.requiredId}/approve"),
+                            reject = ActionLink(method = "POST", url = "/tasks/${task.requiredId}/reject"),
                         ),
                 )
             }.sortedBy { it.reviewRequestedAt }

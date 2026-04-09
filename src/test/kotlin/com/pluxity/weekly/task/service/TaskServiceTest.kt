@@ -413,8 +413,8 @@ class TaskServiceTest :
                     result.size shouldBe 2
                     result[0].taskId shouldBe 100L
                     result[1].taskId shouldBe 101L
-                    result[0].actions.approve.url shouldBe "/tasks/approve/100"
-                    result[0].actions.reject.url shouldBe "/tasks/reject/100"
+                    result[0].actions.approve.url shouldBe "/tasks/100/approve"
+                    result[0].actions.reject.url shouldBe "/tasks/100/reject"
                     result[0].actions.approve.method shouldBe "POST"
                     result[0].reviewRequestedAt shouldBe LocalDateTime.of(2026, 4, 1, 9, 0)
                 }
