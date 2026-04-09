@@ -35,8 +35,16 @@ class ChatExecutor(
             "create" -> executeCreate(action)
             "update" -> executeUpdate(action)
             "delete" -> executeDelete(action)
+            "review_request" -> executeReviewRequest(action)
             else -> null
         }
+
+    private fun executeReviewRequest(action: LlmAction): Long? {
+        if (action.target != "task") return null
+        val id = action.id ?: return null
+        taskService.requestReview(id)
+        return id
+    }
 
     private fun executeCreate(action: LlmAction): Long? {
         val name = action.name ?: return null
