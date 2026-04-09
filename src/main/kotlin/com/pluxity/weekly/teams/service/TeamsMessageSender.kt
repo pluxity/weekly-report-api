@@ -67,6 +67,28 @@ class TeamsMessageSender(
         postActivity(serviceUrl, conversationId, body)
     }
 
+    fun notifyCard(
+        serviceUrl: String,
+        conversationId: String,
+        card: Map<String, Any>,
+    ) {
+        val body =
+            mapOf(
+                "type" to "message",
+                "from" to mapOf("id" to "bot", "name" to "Bot"),
+                "conversation" to mapOf("id" to conversationId),
+                "attachments" to
+                    listOf(
+                        mapOf(
+                            "contentType" to "application/vnd.microsoft.card.adaptive",
+                            "content" to card,
+                        ),
+                    ),
+            )
+
+        postActivity(serviceUrl, conversationId, body)
+    }
+
     private fun postActivity(
         serviceUrl: String,
         conversationId: String,

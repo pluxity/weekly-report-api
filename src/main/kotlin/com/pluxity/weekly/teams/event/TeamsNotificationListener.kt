@@ -13,6 +13,10 @@ class TeamsNotificationListener(
     @Async
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     fun handleNotification(event: TeamsNotificationEvent) {
-        notificationService.sendDm(event.userId, event.message)
+        if (event.card != null) {
+            notificationService.sendCard(event.userId, event.card)
+        } else {
+            notificationService.sendDm(event.userId, event.message)
+        }
     }
 }
