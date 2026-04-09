@@ -200,7 +200,7 @@ class TaskService(
         val latestRequestedAt: Map<Long, java.time.LocalDateTime> =
             taskApprovalLogRepository
                 .findLatestCreatedAtByTaskIdsAndAction(taskIds, TaskApprovalAction.REVIEW_REQUEST)
-                .associate { row -> (row[0] as Number).toLong() to row[1] as java.time.LocalDateTime }
+                .associate { it.taskId to it.requestedAt }
 
         return tasks
             .map { task ->
