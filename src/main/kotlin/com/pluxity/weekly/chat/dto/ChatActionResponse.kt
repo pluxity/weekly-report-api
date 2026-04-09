@@ -2,6 +2,7 @@ package com.pluxity.weekly.chat.dto
 
 import com.pluxity.weekly.epic.dto.EpicResponse
 import com.pluxity.weekly.project.dto.ProjectResponse
+import com.pluxity.weekly.task.dto.PendingReviewResponse
 import com.pluxity.weekly.task.dto.TaskResponse
 import com.pluxity.weekly.team.dto.TeamResponse
 import io.swagger.v3.oas.annotations.media.Schema
@@ -32,6 +33,8 @@ data class ChatReadResponse(
     val epics: List<EpicResponse>? = null,
     @field:Schema(description = "팀 목록")
     val teams: List<TeamResponse>? = null,
+    @field:Schema(description = "PM 검수 대기 큐 (target=review)")
+    val pendingReviews: List<PendingReviewResponse>? = null,
 )
 
 @Schema(description = "미확정 선택 필드")

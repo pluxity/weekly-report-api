@@ -175,7 +175,12 @@ class ChatService(
                 "read" -> {
                     val count =
                         r.readResult?.let {
-                            it.tasks?.size ?: it.projects?.size ?: it.epics?.size ?: it.teams?.size ?: 0
+                            it.tasks?.size
+                                ?: it.projects?.size
+                                ?: it.epics?.size
+                                ?: it.teams?.size
+                                ?: it.pendingReviews?.size
+                                ?: 0
                         } ?: 0
                     "read ${r.target} ${count}건"
                 }

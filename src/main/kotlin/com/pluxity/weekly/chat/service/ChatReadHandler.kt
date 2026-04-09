@@ -44,6 +44,10 @@ class ChatReadHandler(
                 ChatReadResponse(
                     teams = teamService.search(buildTeamFilter(filters)),
                 )
+            "review" ->
+                ChatReadResponse(
+                    pendingReviews = taskService.findPendingReviews(),
+                )
             else ->
                 ChatReadResponse(
                     tasks = taskService.search(buildTaskFilter(filters)),
