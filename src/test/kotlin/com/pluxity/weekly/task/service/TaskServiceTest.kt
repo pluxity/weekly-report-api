@@ -17,6 +17,7 @@ import com.pluxity.weekly.task.entity.TaskStatus
 import com.pluxity.weekly.task.entity.dummyTask
 import com.pluxity.weekly.task.repository.TaskApprovalLogRepository
 import com.pluxity.weekly.task.repository.TaskRepository
+import com.pluxity.weekly.task.repository.TaskReviewRequestedAt
 import com.pluxity.weekly.teams.converter.TaskReviewCardBuilder
 import com.pluxity.weekly.teams.event.TeamsNotificationEvent
 import com.pluxity.weekly.test.entity.dummyRole
@@ -403,8 +404,8 @@ class TaskServiceTest :
                     )
                 } returns
                     listOf(
-                        arrayOf<Any>(100L, LocalDateTime.of(2026, 4, 1, 9, 0)),
-                        arrayOf<Any>(101L, LocalDateTime.of(2026, 4, 8, 9, 0)),
+                        TaskReviewRequestedAt(100L, LocalDateTime.of(2026, 4, 1, 9, 0)),
+                        TaskReviewRequestedAt(101L, LocalDateTime.of(2026, 4, 8, 9, 0)),
                     )
 
                 val result = service.findPendingReviews()
@@ -434,7 +435,7 @@ class TaskServiceTest :
                         listOf(200L),
                         TaskApprovalAction.REVIEW_REQUEST,
                     )
-                } returns listOf(arrayOf<Any>(200L, LocalDateTime.of(2026, 4, 5, 12, 0)))
+                } returns listOf(TaskReviewRequestedAt(200L, LocalDateTime.of(2026, 4, 5, 12, 0)))
 
                 val result = service.findPendingReviews()
 
