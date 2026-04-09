@@ -21,70 +21,77 @@ class TaskReviewCardBuilder {
             "type" to "AdaptiveCard",
             "version" to "1.2",
             "body" to
-                listOf(
-                    mapOf(
-                        "type" to "TextBlock",
-                        "text" to "리뷰 요청",
-                        "weight" to "bolder",
-                        "size" to "medium",
-                        "color" to "accent",
+                    listOf(
+                        mapOf(
+                            "type" to "TextBlock",
+                            "text" to "리뷰 요청",
+                            "weight" to "bolder",
+                            "size" to "medium",
+                            "color" to "accent",
+                        ),
+                        factRow("프로젝트", projectName, separator = true),
+                        factRow("에픽", epicName, separator = true),
+                        factRow("태스크", taskName, separator = true),
+                        factRow("요청자", requesterName, separator = true),
                     ),
-                    mapOf(
-                        "type" to "FactSet",
-                        "facts" to
-                            listOf(
-                                mapOf("title" to "태스크", "value" to taskName),
-                                mapOf("title" to "프로젝트", "value" to projectName),
-                                mapOf("title" to "에픽", "value" to epicName),
-                                mapOf("title" to "요청자", "value" to requesterName),
-                            ),
-                    ),
-                ),
             "actions" to
-                listOf(
-                    mapOf(
-                        "type" to "Action.Submit",
-                        "title" to "승인",
-                        "style" to "positive",
-                        "data" to
-                            mapOf(
-                                "action" to "approve",
-                                "target" to "task",
-                                "taskId" to taskId,
-                            ),
-                    ),
-                    mapOf(
-                        "type" to "Action.ShowCard",
-                        "title" to "반려",
-                        "card" to
-                            mapOf(
-                                "type" to "AdaptiveCard",
-                                "body" to
-                                    listOf(
-                                        mapOf(
-                                            "type" to "Input.Text",
-                                            "id" to "reason",
-                                            "label" to "반려 사유 (선택)",
-                                            "isMultiline" to true,
-                                            "placeholder" to "반려 사유를 입력하세요",
-                                        ),
+                    listOf(
+                        mapOf(
+                            "type" to "Action.Submit",
+                            "title" to "승인",
+                            "style" to "positive",
+                            "data" to
+                                    mapOf(
+                                        "action" to "approve",
+                                        "target" to "task",
+                                        "taskId" to taskId,
                                     ),
-                                "actions" to
-                                    listOf(
-                                        mapOf(
-                                            "type" to "Action.Submit",
-                                            "title" to "반려 확인",
-                                            "style" to "destructive",
-                                            "data" to
-                                                mapOf(
-                                                    "action" to "reject",
-                                                    "target" to "task",
-                                                    "taskId" to taskId,
+                        ),
+                        mapOf(
+                            "type" to "Action.ShowCard",
+                            "title" to "반려",
+                            "card" to
+                                    mapOf(
+                                        "type" to "AdaptiveCard",
+                                        "body" to
+                                                listOf(
+                                                    mapOf(
+                                                        "type" to "Input.Text",
+                                                        "id" to "reason",
+                                                        "label" to "반려 사유 (선택)",
+                                                        "isMultiline" to true,
+                                                        "placeholder" to "반려 사유를 입력하세요",
+                                                    ),
                                                 ),
-                                        ),
+                                        "actions" to
+                                                listOf(
+                                                    mapOf(
+                                                        "type" to "Action.Submit",
+                                                        "title" to "반려 확인",
+                                                        "style" to "destructive",
+                                                        "data" to
+                                                                mapOf(
+                                                                    "action" to "reject",
+                                                                    "target" to "task",
+                                                                    "taskId" to taskId,
+                                                                ),
+                                                    ),
+                                                ),
                                     ),
-                            ),
+                        ),
                     ),
-                ),
+        )
+
+    private fun factRow(
+        label: String,
+        value: String,
+        separator: Boolean = false,
+    ): Map<String, Any> =
+        mapOf(
+            "type" to "TextBlock",
+            "text" to "**$label** : $value",
+            "wrap" to true,
+            "separator" to separator,
+            "spacing" to "medium",
         )
 }

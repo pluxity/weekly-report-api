@@ -8,6 +8,7 @@ import com.pluxity.weekly.chat.dto.ProjectChatDto
 import com.pluxity.weekly.chat.dto.SelectField
 import com.pluxity.weekly.epic.dto.EpicResponse
 import com.pluxity.weekly.project.dto.ProjectResponse
+import com.pluxity.weekly.task.dto.PendingReviewResponse
 import com.pluxity.weekly.task.dto.TaskResponse
 import com.pluxity.weekly.team.dto.TeamResponse
 import org.springframework.stereotype.Component
@@ -20,7 +21,11 @@ class AdaptiveCardConverter {
             return textMessage(formatExecutionResult(response))
         }
 
-        // 조회 결과
+        // 조회 결과 - 리뷰 대기 목록은 카드 여러 개로 분리
+        if (response.readResult?.pendingReviews?.isNotEmpty() == true) {
+            return buildPendingReviewsMessage(response.readResult.pendingReviews)
+        }
+
         if (response.readResult != null) {
             return adaptiveCard(buildReadCard(response.readResult, response.target))
         }
@@ -94,6 +99,95 @@ class AdaptiveCardConverter {
                 ),
         )
     }
+
+    private fun buildPendingReviewsMessage(pendingReviews: List<PendingReviewResponse>): Map<String, Any> {
+        val attachments =
+            pendingReviews.map { review ->
+                mapOf(
+                    "contentType" to "application/vnd.microsoft.card.adaptive",
+                    "content" to buildPendingReviewCard(review),
+                )
+            }
+
+        return mapOf(
+            "type" to "message",
+            "text" to "리뷰 대기 태스크 ${pendingReviews.size}건",
+            "attachmentLayout" to "list",
+            "attachments" to attachments,
+        )
+    }
+
+    private fun buildPendingReviewCard(review: PendingReviewResponse): Map<String, Any> =
+        mapOf(
+            "type" to "AdaptiveCard",
+            "version" to "1.2",
+            "body" to
+                listOf(
+                    mapOf(
+                        "type" to "TextBlock",
+                        "text" to review.taskName,
+                        "weight" to "bolder",
+                        "size" to "medium",
+                        "wrap" to true,
+                    ),
+                    mapOf(
+                        "type" to "FactSet",
+                        "facts" to
+                            listOfNotNull(
+                                mapOf("title" to "프로젝트", "value" to review.projectName),
+                                mapOf("title" to "에픽", "value" to review.epicName),
+                                review.assigneeName?.let { mapOf("title" to "담당자", "value" to it) },
+                                review.dueDate?.let { mapOf("title" to "마감일", "value" to it.toString()) },
+                                mapOf("title" to "요청 시각", "value" to review.reviewRequestedAt.toString()),
+                            ),
+                    ),
+                ),
+            "actions" to
+                listOf(
+                    mapOf(
+                        "type" to "Action.Submit",
+                        "title" to "승인",
+                        "data" to
+                            mapOf(
+                                "action" to "approve",
+                                "target" to "task",
+                                "taskId" to review.taskId,
+                            ),
+                    ),
+                    mapOf(
+                        "type" to "Action.ShowCard",
+                        "title" to "반려",
+                        "card" to
+                            mapOf(
+                                "type" to "AdaptiveCard",
+                                "version" to "1.2",
+                                "body" to
+                                    listOf(
+                                        mapOf(
+                                            "type" to "Input.Text",
+                                            "id" to "reason",
+                                            "label" to "반려 사유",
+                                            "isMultiline" to true,
+                                            "placeholder" to "반려 사유를 입력하세요",
+                                        ),
+                                    ),
+                                "actions" to
+                                    listOf(
+                                        mapOf(
+                                            "type" to "Action.Submit",
+                                            "title" to "반려 확정",
+                                            "data" to
+                                                mapOf(
+                                                    "action" to "reject",
+                                                    "target" to "task",
+                                                    "taskId" to review.taskId,
+                                                ),
+                                        ),
+                                    ),
+                            ),
+                    ),
+                ),
+        )
 
     private fun buildFormCard(response: ChatActionResponse): Map<String, Any> {
         val dto = response.dto!!
