@@ -33,7 +33,7 @@ data class ChatReadResponse(
     val epics: List<EpicResponse>? = null,
     @field:Schema(description = "팀 목록")
     val teams: List<TeamResponse>? = null,
-    @field:Schema(description = "PM 검수 대기 큐 (target=review)")
+    @field:Schema(description = "PM 리뷰 대기 목록 (target=review)")
     val pendingReviews: List<PendingReviewResponse>? = null,
 )
 
