@@ -5,11 +5,14 @@ import com.pluxity.weekly.authorization.AuthorizationService
 import com.pluxity.weekly.chat.dto.ProjectSearchFilter
 import com.pluxity.weekly.core.constant.ErrorCode
 import com.pluxity.weekly.core.exception.CustomException
+import com.pluxity.weekly.epic.entity.EpicStatus
+import com.pluxity.weekly.epic.repository.EpicRepository
 import com.pluxity.weekly.project.dto.ProjectRequest
 import com.pluxity.weekly.project.dto.ProjectResponse
 import com.pluxity.weekly.project.dto.ProjectUpdateRequest
 import com.pluxity.weekly.project.dto.toResponse
 import com.pluxity.weekly.project.entity.Project
+import com.pluxity.weekly.project.entity.ProjectStatus
 import com.pluxity.weekly.project.repository.ProjectRepository
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
@@ -19,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional
 @Transactional(readOnly = true)
 class ProjectService(
     private val projectRepository: ProjectRepository,
+    private val epicRepository: EpicRepository,
     private val userRepository: UserRepository,
     private val authorizationService: AuthorizationService,
 ) {
@@ -70,7 +74,22 @@ class ProjectService(
     ) {
         val user = authorizationService.currentUser()
         authorizationService.requireProjectManager(user, id)
-        getById(id).update(
+        val project = getById(id)
+
+        if (project.status == ProjectStatus.DONE) {
+            throw CustomException(ErrorCode.INVALID_STATUS_TRANSITION, project.status, "update")
+        }
+
+        request.status?.let { newStatus ->
+            if (newStatus == ProjectStatus.DONE) {
+                val epics = epicRepository.findByProjectId(id)
+                if (epics.isEmpty() || epics.any { it.status != EpicStatus.DONE }) {
+                    throw CustomException(ErrorCode.EPIC_NOT_ALL_DONE)
+                }
+            }
+        }
+
+        project.update(
             name = request.name,
             description = request.description,
             status = request.status,

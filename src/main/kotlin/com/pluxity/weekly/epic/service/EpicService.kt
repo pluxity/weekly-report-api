@@ -12,9 +12,13 @@ import com.pluxity.weekly.epic.dto.EpicResponse
 import com.pluxity.weekly.epic.dto.EpicUpdateRequest
 import com.pluxity.weekly.epic.dto.toResponse
 import com.pluxity.weekly.epic.entity.Epic
+import com.pluxity.weekly.epic.entity.EpicStatus
 import com.pluxity.weekly.epic.repository.EpicRepository
 import com.pluxity.weekly.project.entity.Project
+import com.pluxity.weekly.project.entity.ProjectStatus
 import com.pluxity.weekly.project.repository.ProjectRepository
+import com.pluxity.weekly.task.entity.TaskStatus
+import com.pluxity.weekly.task.repository.TaskRepository
 import com.pluxity.weekly.teams.event.TeamsNotificationEvent
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.data.repository.findByIdOrNull
@@ -26,6 +30,7 @@ import org.springframework.transaction.annotation.Transactional
 class EpicService(
     private val epicRepository: EpicRepository,
     private val projectRepository: ProjectRepository,
+    private val taskRepository: TaskRepository,
     private val userRepository: UserRepository,
     private val authorizationService: AuthorizationService,
     private val eventPublisher: ApplicationEventPublisher,
@@ -45,10 +50,14 @@ class EpicService(
     fun create(request: EpicRequest): Long {
         val user = authorizationService.currentUser()
         authorizationService.requireEpicManage(user, request.projectId)
+        val project = getProjectById(request.projectId)
+        if (project.status == ProjectStatus.DONE) {
+            throw CustomException(ErrorCode.INVALID_STATUS_TRANSITION, project.status, "create epic")
+        }
         val epic =
             epicRepository.save(
                 Epic(
-                    project = getProjectById(request.projectId),
+                    project = project,
                     name = request.name,
                     description = request.description,
                     status = request.status,
@@ -71,6 +80,20 @@ class EpicService(
         val user = authorizationService.currentUser()
         val epic = getEpicById(id)
         authorizationService.requireEpicManage(user, epic.project.requiredId)
+
+        if (epic.status == EpicStatus.DONE) {
+            throw CustomException(ErrorCode.INVALID_STATUS_TRANSITION, epic.status, "update")
+        }
+
+        request.status?.let { newStatus ->
+            if (newStatus == EpicStatus.DONE) {
+                val tasks = taskRepository.findByEpicId(id)
+                if (tasks.isEmpty() || tasks.any { it.status != TaskStatus.DONE }) {
+                    throw CustomException(ErrorCode.TASK_NOT_ALL_DONE)
+                }
+            }
+        }
+
         epic.update(
             project = request.projectId?.let { getProjectById(it) },
             name = request.name,
