@@ -3,14 +3,14 @@ package com.pluxity.weekly.chat.context
 import com.pluxity.weekly.auth.user.repository.UserRepository
 import com.pluxity.weekly.authorization.AuthorizationService
 import com.pluxity.weekly.epic.dto.EpicResponse
+import com.pluxity.weekly.epic.entity.EpicStatus
 import com.pluxity.weekly.epic.service.EpicService
+import com.pluxity.weekly.project.entity.ProjectStatus
 import com.pluxity.weekly.project.service.ProjectService
 import com.pluxity.weekly.task.dto.TaskResponse
+import com.pluxity.weekly.task.entity.TaskStatus
 import com.pluxity.weekly.task.service.TaskService
 import com.pluxity.weekly.team.service.TeamService
-import com.pluxity.weekly.epic.entity.EpicStatus
-import com.pluxity.weekly.project.entity.ProjectStatus
-import com.pluxity.weekly.task.entity.TaskStatus
 import org.springframework.data.domain.Sort
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
@@ -43,8 +43,7 @@ class ContextBuilder(
         private const val SCOPE_WEEKS = 2L
     }
 
-    private fun isWithinScope(startDate: LocalDate?): Boolean =
-        startDate != null && startDate >= LocalDate.now().minusWeeks(SCOPE_WEEKS)
+    private fun isWithinScope(startDate: LocalDate?): Boolean = startDate != null && startDate >= LocalDate.now().minusWeeks(SCOPE_WEEKS)
 
     fun build(
         target: String,
@@ -74,10 +73,15 @@ class ContextBuilder(
         return objectMapper.writeValueAsString(context)
     }
 
-    private fun buildProjectContext(context: MutableMap<String, Any?>, excludeDone: Boolean) {
-        val projects = projectService.findAll()
-            .filter { isWithinScope(it.startDate) || it.status != ProjectStatus.DONE }
-            .filter { !excludeDone || it.status != ProjectStatus.DONE }
+    private fun buildProjectContext(
+        context: MutableMap<String, Any?>,
+        excludeDone: Boolean,
+    ) {
+        val projects =
+            projectService
+                .findAll()
+                .filter { isWithinScope(it.startDate) || it.status != ProjectStatus.DONE }
+                .filter { !excludeDone || it.status != ProjectStatus.DONE }
         context["projects"] =
             projects.map {
                 mapOf("id" to it.id, "name" to it.name, "status" to it.status.name)
@@ -85,11 +89,16 @@ class ContextBuilder(
         context["users"] = findUsersByRole("PM")
     }
 
-    private fun buildEpicContext(context: MutableMap<String, Any?>, excludeDone: Boolean) {
+    private fun buildEpicContext(
+        context: MutableMap<String, Any?>,
+        excludeDone: Boolean,
+    ) {
         val projects = projectService.findAll()
-        val epics = epicService.findAll()
-            .filter { isWithinScope(it.startDate) || it.status != EpicStatus.DONE }
-            .filter { !excludeDone || it.status != EpicStatus.DONE }
+        val epics =
+            epicService
+                .findAll()
+                .filter { isWithinScope(it.startDate) || it.status != EpicStatus.DONE }
+                .filter { !excludeDone || it.status != EpicStatus.DONE }
         val epicsByProject = epics.groupBy { it.projectId }
         context["projects"] =
             projects
@@ -118,9 +127,11 @@ class ContextBuilder(
             val activeEpics = epics.filter { it.status != EpicStatus.DONE }
             context["projects"] = groupByProject(activeEpics)
         } else {
-            val tasks = taskService.findAll()
-                .filter { isWithinScope(it.startDate) || it.status != TaskStatus.DONE }
-                .filter { !excludeDone || it.status != TaskStatus.DONE }
+            val tasks =
+                taskService
+                    .findAll()
+                    .filter { isWithinScope(it.startDate) || it.status != TaskStatus.DONE }
+                    .filter { !excludeDone || it.status != TaskStatus.DONE }
             val tasksByEpicId = tasks.groupBy { it.epicId }
             context["projects"] = groupByProjectFull(epics, tasksByEpicId)
             context["users"] = findAllUsers()

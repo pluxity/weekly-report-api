@@ -29,18 +29,24 @@ class ChatReadHandler(
         return when (target) {
             "task" ->
                 ChatReadResponse(
-                    tasks = taskService.search(buildTaskFilter(filters))
-                        .filter { isWithinScope(it.startDate) || it.status != TaskStatus.DONE },
+                    tasks =
+                        taskService
+                            .search(buildTaskFilter(filters))
+                            .filter { isWithinScope(it.startDate) || it.status != TaskStatus.DONE },
                 )
             "project" ->
                 ChatReadResponse(
-                    projects = projectService.search(buildProjectFilter(filters))
-                        .filter { isWithinScope(it.startDate) || it.status != ProjectStatus.DONE },
+                    projects =
+                        projectService
+                            .search(buildProjectFilter(filters))
+                            .filter { isWithinScope(it.startDate) || it.status != ProjectStatus.DONE },
                 )
             "epic" ->
                 ChatReadResponse(
-                    epics = epicService.search(buildEpicFilter(filters))
-                        .filter { isWithinScope(it.startDate) || it.status != EpicStatus.DONE },
+                    epics =
+                        epicService
+                            .search(buildEpicFilter(filters))
+                            .filter { isWithinScope(it.startDate) || it.status != EpicStatus.DONE },
                 )
             "team" ->
                 ChatReadResponse(
@@ -52,14 +58,15 @@ class ChatReadHandler(
                 )
             else ->
                 ChatReadResponse(
-                    tasks = taskService.search(buildTaskFilter(filters))
-                        .filter { isWithinScope(it.startDate) || it.status != TaskStatus.DONE },
+                    tasks =
+                        taskService
+                            .search(buildTaskFilter(filters))
+                            .filter { isWithinScope(it.startDate) || it.status != TaskStatus.DONE },
                 )
         }
     }
 
-    private fun isWithinScope(startDate: LocalDate?): Boolean =
-        startDate != null && startDate >= LocalDate.now().minusWeeks(2)
+    private fun isWithinScope(startDate: LocalDate?): Boolean = startDate != null && startDate >= LocalDate.now().minusWeeks(2)
 
     private fun buildTaskFilter(filters: Map<String, Any?>): TaskSearchFilter =
         TaskSearchFilter(
