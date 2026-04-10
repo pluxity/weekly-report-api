@@ -2,6 +2,7 @@ package com.pluxity.weekly.chat.context
 
 import com.pluxity.weekly.auth.user.repository.UserRepository
 import com.pluxity.weekly.authorization.AuthorizationService
+import com.pluxity.weekly.chat.util.ChatScope
 import com.pluxity.weekly.epic.dto.EpicResponse
 import com.pluxity.weekly.epic.entity.EpicStatus
 import com.pluxity.weekly.epic.service.EpicService
@@ -39,12 +40,6 @@ class ContextBuilder(
     private val authorizationService: AuthorizationService,
     private val objectMapper: ObjectMapper,
 ) {
-    companion object {
-        private const val SCOPE_WEEKS = 2L
-    }
-
-    private fun isWithinScope(startDate: LocalDate?): Boolean = startDate != null && startDate >= LocalDate.now().minusWeeks(SCOPE_WEEKS)
-
     fun build(
         target: String,
         actions: List<String>,
@@ -80,7 +75,7 @@ class ContextBuilder(
         val projects =
             projectService
                 .findAll()
-                .filter { isWithinScope(it.startDate) || it.status != ProjectStatus.DONE }
+                .filter { ChatScope.isWithinScope(it.startDate) || it.status != ProjectStatus.DONE }
                 .filter { !excludeDone || it.status != ProjectStatus.DONE }
         context["projects"] =
             projects.map {
@@ -97,7 +92,7 @@ class ContextBuilder(
         val epics =
             epicService
                 .findAll()
-                .filter { isWithinScope(it.startDate) || it.status != EpicStatus.DONE }
+                .filter { ChatScope.isWithinScope(it.startDate) || it.status != EpicStatus.DONE }
                 .filter { !excludeDone || it.status != EpicStatus.DONE }
         val epicsByProject = epics.groupBy { it.projectId }
         context["projects"] =
@@ -130,7 +125,7 @@ class ContextBuilder(
             val tasks =
                 taskService
                     .findAll()
-                    .filter { isWithinScope(it.startDate) || it.status != TaskStatus.DONE }
+                    .filter { ChatScope.isWithinScope(it.startDate) || it.status != TaskStatus.DONE }
                     .filter { !excludeDone || it.status != TaskStatus.DONE }
             val tasksByEpicId = tasks.groupBy { it.epicId }
             context["projects"] = groupByProjectFull(epics, tasksByEpicId)

@@ -1,5 +1,6 @@
 package com.pluxity.weekly.chat.service
 
+import com.pluxity.weekly.chat.util.ChatScope
 import com.pluxity.weekly.chat.dto.ChatReadResponse
 import com.pluxity.weekly.chat.dto.EpicSearchFilter
 import com.pluxity.weekly.chat.dto.LlmAction
@@ -32,21 +33,21 @@ class ChatReadHandler(
                     tasks =
                         taskService
                             .search(buildTaskFilter(filters))
-                            .filter { isWithinScope(it.startDate) || it.status != TaskStatus.DONE },
+                            .filter { ChatScope.isWithinScope(it.startDate) || it.status != TaskStatus.DONE },
                 )
             "project" ->
                 ChatReadResponse(
                     projects =
                         projectService
                             .search(buildProjectFilter(filters))
-                            .filter { isWithinScope(it.startDate) || it.status != ProjectStatus.DONE },
+                            .filter { ChatScope.isWithinScope(it.startDate) || it.status != ProjectStatus.DONE },
                 )
             "epic" ->
                 ChatReadResponse(
                     epics =
                         epicService
                             .search(buildEpicFilter(filters))
-                            .filter { isWithinScope(it.startDate) || it.status != EpicStatus.DONE },
+                            .filter { ChatScope.isWithinScope(it.startDate) || it.status != EpicStatus.DONE },
                 )
             "team" ->
                 ChatReadResponse(
@@ -61,12 +62,10 @@ class ChatReadHandler(
                     tasks =
                         taskService
                             .search(buildTaskFilter(filters))
-                            .filter { isWithinScope(it.startDate) || it.status != TaskStatus.DONE },
+                            .filter { ChatScope.isWithinScope(it.startDate) || it.status != TaskStatus.DONE },
                 )
         }
     }
-
-    private fun isWithinScope(startDate: LocalDate?): Boolean = startDate != null && startDate >= LocalDate.now().minusWeeks(2)
 
     private fun buildTaskFilter(filters: Map<String, Any?>): TaskSearchFilter =
         TaskSearchFilter(
