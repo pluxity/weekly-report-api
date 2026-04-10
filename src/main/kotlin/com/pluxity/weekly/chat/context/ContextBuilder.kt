@@ -128,7 +128,8 @@ class ContextBuilder(
                     .filter { ChatScope.isWithinScope(it.startDate) || it.status != TaskStatus.DONE }
                     .filter { !excludeDone || it.status != TaskStatus.DONE }
             val tasksByEpicId = tasks.groupBy { it.epicId }
-            context["projects"] = groupByProjectFull(epics, tasksByEpicId)
+            val activeEpics = epics.filter { tasksByEpicId.containsKey(it.id) }
+            context["projects"] = groupByProjectFull(activeEpics, tasksByEpicId)
             context["users"] = findAllUsers()
         }
     }
