@@ -97,7 +97,7 @@ class ContextBuilder(
         val epicsByProject = epics.groupBy { it.projectId }
         context["projects"] =
             projects
-                .filter { epicsByProject.containsKey(it.id) }
+//                .filter { epicsByProject.containsKey(it.id) }
                 .map { project ->
                     mapOf(
                         "id" to project.id,

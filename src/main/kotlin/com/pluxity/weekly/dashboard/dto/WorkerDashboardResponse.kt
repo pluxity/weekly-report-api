@@ -4,6 +4,7 @@ import com.pluxity.weekly.epic.entity.EpicStatus
 import com.pluxity.weekly.task.entity.TaskStatus
 import io.swagger.v3.oas.annotations.media.Schema
 import java.time.LocalDate
+import java.time.LocalDateTime
 
 @Schema(description = "작업자 대시보드 응답")
 data class WorkerDashboardResponse(
@@ -43,6 +44,8 @@ data class WorkerEpicItem(
     val startDate: LocalDate?,
     @field:Schema(description = "마감일", example = "2026-03-31")
     val dueDate: LocalDate?,
+    @field:Schema(description = "최종 수정일")
+    val updatedAt: LocalDateTime,
     @field:Schema(description = "본인 태스크 목록")
     val tasks: List<WorkerTaskItem>,
 )
@@ -61,4 +64,6 @@ data class WorkerTaskItem(
     val dueDate: LocalDate?,
     @field:Schema(description = "마감까지 남은 일수 (음수 = 초과)", example = "5")
     val daysUntilDue: Int?,
+    @field:Schema(description = "검토 요청일 (REVIEW_REQUEST 상태 기준)")
+    val requestDate: LocalDateTime,
 )

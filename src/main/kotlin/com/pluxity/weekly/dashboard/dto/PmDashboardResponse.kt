@@ -5,6 +5,7 @@ import com.pluxity.weekly.project.entity.ProjectStatus
 import com.pluxity.weekly.task.entity.TaskStatus
 import io.swagger.v3.oas.annotations.media.Schema
 import java.time.LocalDate
+import java.time.LocalDateTime
 
 @Schema(description = "PM 대시보드 응답")
 data class PmDashboardResponse(
@@ -38,6 +39,8 @@ data class PmProjectSummary(
     val taskCount: Int,
     @field:Schema(description = "참여 인원 수", example = "8")
     val memberCount: Int,
+    @field:Schema(description = "최종 수정일")
+    val updatedAt: LocalDateTime,
 )
 
 @Schema(description = "로드맵 에픽 항목 (간트차트용)")
@@ -54,6 +57,8 @@ data class RoadmapItem(
     val status: EpicStatus,
     @field:Schema(description = "에픽 진행률 (태스크 평균)", example = "45")
     val progress: Int,
+    @field:Schema(description = "최종 수정일")
+    val updatedAt: LocalDateTime,
     @field:Schema(description = "태스크 바 목록")
     val tasks: List<RoadmapTaskBar>,
 )
@@ -76,6 +81,8 @@ data class RoadmapTaskBar(
     val progress: Int,
     @field:Schema(description = "일수 차이 (음수=조기, 양수=지연)")
     val daysDelta: Int?,
+    @field:Schema(description = "검토 요청일 (REVIEW_REQUEST 상태 기준)")
+    val requestDate: LocalDateTime,
 )
 
 @Schema(description = "에픽-태스크 그룹 (테이블뷰용)")
@@ -86,6 +93,8 @@ data class EpicTaskGroup(
     val epicName: String,
     @field:Schema(description = "에픽 상태", example = "IN_PROGRESS")
     val status: EpicStatus,
+    @field:Schema(description = "최종 수정일")
+    val updatedAt: LocalDateTime,
     @field:Schema(description = "태스크 행 목록")
     val tasks: List<EpicTaskRow>,
 )
@@ -108,4 +117,6 @@ data class EpicTaskRow(
     val dueDate: LocalDate?,
     @field:Schema(description = "일수 차이 (음수=조기, 양수=지연)")
     val daysDelta: Int?,
+    @field:Schema(description = "검토 요청일 (REVIEW_REQUEST 상태 기준)")
+    val requestDate: LocalDateTime,
 )

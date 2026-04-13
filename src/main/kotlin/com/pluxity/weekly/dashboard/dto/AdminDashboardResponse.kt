@@ -3,6 +3,7 @@ package com.pluxity.weekly.dashboard.dto
 import com.pluxity.weekly.project.entity.ProjectStatus
 import io.swagger.v3.oas.annotations.media.Schema
 import java.time.LocalDate
+import java.time.LocalDateTime
 
 @Schema(description = "어드민 대시보드 응답")
 data class AdminDashboardResponse(
@@ -34,6 +35,8 @@ data class AdminProjectCard(
     val startDate: LocalDate?,
     @field:Schema(description = "마감일", example = "2026-06-30")
     val dueDate: LocalDate?,
+    @field:Schema(description = "최종 수정일")
+    val updatedAt: LocalDateTime,
 )
 
 @Schema(description = "팀 요약 항목")

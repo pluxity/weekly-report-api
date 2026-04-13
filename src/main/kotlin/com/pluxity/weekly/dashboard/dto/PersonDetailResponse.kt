@@ -48,6 +48,8 @@ data class RecentTaskItem(
     val progress: Int,
     @field:Schema(description = "최종 수정일")
     val updatedAt: LocalDateTime,
+    @field:Schema(description = "검토 요청일 (REVIEW_REQUEST 상태 기준)")
+    val requestDate: LocalDateTime,
 )
 
 @Schema(description = "프로젝트 참여 현황")
