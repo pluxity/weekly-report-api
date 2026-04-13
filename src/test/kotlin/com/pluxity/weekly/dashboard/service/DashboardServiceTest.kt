@@ -7,9 +7,12 @@ import com.pluxity.weekly.epic.entity.dummyEpic
 import com.pluxity.weekly.epic.repository.EpicRepository
 import com.pluxity.weekly.project.entity.dummyProject
 import com.pluxity.weekly.project.repository.ProjectRepository
+import com.pluxity.weekly.task.entity.TaskApprovalAction
 import com.pluxity.weekly.task.entity.TaskStatus
 import com.pluxity.weekly.task.entity.dummyTask
+import com.pluxity.weekly.task.repository.TaskApprovalLogRepository
 import com.pluxity.weekly.task.repository.TaskRepository
+import com.pluxity.weekly.task.repository.TaskReviewRequestedAt
 import com.pluxity.weekly.team.repository.TeamMemberRepository
 import com.pluxity.weekly.team.repository.TeamRepository
 import com.pluxity.weekly.test.entity.dummyUser
@@ -20,6 +23,7 @@ import io.mockk.clearAllMocks
 import io.mockk.every
 import io.mockk.mockk
 import java.time.LocalDate
+import java.time.LocalDateTime
 
 class DashboardServiceTest :
     BehaviorSpec({
@@ -31,6 +35,7 @@ class DashboardServiceTest :
         val userRepository: UserRepository = mockk()
         val teamRepository: TeamRepository = mockk()
         val teamMemberRepository: TeamMemberRepository = mockk()
+        val taskApprovalLogRepository: TaskApprovalLogRepository = mockk(relaxed = true)
         val service =
             DashboardService(
                 authorizationService,
@@ -40,6 +45,7 @@ class DashboardServiceTest :
                 userRepository,
                 teamRepository,
                 teamMemberRepository,
+                taskApprovalLogRepository,
             )
 
         val currentUser = dummyUser(id = 1L, name = "작업자")
@@ -409,6 +415,83 @@ class DashboardServiceTest :
                 Then("daysUntilDue는 null이다") {
                     val taskItem = result.epics[0].tasks[0]
                     taskItem.daysUntilDue shouldBe null
+                }
+            }
+        }
+
+        // ── requestDate ──
+
+        Given("REVIEW_REQUEST 승인 로그가 존재하는 경우") {
+            val project = dummyProject(id = 1L)
+            val epic = dummyEpic(id = 10L, project = project)
+            val task = dummyTask(id = 100L, epic = epic)
+            val reviewRequestedAt = LocalDateTime.of(2026, 4, 10, 14, 30, 0)
+
+            When("대시보드를 조회하면") {
+                every { authorizationService.currentUser() } returns currentUser
+                every { epicRepository.findByAssignmentsUserIdWithProject(userId) } returns listOf(epic)
+                every { taskRepository.findByAssigneeId(userId) } returns listOf(task)
+                every {
+                    taskApprovalLogRepository.findLatestCreatedAtByTaskIdsAndAction(
+                        listOf(100L),
+                        TaskApprovalAction.REVIEW_REQUEST,
+                    )
+                } returns listOf(TaskReviewRequestedAt(100L, reviewRequestedAt))
+
+                val result = service.getWorkerDashboard()
+
+                Then("requestDate는 REVIEW_REQUEST의 createdAt이다") {
+                    result.epics[0].tasks[0].requestDate shouldBe reviewRequestedAt
+                }
+            }
+        }
+
+        Given("REVIEW_REQUEST 승인 로그가 없는 경우") {
+            val project = dummyProject(id = 1L)
+            val epic = dummyEpic(id = 10L, project = project)
+            val task = dummyTask(id = 100L, epic = epic)
+
+            When("대시보드를 조회하면") {
+                every { authorizationService.currentUser() } returns currentUser
+                every { epicRepository.findByAssignmentsUserIdWithProject(userId) } returns listOf(epic)
+                every { taskRepository.findByAssigneeId(userId) } returns listOf(task)
+                every {
+                    taskApprovalLogRepository.findLatestCreatedAtByTaskIdsAndAction(
+                        listOf(100L),
+                        TaskApprovalAction.REVIEW_REQUEST,
+                    )
+                } returns emptyList()
+
+                val result = service.getWorkerDashboard()
+
+                Then("requestDate는 오늘 날짜이다") {
+                    result.epics[0].tasks[0].requestDate.toLocalDate() shouldBe LocalDate.now()
+                }
+            }
+        }
+
+        // ── updatedAt ──
+
+        Given("에픽의 updatedAt 전달 확인") {
+            val epicUpdatedAt = LocalDateTime.of(2026, 4, 12, 10, 0, 0)
+            val project = dummyProject(id = 1L)
+            val epic =
+                dummyEpic(
+                    id = 10L,
+                    project = project,
+                    status = EpicStatus.IN_PROGRESS,
+                )
+            org.springframework.test.util.ReflectionTestUtils.setField(epic, "updatedAt", epicUpdatedAt)
+
+            When("대시보드를 조회하면") {
+                every { authorizationService.currentUser() } returns currentUser
+                every { epicRepository.findByAssignmentsUserIdWithProject(userId) } returns listOf(epic)
+                every { taskRepository.findByAssigneeId(userId) } returns emptyList()
+
+                val result = service.getWorkerDashboard()
+
+                Then("에픽의 updatedAt이 반환된다") {
+                    result.epics[0].updatedAt shouldBe epicUpdatedAt
                 }
             }
         }

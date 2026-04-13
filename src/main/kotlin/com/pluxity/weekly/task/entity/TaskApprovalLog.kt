@@ -16,13 +16,13 @@ import jakarta.persistence.Table
 class TaskApprovalLog(
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "task_id", nullable = false)
-    val task: Task,
+    var task: Task,
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "actor_id", nullable = false)
-    val actor: User,
+    var actor: User,
     @Enumerated(EnumType.STRING)
     @Column(name = "action", nullable = false)
-    val action: TaskApprovalAction,
+    var action: TaskApprovalAction,
     @Column(name = "reason", length = 1000)
-    val reason: String? = null,
+    var reason: String? = null,
 ) : IdentityIdEntity()

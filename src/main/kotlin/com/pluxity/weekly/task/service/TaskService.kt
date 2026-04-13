@@ -29,6 +29,7 @@ import org.springframework.context.ApplicationEventPublisher
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import java.time.LocalDateTime
 
 @Service
 @Transactional(readOnly = true)
@@ -197,14 +198,15 @@ class TaskService(
         if (tasks.isEmpty()) return emptyList()
 
         val taskIds = tasks.map { it.requiredId }
-        val latestRequestedAt: Map<Long, java.time.LocalDateTime> =
+        val latestRequestedAt: Map<Long, LocalDateTime> =
             taskApprovalLogRepository
                 .findLatestCreatedAtByTaskIdsAndAction(taskIds, TaskApprovalAction.REVIEW_REQUEST)
                 .associate { it.taskId to it.requestedAt }
+        val now = LocalDateTime.now()
 
         return tasks
             .map { task ->
-                val requestedAt = latestRequestedAt[task.requiredId] ?: task.updatedAt
+                val requestedAt = latestRequestedAt[task.requiredId] ?: now
                 PendingReviewResponse(
                     taskId = task.requiredId,
                     taskName = task.name,

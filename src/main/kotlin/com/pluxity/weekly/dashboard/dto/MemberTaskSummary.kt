@@ -3,6 +3,7 @@ package com.pluxity.weekly.dashboard.dto
 import com.pluxity.weekly.task.entity.TaskStatus
 import io.swagger.v3.oas.annotations.media.Schema
 import java.time.LocalDate
+import java.time.LocalDateTime
 
 @Schema(description = "팀원 태스크 요약")
 data class MemberTaskSummary(
@@ -36,4 +37,6 @@ data class MemberTaskBar(
     val progress: Int,
     @field:Schema(description = "일수 차이 (양수=지연중)")
     val daysDelta: Int?,
+    @field:Schema(description = "검토 요청일 (REVIEW_REQUEST 상태 기준)")
+    val requestDate: LocalDateTime,
 )

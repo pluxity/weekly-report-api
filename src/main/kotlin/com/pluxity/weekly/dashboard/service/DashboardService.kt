@@ -26,7 +26,9 @@ import com.pluxity.weekly.dashboard.dto.WorkerTaskItem
 import com.pluxity.weekly.epic.repository.EpicRepository
 import com.pluxity.weekly.project.repository.ProjectRepository
 import com.pluxity.weekly.task.entity.Task
+import com.pluxity.weekly.task.entity.TaskApprovalAction
 import com.pluxity.weekly.task.entity.TaskStatus
+import com.pluxity.weekly.task.repository.TaskApprovalLogRepository
 import com.pluxity.weekly.task.repository.TaskRepository
 import com.pluxity.weekly.team.repository.TeamMemberRepository
 import com.pluxity.weekly.team.repository.TeamRepository
@@ -34,6 +36,7 @@ import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDate
+import java.time.LocalDateTime
 import java.time.temporal.ChronoUnit
 
 @Service
@@ -46,6 +49,7 @@ class DashboardService(
     private val userRepository: UserRepository,
     private val teamRepository: TeamRepository,
     private val teamMemberRepository: TeamMemberRepository,
+    private val taskApprovalLogRepository: TaskApprovalLogRepository,
 ) {
     fun getWorkerDashboard(): WorkerDashboardResponse {
         val user = authorizationService.currentUser()
@@ -56,6 +60,8 @@ class DashboardService(
             taskRepository.findByAssigneeId(userId)
         val tasksByEpicId = tasks.groupBy { it.epic.requiredId }
         val now = LocalDate.now()
+        val nowDateTime = LocalDateTime.now()
+        val requestDateMap = buildRequestDateMap(tasks, nowDateTime)
 
         return WorkerDashboardResponse(
             summary = buildSummary(tasks, now),
@@ -71,7 +77,8 @@ class DashboardService(
                         progress = if (epicTasks.isEmpty()) 0 else epicTasks.map { it.progress }.average().toInt(),
                         startDate = epic.startDate,
                         dueDate = epic.dueDate,
-                        tasks = epicTasks.map { it.toWorkerTaskItem(epic.dueDate) },
+                        updatedAt = epic.updatedAt,
+                        tasks = epicTasks.map { it.toWorkerTaskItem(epic.dueDate, requestDateMap) },
                     )
                 },
         )
@@ -92,6 +99,8 @@ class DashboardService(
         val tasks = taskRepository.findByEpicIn(epics)
         val tasksByEpicId = tasks.groupBy { it.epic.requiredId }
         val now = LocalDate.now()
+        val nowDateTime = LocalDateTime.now()
+        val requestDateMap = buildRequestDateMap(tasks, nowDateTime)
 
         val memberCount = tasks.mapNotNull { it.assignee?.requiredId }.distinct().size
 
@@ -108,6 +117,7 @@ class DashboardService(
                     epicCount = epics.size,
                     taskCount = tasks.size,
                     memberCount = memberCount,
+                    updatedAt = project.updatedAt,
                 ),
             roadmapItems =
                 epics.map { epic ->
@@ -119,7 +129,8 @@ class DashboardService(
                         dueDate = epic.dueDate,
                         status = epic.status,
                         progress = if (epicTasks.isEmpty()) 0 else epicTasks.map { it.progress }.average().toInt(),
-                        tasks = epicTasks.map { it.toRoadmapTaskBar(now) },
+                        updatedAt = epic.updatedAt,
+                        tasks = epicTasks.map { it.toRoadmapTaskBar(now, requestDateMap) },
                     )
                 },
             epicTaskGroups =
@@ -129,7 +140,8 @@ class DashboardService(
                         epicId = epic.requiredId,
                         epicName = epic.name,
                         status = epic.status,
-                        tasks = epicTasks.map { it.toEpicTaskRow(now) },
+                        updatedAt = epic.updatedAt,
+                        tasks = epicTasks.map { it.toEpicTaskRow(now, requestDateMap) },
                     )
                 },
         )
@@ -176,6 +188,7 @@ class DashboardService(
                         },
                     startDate = project.startDate,
                     dueDate = project.dueDate,
+                    updatedAt = project.updatedAt,
                 )
             }
 
@@ -243,6 +256,8 @@ class DashboardService(
             }
 
         // 최근 수정 태스크 10건
+        val nowDateTime = LocalDateTime.now()
+        val requestDateMap = buildRequestDateMap(tasks, nowDateTime)
         val recentTasks =
             tasks
                 .sortedByDescending { it.updatedAt }
@@ -256,6 +271,7 @@ class DashboardService(
                         status = task.status,
                         progress = task.progress,
                         updatedAt = task.updatedAt,
+                        requestDate = requestDateMap.getValue(task.requiredId),
                     )
                 }
 
@@ -299,8 +315,11 @@ class DashboardService(
                 ?: throw CustomException(ErrorCode.NOT_FOUND_TEAM, teamId)
         val teamMembers = teamMemberRepository.findByTeam(team)
         val memberUserIds = teamMembers.map { it.user.requiredId }
-        val tasksByUserId = taskRepository.findByAssigneeIdIn(memberUserIds).groupBy { it.assignee!!.requiredId }
+        val allTasks = taskRepository.findByAssigneeIdIn(memberUserIds)
+        val tasksByUserId = allTasks.groupBy { it.assignee!!.requiredId }
         val now = LocalDate.now()
+        val nowDateTime = LocalDateTime.now()
+        val requestDateMap = buildRequestDateMap(allTasks, nowDateTime)
 
         return teamMembers.map { member ->
             val user = member.user
@@ -321,6 +340,7 @@ class DashboardService(
                             status = task.status,
                             progress = task.progress,
                             daysDelta = task.calculateDaysDelta(now),
+                            requestDate = requestDateMap.getValue(task.requiredId),
                         )
                     },
             )
@@ -343,7 +363,10 @@ class DashboardService(
             total = tasks.size,
         )
 
-    private fun Task.toWorkerTaskItem(epicDueDate: LocalDate?): WorkerTaskItem =
+    private fun Task.toWorkerTaskItem(
+        epicDueDate: LocalDate?,
+        requestDateMap: Map<Long, LocalDateTime>,
+    ): WorkerTaskItem =
         WorkerTaskItem(
             taskId = this.requiredId,
             taskName = this.name,
@@ -356,9 +379,13 @@ class DashboardService(
                 } else {
                     null
                 },
+            requestDate = requestDateMap.getValue(this.requiredId),
         )
 
-    private fun Task.toRoadmapTaskBar(now: LocalDate): RoadmapTaskBar =
+    private fun Task.toRoadmapTaskBar(
+        now: LocalDate,
+        requestDateMap: Map<Long, LocalDateTime>,
+    ): RoadmapTaskBar =
         RoadmapTaskBar(
             taskId = this.requiredId,
             taskName = this.name,
@@ -368,9 +395,13 @@ class DashboardService(
             status = this.status,
             progress = this.progress,
             daysDelta = calculateDaysDelta(now),
+            requestDate = requestDateMap.getValue(this.requiredId),
         )
 
-    private fun Task.toEpicTaskRow(now: LocalDate): EpicTaskRow =
+    private fun Task.toEpicTaskRow(
+        now: LocalDate,
+        requestDateMap: Map<Long, LocalDateTime>,
+    ): EpicTaskRow =
         EpicTaskRow(
             taskId = this.requiredId,
             taskName = this.name,
@@ -380,7 +411,23 @@ class DashboardService(
             startDate = this.startDate,
             dueDate = this.dueDate,
             daysDelta = calculateDaysDelta(now),
+            requestDate = requestDateMap.getValue(this.requiredId),
         )
+
+    private fun buildRequestDateMap(
+        tasks: List<Task>,
+        now: LocalDateTime,
+    ): Map<Long, LocalDateTime> {
+        val taskIds = tasks.map { it.requiredId }
+        if (taskIds.isEmpty()) return emptyMap()
+        val reviewLogs =
+            taskApprovalLogRepository.findLatestCreatedAtByTaskIdsAndAction(
+                taskIds,
+                TaskApprovalAction.REVIEW_REQUEST,
+            )
+        val logMap = reviewLogs.associate { it.taskId to it.requestedAt }
+        return taskIds.associateWith { logMap[it] ?: now }
+    }
 
     companion object {
         private const val RECENT_TASK_LIMIT = 10
