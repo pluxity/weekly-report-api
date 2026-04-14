@@ -13,10 +13,12 @@ import jakarta.persistence.JoinColumn
 import jakarta.persistence.ManyToOne
 import jakarta.persistence.OneToMany
 import jakarta.persistence.Table
+import org.hibernate.annotations.SoftDelete
 import java.time.LocalDate
 
 @Entity
 @Table(name = "epics")
+@SoftDelete(columnName = "deleted")
 class Epic(
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "project_id", nullable = false)
