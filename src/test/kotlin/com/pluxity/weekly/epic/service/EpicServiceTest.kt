@@ -181,6 +181,7 @@ class EpicServiceTest :
                 val entity = dummyEpic(id = 1L, name = "삭제대상 에픽")
 
                 every { epicRepository.findByIdOrNull(1L) } returns entity
+                every { taskRepository.existsByEpicId(1L) } returns false
                 every { epicRepository.delete(any<Epic>()) } just runs
 
                 service.delete(1L)
@@ -200,6 +201,22 @@ class EpicServiceTest :
 
                 Then("NOT_FOUND 예외가 발생한다") {
                     exception.code shouldBe ErrorCode.NOT_FOUND_EPIC
+                }
+            }
+
+            When("하위 태스크가 존재하면") {
+                val entity = dummyEpic(id = 1L, name = "삭제대상 에픽")
+
+                every { epicRepository.findByIdOrNull(1L) } returns entity
+                every { taskRepository.existsByEpicId(1L) } returns true
+
+                val exception =
+                    shouldThrow<CustomException> {
+                        service.delete(1L)
+                    }
+
+                Then("EPIC_HAS_TASKS 예외가 발생한다.") {
+                    exception.code shouldBe ErrorCode.EPIC_HAS_TASKS
                 }
             }
         }

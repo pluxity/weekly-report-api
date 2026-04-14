@@ -36,6 +36,8 @@ enum class ErrorCode(
     INVALID_STATUS_TRANSITION(HttpStatus.BAD_REQUEST, "상태 %s에서는 %s 동작을 수행할 수 없습니다."),
     EPIC_NOT_ALL_DONE(HttpStatus.BAD_REQUEST, "프로젝트를 완료하려면 모든 하위 에픽을 먼저 완료해야 합니다."),
     TASK_NOT_ALL_DONE(HttpStatus.BAD_REQUEST, "에픽을 완료하려면 모든 하위 태스크를 먼저 완료해야 합니다."),
+    PROJECT_HAS_EPICS(HttpStatus.CONFLICT, "하위 에픽이 존재하는 프로젝트는 삭제할 수 없습니다."),
+    EPIC_HAS_TASKS(HttpStatus.CONFLICT, "하위 태스크가 존재하는 에픽은 삭제할 수 없습니다."),
 
     // ── Chat / LLM ──
     LLM_SERVICE_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "LLM 서비스에 연결할 수 없습니다."),
