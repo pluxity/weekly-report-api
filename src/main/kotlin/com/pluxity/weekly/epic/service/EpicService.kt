@@ -156,6 +156,7 @@ class EpicService(
             throw CustomException(ErrorCode.NOT_FOUND_EPIC_ASSIGNMENT, epicId, userId)
         }
         epic.unassign(assignee)
+        taskRepository.deleteByEpicIdAndAssigneeId(epicId, userId)
         eventPublisher.publishEvent(
             TeamsNotificationEvent(userId, "${epic.name} 에픽에서 해제되었습니다"),
         )

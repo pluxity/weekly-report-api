@@ -237,6 +237,7 @@ class EpicServiceTest :
 
                 every { epicRepository.findByIdOrNull(1L) } returns epic
                 every { userRepository.findByIdOrNull(10L) } returns user
+                every { taskRepository.deleteByEpicIdAndAssigneeId(1L, 10L) } just runs
                 every { eventPublisher.publishEvent(event) } just runs
 
                 service.unassign(1L, 10L)

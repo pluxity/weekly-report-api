@@ -30,4 +30,6 @@ interface TaskRepository :
         status: TaskStatus,
         projectIds: List<Long>,
     ): List<Task>
+
+    fun deleteByEpicIdAndAssigneeId(epicId: Long, assigneeId: Long)
 }
