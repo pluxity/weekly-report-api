@@ -2,14 +2,15 @@ package com.pluxity.weekly.chat.context
 
 import com.pluxity.weekly.auth.user.repository.UserRepository
 import com.pluxity.weekly.authorization.AuthorizationService
+import com.pluxity.weekly.chat.dto.EpicSearchFilter
+import com.pluxity.weekly.chat.dto.ProjectSearchFilter
+import com.pluxity.weekly.chat.dto.TaskSearchFilter
 import com.pluxity.weekly.chat.util.ChatScope
 import com.pluxity.weekly.epic.dto.EpicResponse
 import com.pluxity.weekly.epic.entity.EpicStatus
 import com.pluxity.weekly.epic.service.EpicService
-import com.pluxity.weekly.project.entity.ProjectStatus
 import com.pluxity.weekly.project.service.ProjectService
 import com.pluxity.weekly.task.dto.TaskResponse
-import com.pluxity.weekly.task.entity.TaskStatus
 import com.pluxity.weekly.task.service.TaskService
 import com.pluxity.weekly.team.service.TeamService
 import org.springframework.data.domain.Sort
@@ -73,10 +74,12 @@ class ContextBuilder(
         excludeDone: Boolean,
     ) {
         val projects =
-            projectService
-                .findAll()
-                .filter { ChatScope.isWithinScope(it.startDate) || it.status != ProjectStatus.DONE }
-                .filter { !excludeDone || it.status != ProjectStatus.DONE }
+            projectService.search(
+                ProjectSearchFilter(
+                    excludeDone = excludeDone,
+                    scopeStartDate = ChatScope.scopeStartDate(),
+                ),
+            )
         context["projects"] =
             projects.map {
                 mapOf("id" to it.id, "name" to it.name, "status" to it.status.name)
@@ -90,10 +93,12 @@ class ContextBuilder(
     ) {
         val projects = projectService.findAll()
         val epics =
-            epicService
-                .findAll()
-                .filter { ChatScope.isWithinScope(it.startDate) || it.status != EpicStatus.DONE }
-                .filter { !excludeDone || it.status != EpicStatus.DONE }
+            epicService.search(
+                EpicSearchFilter(
+                    excludeDone = excludeDone,
+                    scopeStartDate = ChatScope.scopeStartDate(),
+                ),
+            )
         val epicsByProject = epics.groupBy { it.projectId }
         context["projects"] =
             projects
@@ -122,10 +127,12 @@ class ContextBuilder(
             context["projects"] = groupByProject(activeEpics)
         } else {
             val tasks =
-                taskService
-                    .findAll()
-                    .filter { ChatScope.isWithinScope(it.startDate) || it.status != TaskStatus.DONE }
-                    .filter { !excludeDone || it.status != TaskStatus.DONE }
+                taskService.search(
+                    TaskSearchFilter(
+                        excludeDone = excludeDone,
+                        scopeStartDate = ChatScope.scopeStartDate(),
+                    ),
+                )
             val tasksByEpicId = tasks.groupBy { it.epicId }
             val activeEpics = epics.filter { tasksByEpicId.containsKey(it.id) }
             context["projects"] = groupByProjectFull(activeEpics, tasksByEpicId)

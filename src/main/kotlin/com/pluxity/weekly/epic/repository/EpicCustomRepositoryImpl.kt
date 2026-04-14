@@ -6,6 +6,7 @@ import com.pluxity.weekly.chat.dto.EpicSearchFilter
 import com.pluxity.weekly.core.utils.findAllNotNull
 import com.pluxity.weekly.epic.entity.Epic
 import com.pluxity.weekly.epic.entity.EpicAssignment
+import com.pluxity.weekly.epic.entity.EpicStatus
 import com.pluxity.weekly.project.entity.Project
 
 class EpicCustomRepositoryImpl(
@@ -25,6 +26,13 @@ class EpicCustomRepositoryImpl(
                     filter.dueDateFrom?.let { path(Epic::dueDate).greaterThanOrEqualTo(it) },
                     filter.dueDateTo?.let { path(Epic::dueDate).lessThanOrEqualTo(it) },
                     filter.epicIds?.let { path(Epic::id).`in`(it) },
+                    if (filter.excludeDone) path(Epic::status).notEqual(EpicStatus.DONE) else null,
+                    filter.scopeStartDate?.let {
+                        or(
+                            path(Epic::startDate).greaterThanOrEqualTo(it),
+                            path(Epic::status).notEqual(EpicStatus.DONE),
+                        )
+                    },
                 )
         }
 }
