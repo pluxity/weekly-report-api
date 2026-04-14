@@ -31,5 +31,8 @@ interface TaskRepository :
         projectIds: List<Long>,
     ): List<Task>
 
-    fun deleteByEpicIdAndAssigneeId(epicId: Long, assigneeId: Long)
+    fun deleteByEpicIdAndAssigneeId(
+        epicId: Long,
+        assigneeId: Long,
+    )
 }

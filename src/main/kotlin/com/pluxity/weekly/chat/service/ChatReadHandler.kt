@@ -1,12 +1,12 @@
 package com.pluxity.weekly.chat.service
 
-import com.pluxity.weekly.chat.util.ChatScope
 import com.pluxity.weekly.chat.dto.ChatReadResponse
 import com.pluxity.weekly.chat.dto.EpicSearchFilter
 import com.pluxity.weekly.chat.dto.LlmAction
 import com.pluxity.weekly.chat.dto.ProjectSearchFilter
 import com.pluxity.weekly.chat.dto.TaskSearchFilter
 import com.pluxity.weekly.chat.dto.TeamSearchFilter
+import com.pluxity.weekly.chat.util.ChatScope
 import com.pluxity.weekly.epic.entity.EpicStatus
 import com.pluxity.weekly.epic.service.EpicService
 import com.pluxity.weekly.project.entity.ProjectStatus

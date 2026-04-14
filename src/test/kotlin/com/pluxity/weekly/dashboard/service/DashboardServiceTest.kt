@@ -465,7 +465,10 @@ class DashboardServiceTest :
                 val result = service.getWorkerDashboard()
 
                 Then("requestDate는 오늘 날짜이다") {
-                    result.epics[0].tasks[0].requestDate.toLocalDate() shouldBe LocalDate.now()
+                    result.epics[0]
+                        .tasks[0]
+                        .requestDate
+                        .toLocalDate() shouldBe LocalDate.now()
                 }
             }
         }
@@ -481,7 +484,8 @@ class DashboardServiceTest :
                     project = project,
                     status = EpicStatus.IN_PROGRESS,
                 )
-            org.springframework.test.util.ReflectionTestUtils.setField(epic, "updatedAt", epicUpdatedAt)
+            org.springframework.test.util.ReflectionTestUtils
+                .setField(epic, "updatedAt", epicUpdatedAt)
 
             When("대시보드를 조회하면") {
                 every { authorizationService.currentUser() } returns currentUser
