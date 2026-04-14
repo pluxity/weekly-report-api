@@ -14,6 +14,8 @@ interface TaskRepository :
         name: String,
     ): Boolean
 
+    fun existsByEpicId(epicId: Long): Boolean
+
     fun findByAssigneeId(assigneeId: Long): List<Task>
 
     fun findByAssigneeIdIn(assigneeIds: List<Long>): List<Task>

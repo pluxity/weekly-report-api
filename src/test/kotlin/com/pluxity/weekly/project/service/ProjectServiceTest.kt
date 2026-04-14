@@ -171,6 +171,7 @@ class ProjectServiceTest :
             When("존재하는 프로젝트를 삭제하면") {
                 val entity = dummyProject(id = 1L, name = "삭제대상 프로젝트")
 
+                every { epicRepository.existsByProjectId(1L) } returns false
                 every { projectRepository.findByIdOrNull(1L) } returns entity
                 every { projectRepository.delete(any<Project>()) } just runs
 
@@ -182,6 +183,8 @@ class ProjectServiceTest :
             }
 
             When("존재하지 않는 프로젝트를 삭제하면") {
+
+                every { epicRepository.existsByProjectId(999L) } returns false
                 every { projectRepository.findByIdOrNull(999L) } returns null
 
                 val exception =
@@ -191,6 +194,19 @@ class ProjectServiceTest :
 
                 Then("NOT_FOUND 예외가 발생한다") {
                     exception.code shouldBe ErrorCode.NOT_FOUND_PROJECT
+                }
+            }
+
+            When("하위 에픽이 존재하면") {
+                every { epicRepository.existsByProjectId(1L) } returns true
+
+                val exception =
+                    shouldThrow<CustomException> {
+                        service.delete(1L)
+                    }
+
+                Then("PROJECT_HAS_EPICS 예외가 발생한다") {
+                    exception.code shouldBe ErrorCode.PROJECT_HAS_EPICS
                 }
             }
         }
