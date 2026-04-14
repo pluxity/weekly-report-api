@@ -7,6 +7,7 @@ import com.pluxity.weekly.core.utils.findAllNotNull
 import com.pluxity.weekly.epic.entity.Epic
 import com.pluxity.weekly.project.entity.Project
 import com.pluxity.weekly.task.entity.Task
+import com.pluxity.weekly.task.entity.TaskStatus
 
 class TaskCustomRepositoryImpl(
     private val executor: KotlinJdslJpqlExecutor,
@@ -24,6 +25,13 @@ class TaskCustomRepositoryImpl(
                     filter.dueDateFrom?.let { path(Task::dueDate).greaterThanOrEqualTo(it) },
                     filter.dueDateTo?.let { path(Task::dueDate).lessThanOrEqualTo(it) },
                     filter.epicIds?.let { path(Task::epic)(Epic::id).`in`(it) },
+                    if (filter.excludeDone) path(Task::status).notEqual(TaskStatus.DONE) else null,
+                    filter.scopeStartDate?.let {
+                        or(
+                            path(Task::startDate).greaterThanOrEqualTo(it),
+                            path(Task::status).notEqual(TaskStatus.DONE),
+                        )
+                    },
                 )
         }
 }

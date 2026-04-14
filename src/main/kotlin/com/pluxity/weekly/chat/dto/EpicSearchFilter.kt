@@ -11,4 +11,6 @@ data class EpicSearchFilter(
     val dueDateFrom: LocalDate? = null,
     val dueDateTo: LocalDate? = null,
     val epicIds: List<Long>? = null,
+    val excludeDone: Boolean = false,
+    val scopeStartDate: LocalDate? = null,
 )

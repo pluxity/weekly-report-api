@@ -4,6 +4,7 @@ import com.linecorp.kotlinjdsl.support.spring.data.jpa.repository.KotlinJdslJpql
 import com.pluxity.weekly.chat.dto.ProjectSearchFilter
 import com.pluxity.weekly.core.utils.findAllNotNull
 import com.pluxity.weekly.project.entity.Project
+import com.pluxity.weekly.project.entity.ProjectStatus
 
 class ProjectCustomRepositoryImpl(
     private val executor: KotlinJdslJpqlExecutor,
@@ -19,6 +20,13 @@ class ProjectCustomRepositoryImpl(
                     filter.dueDateFrom?.let { path(Project::dueDate).greaterThanOrEqualTo(it) },
                     filter.dueDateTo?.let { path(Project::dueDate).lessThanOrEqualTo(it) },
                     filter.projectIds?.let { path(Project::id).`in`(it) },
+                    if (filter.excludeDone) path(Project::status).notEqual(ProjectStatus.DONE) else null,
+                    filter.scopeStartDate?.let {
+                        or(
+                            path(Project::startDate).greaterThanOrEqualTo(it),
+                            path(Project::status).notEqual(ProjectStatus.DONE),
+                        )
+                    },
                 )
         }
 }

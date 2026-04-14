@@ -10,4 +10,6 @@ data class ProjectSearchFilter(
     val dueDateFrom: LocalDate? = null,
     val dueDateTo: LocalDate? = null,
     val projectIds: List<Long>? = null,
+    val excludeDone: Boolean = false,
+    val scopeStartDate: LocalDate? = null,
 )
