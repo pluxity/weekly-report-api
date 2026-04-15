@@ -118,9 +118,6 @@ class EpicService(
         val user = authorizationService.currentUser()
         val epic = getEpicById(id)
         authorizationService.requireEpicManage(user, epic.project.requiredId)
-        if (taskRepository.existsByEpicId(id)) {
-            throw CustomException(ErrorCode.EPIC_HAS_TASKS)
-        }
         epicRepository.delete(epic)
     }
 

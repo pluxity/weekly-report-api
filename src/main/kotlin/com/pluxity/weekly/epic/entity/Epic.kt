@@ -3,6 +3,7 @@ package com.pluxity.weekly.epic.entity
 import com.pluxity.weekly.auth.user.entity.User
 import com.pluxity.weekly.core.entity.IdentityIdEntity
 import com.pluxity.weekly.project.entity.Project
+import com.pluxity.weekly.task.entity.Task
 import jakarta.persistence.CascadeType
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
@@ -37,6 +38,9 @@ class Epic(
 ) : IdentityIdEntity() {
     @OneToMany(mappedBy = "epic", cascade = [CascadeType.ALL], orphanRemoval = true)
     val assignments: MutableList<EpicAssignment> = mutableListOf()
+
+    @OneToMany(mappedBy = "epic", cascade = [CascadeType.REMOVE])
+    val tasks: MutableList<Task> = mutableListOf()
 
     fun assign(user: User) {
         if (assignments.none { it.user == user }) {

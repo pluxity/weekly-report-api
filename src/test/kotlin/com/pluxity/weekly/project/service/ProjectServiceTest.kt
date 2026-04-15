@@ -196,19 +196,6 @@ class ProjectServiceTest :
                     exception.code shouldBe ErrorCode.NOT_FOUND_PROJECT
                 }
             }
-
-            When("하위 에픽이 존재하면") {
-                every { epicRepository.existsByProjectId(1L) } returns true
-
-                val exception =
-                    shouldThrow<CustomException> {
-                        service.delete(1L)
-                    }
-
-                Then("PROJECT_HAS_EPICS 예외가 발생한다") {
-                    exception.code shouldBe ErrorCode.PROJECT_HAS_EPICS
-                }
-            }
         }
 
         Given("프로젝트 DONE 가드") {

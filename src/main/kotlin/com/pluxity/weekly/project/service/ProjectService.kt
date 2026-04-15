@@ -103,9 +103,6 @@ class ProjectService(
     fun delete(id: Long) {
         val user = authorizationService.currentUser()
         authorizationService.requireProjectManager(user, id)
-        if (epicRepository.existsByProjectId(id)) {
-            throw CustomException(ErrorCode.PROJECT_HAS_EPICS)
-        }
         projectRepository.delete(getById(id))
     }
 

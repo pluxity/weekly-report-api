@@ -120,7 +120,7 @@ class TaskService(
         if (task.status != TaskStatus.TODO && task.status != TaskStatus.IN_PROGRESS) {
             throw CustomException(ErrorCode.INVALID_STATUS_TRANSITION, task.status, TaskApprovalAction.REVIEW_REQUEST)
         }
-        task.update(status = TaskStatus.IN_REVIEW)
+        task.update(status = TaskStatus.IN_REVIEW, progress = 100)
         writeLog(task, user, TaskApprovalAction.REVIEW_REQUEST)
         task.epic.project.pmId?.let { pmId ->
             val card =

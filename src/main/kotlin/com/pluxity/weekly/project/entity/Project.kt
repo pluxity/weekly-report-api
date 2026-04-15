@@ -1,10 +1,13 @@
 package com.pluxity.weekly.project.entity
 
 import com.pluxity.weekly.core.entity.IdentityIdEntity
+import com.pluxity.weekly.epic.entity.Epic
+import jakarta.persistence.CascadeType
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.EnumType
 import jakarta.persistence.Enumerated
+import jakarta.persistence.OneToMany
 import jakarta.persistence.Table
 import org.hibernate.annotations.SoftDelete
 import java.time.LocalDate
@@ -27,6 +30,9 @@ class Project(
     @Column(name = "pm_id")
     var pmId: Long? = null,
 ) : IdentityIdEntity() {
+    @OneToMany(mappedBy = "project", cascade = [CascadeType.REMOVE])
+    val epics: MutableList<Epic> = mutableListOf()
+
     fun update(
         name: String? = null,
         description: String? = null,
