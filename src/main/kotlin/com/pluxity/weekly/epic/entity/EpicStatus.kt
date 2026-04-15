@@ -4,5 +4,4 @@ enum class EpicStatus {
     TODO,
     IN_PROGRESS,
     DONE,
-    HOLD,
 }

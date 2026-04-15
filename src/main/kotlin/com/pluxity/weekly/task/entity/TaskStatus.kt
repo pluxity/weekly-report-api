@@ -5,5 +5,4 @@ enum class TaskStatus {
     IN_PROGRESS,
     IN_REVIEW,
     DONE,
-    HOLD,
 }
