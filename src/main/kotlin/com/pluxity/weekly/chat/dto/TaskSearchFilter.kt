@@ -4,6 +4,7 @@ import com.pluxity.weekly.task.entity.TaskStatus
 import java.time.LocalDate
 
 data class TaskSearchFilter(
+    val taskId: Long? = null,
     val status: TaskStatus? = null,
     val epicId: Long? = null,
     val projectId: Long? = null,

@@ -17,6 +17,7 @@ class TaskCustomRepositoryImpl(
             select(entity(Task::class))
                 .from(entity(Task::class))
                 .whereAnd(
+                    filter.taskId?.let { path(Task::id).eq(it) },
                     filter.status?.let { path(Task::status).eq(it) },
                     filter.epicId?.let { path(Task::epic)(Epic::id).eq(it) },
                     filter.projectId?.let { path(Task::epic)(Epic::project)(Project::id).eq(it) },
