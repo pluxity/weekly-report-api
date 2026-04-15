@@ -2,7 +2,6 @@ package com.pluxity.weekly.authorization
 
 import com.pluxity.weekly.auth.user.entity.User
 import com.pluxity.weekly.auth.user.service.UserService
-import com.pluxity.weekly.authorization.UserType
 import com.pluxity.weekly.core.constant.ErrorCode
 import com.pluxity.weekly.core.exception.CustomException
 import com.pluxity.weekly.epic.repository.EpicRepository
