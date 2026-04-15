@@ -104,6 +104,9 @@ class ChatService(
                         action.action == "clarify" -> throw ChatClarifyException(
                             message = action.message ?: "좀 더 구체적으로 말씀해주세요.",
                         )
+                        target == "team" && action.action != "read" -> throw ChatClarifyException(
+                            message = "팀 관리는 웹페이지에서 이용해주세요.",
+                        )
                         !action.missingFields.isNullOrEmpty() ||
                             (action.action in listOf("update", "delete", "review_request", "assign", "unassign") && action.id == null) -> {
                             throw buildClarifyException(action)

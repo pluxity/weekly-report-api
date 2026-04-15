@@ -4,7 +4,6 @@ import com.pluxity.weekly.chat.dto.LlmAction
 import com.pluxity.weekly.epic.service.EpicService
 import com.pluxity.weekly.project.service.ProjectService
 import com.pluxity.weekly.task.service.TaskService
-import com.pluxity.weekly.team.service.TeamService
 import org.springframework.stereotype.Component
 
 /**
@@ -16,7 +15,6 @@ class ChatExecutor(
     private val projectService: ProjectService,
     private val epicService: EpicService,
     private val taskService: TaskService,
-    private val teamService: TeamService,
 ) {
     fun execute(action: LlmAction): Long? =
         when (action.action) {
@@ -35,6 +33,7 @@ class ChatExecutor(
     }
 
     private fun executeAssign(action: LlmAction): Long? {
+        if (action.target != "epic") return null
         val id = action.id ?: return null
         action.userIds?.forEach { userId ->
             epicService.assign(id, userId)
@@ -43,6 +42,7 @@ class ChatExecutor(
     }
 
     private fun executeUnassign(action: LlmAction): Long? {
+        if (action.target != "epic") return null
         val id = action.id ?: return null
         action.removeUserIds?.forEach { userId ->
             epicService.unassign(id, userId)
@@ -56,7 +56,6 @@ class ChatExecutor(
             "project" -> projectService.delete(id)
             "epic" -> epicService.delete(id)
             "task" -> taskService.delete(id)
-            "team" -> teamService.delete(id)
         }
         return id
     }

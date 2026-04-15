@@ -120,7 +120,6 @@ class AuthorizationService(
         when (target) {
             "project" -> if ("create" in actions) requireAdmin(user) else requireAdminOrPm(user)
             "epic" -> requireAdminOrPm(user)
-            "team" -> requireAdmin(user)
         }
     }
 

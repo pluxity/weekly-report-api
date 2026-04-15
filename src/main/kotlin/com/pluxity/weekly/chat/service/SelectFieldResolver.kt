@@ -170,11 +170,6 @@ class SelectFieldResolver(
                     result.add(resolveEpicCandidates(emptyList()) ?: return)
                 }
             }
-            "team" -> {
-                if ("leaderId" !in existingFields) {
-                    result.add(resolveUserCandidates("leaderId"))
-                }
-            }
         }
     }
 }

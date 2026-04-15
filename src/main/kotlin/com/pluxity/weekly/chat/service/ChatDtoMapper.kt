@@ -5,7 +5,6 @@ import com.pluxity.weekly.chat.dto.EpicChatDto
 import com.pluxity.weekly.chat.dto.LlmAction
 import com.pluxity.weekly.chat.dto.ProjectChatDto
 import com.pluxity.weekly.chat.dto.TaskChatDto
-import com.pluxity.weekly.chat.dto.TeamChatDto
 import com.pluxity.weekly.epic.dto.EpicResponse
 import com.pluxity.weekly.project.dto.ProjectResponse
 import com.pluxity.weekly.task.dto.TaskResponse
@@ -20,7 +19,6 @@ class ChatDtoMapper {
             "project" -> toProjectDto(action)
             "epic" -> toEpicDto(action)
             "task" -> toTaskDto(action)
-            "team" -> toTeamDto(action)
             else -> null
         }
     }
@@ -56,12 +54,6 @@ class ChatDtoMapper {
             startDate = action.startDate,
             dueDate = action.dueDate,
             assigneeId = action.assigneeId,
-        )
-
-    private fun toTeamDto(action: LlmAction) =
-        TeamChatDto(
-            name = action.name,
-            leaderId = action.leaderId,
         )
 
     // ── Response → ChatDto 변환 ──
