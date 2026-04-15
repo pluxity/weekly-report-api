@@ -3,11 +3,15 @@ package com.pluxity.weekly.chat.service
 import com.pluxity.weekly.authorization.AuthorizationService
 import com.pluxity.weekly.chat.context.ContextBuilder
 import com.pluxity.weekly.chat.dto.ChatActionResponse
+import com.pluxity.weekly.chat.dto.ChatDto
 import com.pluxity.weekly.chat.dto.LlmAction
 import com.pluxity.weekly.chat.exception.ChatClarifyException
 import com.pluxity.weekly.chat.llm.LlmService
 import com.pluxity.weekly.core.constant.ErrorCode
 import com.pluxity.weekly.core.exception.CustomException
+import com.pluxity.weekly.epic.service.EpicService
+import com.pluxity.weekly.project.service.ProjectService
+import com.pluxity.weekly.task.service.TaskService
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.core.io.ClassPathResource
 import org.springframework.data.redis.core.RedisTemplate
@@ -32,6 +36,9 @@ class ChatService(
     private val objectMapper: ObjectMapper,
     private val redisTemplate: RedisTemplate<String, Any>,
     private val authorizationService: AuthorizationService,
+    private val taskService: TaskService,
+    private val epicService: EpicService,
+    private val projectService: ProjectService,
 ) {
     companion object {
         private val RELEASE_LOCK_SCRIPT =
@@ -97,18 +104,26 @@ class ChatService(
                         action.action == "clarify" -> throw ChatClarifyException(
                             message = action.message ?: "좀 더 구체적으로 말씀해주세요.",
                         )
-                        action.action == "create" && target in listOf("project", "epic") -> {
-                            val selectFields = selectFieldResolver.resolve(action)
-                            ChatActionResponse(
-                                action = action.action,
-                                target = target,
-                                dto = chatDtoMapper.toDto(action),
-                                selectFields = selectFields.ifEmpty { null },
-                            )
-                        }
                         !action.missingFields.isNullOrEmpty() ||
                             (action.action in listOf("update", "delete", "review_request") && action.id == null) -> {
                             throw buildClarifyException(action)
+                        }
+                        action.action in listOf("create", "update") -> {
+                            val selectFields = selectFieldResolver.resolve(action)
+                            val dto = if (action.action == "update" && action.id != null) {
+                                val existing = loadExistingDto(target, action.id)
+                                val changes = chatDtoMapper.toDto(action)
+                                if (existing != null && changes != null) chatDtoMapper.merge(existing, changes) else changes
+                            } else {
+                                chatDtoMapper.toDto(action)
+                            }
+                            ChatActionResponse(
+                                action = action.action,
+                                target = target,
+                                id = action.id,
+                                dto = dto,
+                                selectFields = selectFields.ifEmpty { null },
+                            )
                         }
                         else -> {
                             val resultId = chatExecutor.execute(action)
@@ -187,5 +202,13 @@ class ChatService(
                 "create", "update", "delete", "review_request" -> "${r.action} ${r.target} id=${r.id ?: "pending"}"
                 else -> "${r.action} ${r.target}"
             }
+        }
+
+    private fun loadExistingDto(target: String, id: Long): ChatDto? =
+        when (target) {
+            "task" -> chatDtoMapper.fromTaskResponse(taskService.findById(id))
+            "epic" -> chatDtoMapper.fromEpicResponse(epicService.findById(id))
+            "project" -> chatDtoMapper.fromProjectResponse(projectService.findById(id))
+            else -> null
         }
 }

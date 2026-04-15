@@ -141,7 +141,7 @@ class SelectFieldResolver(
         action: LlmAction,
         result: MutableList<SelectField>,
     ) {
-        if (action.action != "create") return
+        if (action.action !in listOf("create", "update")) return
 
         val existingFields = result.map { it.field }.toSet()
 
