@@ -2,7 +2,6 @@ package com.pluxity.weekly.authorization
 
 import com.pluxity.weekly.auth.user.entity.User
 import com.pluxity.weekly.auth.user.service.UserService
-import com.pluxity.weekly.authorization.UserType
 import com.pluxity.weekly.core.constant.ErrorCode
 import com.pluxity.weekly.core.exception.CustomException
 import com.pluxity.weekly.epic.repository.EpicRepository
@@ -115,13 +114,12 @@ class AuthorizationService(
         target: String,
         actions: List<String>,
     ) {
-        val hasMutation = actions.any { it in listOf("create", "update", "delete") }
+        val hasMutation = actions.any { it in listOf("create", "update", "delete", "assign", "unassign") }
         if (!hasMutation) return
 
         when (target) {
             "project" -> if ("create" in actions) requireAdmin(user) else requireAdminOrPm(user)
             "epic" -> requireAdminOrPm(user)
-            "team" -> requireAdmin(user)
         }
     }
 

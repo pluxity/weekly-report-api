@@ -75,7 +75,8 @@ class DashboardServiceTest :
 
             When("대시보드를 조회하면") {
                 every { authorizationService.currentUser() } returns currentUser
-                every { epicRepository.findByAssignmentsUserIdWithProject(userId) } returns listOf(epic)
+                every { authorizationService.visibleEpicIds(currentUser) } returns listOf(epic.requiredId)
+                every { epicRepository.findAllById(any<List<Long>>()) } returns listOf(epic)
                 every { taskRepository.findByAssigneeId(userId) } returns listOf(task1, task2)
 
                 val result = service.getWorkerDashboard()
@@ -105,7 +106,8 @@ class DashboardServiceTest :
 
             When("대시보드를 조회하면") {
                 every { authorizationService.currentUser() } returns currentUser
-                every { epicRepository.findByAssignmentsUserIdWithProject(userId) } returns listOf(epic)
+                every { authorizationService.visibleEpicIds(currentUser) } returns listOf(epic.requiredId)
+                every { epicRepository.findAllById(any<List<Long>>()) } returns listOf(epic)
                 every { taskRepository.findByAssigneeId(userId) } returns emptyList()
 
                 val result = service.getWorkerDashboard()
@@ -123,7 +125,8 @@ class DashboardServiceTest :
         Given("에픽이 아예 없는 경우") {
             When("대시보드를 조회하면") {
                 every { authorizationService.currentUser() } returns currentUser
-                every { epicRepository.findByAssignmentsUserIdWithProject(userId) } returns emptyList()
+                every { authorizationService.visibleEpicIds(currentUser) } returns emptyList()
+                every { epicRepository.findAllById(any<List<Long>>()) } returns emptyList()
                 every { taskRepository.findByAssigneeId(userId) } returns emptyList()
 
                 val result = service.getWorkerDashboard()
@@ -145,7 +148,8 @@ class DashboardServiceTest :
 
             When("대시보드를 조회하면") {
                 every { authorizationService.currentUser() } returns currentUser
-                every { epicRepository.findByAssignmentsUserIdWithProject(userId) } returns listOf(epic1, epic2)
+                every { authorizationService.visibleEpicIds(currentUser) } returns listOf(epic1.requiredId, epic2.requiredId)
+                every { epicRepository.findAllById(any<List<Long>>()) } returns listOf(epic1, epic2)
                 every { taskRepository.findByAssigneeId(userId) } returns
                     listOf(
                         taskForEpic1,
@@ -193,7 +197,8 @@ class DashboardServiceTest :
                         dueDate = today.plusDays(5),
                     )
                 every { authorizationService.currentUser() } returns currentUser
-                every { epicRepository.findByAssignmentsUserIdWithProject(userId) } returns listOf(epic)
+                every { authorizationService.visibleEpicIds(currentUser) } returns listOf(epic.requiredId)
+                every { epicRepository.findAllById(any<List<Long>>()) } returns listOf(epic)
                 every { taskRepository.findByAssigneeId(userId) } returns listOf(task)
 
                 val result = service.getWorkerDashboard()
@@ -212,7 +217,8 @@ class DashboardServiceTest :
                         dueDate = today.plusDays(5),
                     )
                 every { authorizationService.currentUser() } returns currentUser
-                every { epicRepository.findByAssignmentsUserIdWithProject(userId) } returns listOf(epic)
+                every { authorizationService.visibleEpicIds(currentUser) } returns listOf(epic.requiredId)
+                every { epicRepository.findAllById(any<List<Long>>()) } returns listOf(epic)
                 every { taskRepository.findByAssigneeId(userId) } returns listOf(task)
 
                 val result = service.getWorkerDashboard()
@@ -231,7 +237,8 @@ class DashboardServiceTest :
                         dueDate = today.plusDays(8),
                     )
                 every { authorizationService.currentUser() } returns currentUser
-                every { epicRepository.findByAssignmentsUserIdWithProject(userId) } returns listOf(epic)
+                every { authorizationService.visibleEpicIds(currentUser) } returns listOf(epic.requiredId)
+                every { epicRepository.findAllById(any<List<Long>>()) } returns listOf(epic)
                 every { taskRepository.findByAssigneeId(userId) } returns listOf(task)
 
                 val result = service.getWorkerDashboard()
@@ -250,7 +257,8 @@ class DashboardServiceTest :
                         dueDate = today.minusDays(1),
                     )
                 every { authorizationService.currentUser() } returns currentUser
-                every { epicRepository.findByAssignmentsUserIdWithProject(userId) } returns listOf(epic)
+                every { authorizationService.visibleEpicIds(currentUser) } returns listOf(epic.requiredId)
+                every { epicRepository.findAllById(any<List<Long>>()) } returns listOf(epic)
                 every { taskRepository.findByAssigneeId(userId) } returns listOf(task)
 
                 val result = service.getWorkerDashboard()
@@ -269,7 +277,8 @@ class DashboardServiceTest :
                         dueDate = null,
                     )
                 every { authorizationService.currentUser() } returns currentUser
-                every { epicRepository.findByAssignmentsUserIdWithProject(userId) } returns listOf(epic)
+                every { authorizationService.visibleEpicIds(currentUser) } returns listOf(epic.requiredId)
+                every { epicRepository.findAllById(any<List<Long>>()) } returns listOf(epic)
                 every { taskRepository.findByAssigneeId(userId) } returns listOf(task)
 
                 val result = service.getWorkerDashboard()
@@ -288,7 +297,8 @@ class DashboardServiceTest :
                         dueDate = today,
                     )
                 every { authorizationService.currentUser() } returns currentUser
-                every { epicRepository.findByAssignmentsUserIdWithProject(userId) } returns listOf(epic)
+                every { authorizationService.visibleEpicIds(currentUser) } returns listOf(epic.requiredId)
+                every { epicRepository.findAllById(any<List<Long>>()) } returns listOf(epic)
                 every { taskRepository.findByAssigneeId(userId) } returns listOf(task)
 
                 val result = service.getWorkerDashboard()
@@ -316,7 +326,8 @@ class DashboardServiceTest :
                         dummyTask(id = 6L, epic = epic, status = TaskStatus.DONE),
                     )
                 every { authorizationService.currentUser() } returns currentUser
-                every { epicRepository.findByAssignmentsUserIdWithProject(userId) } returns listOf(epic)
+                every { authorizationService.visibleEpicIds(currentUser) } returns listOf(epic.requiredId)
+                every { epicRepository.findAllById(any<List<Long>>()) } returns listOf(epic)
                 every { taskRepository.findByAssigneeId(userId) } returns tasks
 
                 val result = service.getWorkerDashboard()
@@ -343,7 +354,8 @@ class DashboardServiceTest :
 
             When("태스크가 여러 개인 경우") {
                 every { authorizationService.currentUser() } returns currentUser
-                every { epicRepository.findByAssignmentsUserIdWithProject(userId) } returns listOf(epic)
+                every { authorizationService.visibleEpicIds(currentUser) } returns listOf(epic.requiredId)
+                every { epicRepository.findAllById(any<List<Long>>()) } returns listOf(epic)
                 every { taskRepository.findByAssigneeId(userId) } returns
                     listOf(
                         dummyTask(id = 100L, epic = epic, progress = 30),
@@ -359,7 +371,8 @@ class DashboardServiceTest :
 
             When("태스크가 1개인 경우") {
                 every { authorizationService.currentUser() } returns currentUser
-                every { epicRepository.findByAssignmentsUserIdWithProject(userId) } returns listOf(epic)
+                every { authorizationService.visibleEpicIds(currentUser) } returns listOf(epic.requiredId)
+                every { epicRepository.findAllById(any<List<Long>>()) } returns listOf(epic)
                 every { taskRepository.findByAssigneeId(userId) } returns listOf(dummyTask(id = 100L, epic = epic, progress = 65))
 
                 val result = service.getWorkerDashboard()
@@ -371,7 +384,8 @@ class DashboardServiceTest :
 
             When("태스크가 없는 경우") {
                 every { authorizationService.currentUser() } returns currentUser
-                every { epicRepository.findByAssignmentsUserIdWithProject(userId) } returns listOf(epic)
+                every { authorizationService.visibleEpicIds(currentUser) } returns listOf(epic.requiredId)
+                every { epicRepository.findAllById(any<List<Long>>()) } returns listOf(epic)
                 every { taskRepository.findByAssigneeId(userId) } returns emptyList()
 
                 val result = service.getWorkerDashboard()
@@ -393,7 +407,8 @@ class DashboardServiceTest :
                 val futureDate = LocalDate.now().plusDays(3)
                 val task = dummyTask(id = 100L, epic = epic, dueDate = futureDate)
                 every { authorizationService.currentUser() } returns currentUser
-                every { epicRepository.findByAssignmentsUserIdWithProject(userId) } returns listOf(epic)
+                every { authorizationService.visibleEpicIds(currentUser) } returns listOf(epic.requiredId)
+                every { epicRepository.findAllById(any<List<Long>>()) } returns listOf(epic)
                 every { taskRepository.findByAssigneeId(userId) } returns listOf(task)
 
                 val result = service.getWorkerDashboard()
@@ -407,7 +422,8 @@ class DashboardServiceTest :
             When("dueDate가 null인 경우") {
                 val task = dummyTask(id = 100L, epic = epic, dueDate = null)
                 every { authorizationService.currentUser() } returns currentUser
-                every { epicRepository.findByAssignmentsUserIdWithProject(userId) } returns listOf(epic)
+                every { authorizationService.visibleEpicIds(currentUser) } returns listOf(epic.requiredId)
+                every { epicRepository.findAllById(any<List<Long>>()) } returns listOf(epic)
                 every { taskRepository.findByAssigneeId(userId) } returns listOf(task)
 
                 val result = service.getWorkerDashboard()
@@ -429,7 +445,8 @@ class DashboardServiceTest :
 
             When("대시보드를 조회하면") {
                 every { authorizationService.currentUser() } returns currentUser
-                every { epicRepository.findByAssignmentsUserIdWithProject(userId) } returns listOf(epic)
+                every { authorizationService.visibleEpicIds(currentUser) } returns listOf(epic.requiredId)
+                every { epicRepository.findAllById(any<List<Long>>()) } returns listOf(epic)
                 every { taskRepository.findByAssigneeId(userId) } returns listOf(task)
                 every {
                     taskApprovalLogRepository.findLatestCreatedAtByTaskIdsAndAction(
@@ -453,7 +470,8 @@ class DashboardServiceTest :
 
             When("대시보드를 조회하면") {
                 every { authorizationService.currentUser() } returns currentUser
-                every { epicRepository.findByAssignmentsUserIdWithProject(userId) } returns listOf(epic)
+                every { authorizationService.visibleEpicIds(currentUser) } returns listOf(epic.requiredId)
+                every { epicRepository.findAllById(any<List<Long>>()) } returns listOf(epic)
                 every { taskRepository.findByAssigneeId(userId) } returns listOf(task)
                 every {
                     taskApprovalLogRepository.findLatestCreatedAtByTaskIdsAndAction(
@@ -489,7 +507,8 @@ class DashboardServiceTest :
 
             When("대시보드를 조회하면") {
                 every { authorizationService.currentUser() } returns currentUser
-                every { epicRepository.findByAssignmentsUserIdWithProject(userId) } returns listOf(epic)
+                every { authorizationService.visibleEpicIds(currentUser) } returns listOf(epic.requiredId)
+                every { epicRepository.findAllById(any<List<Long>>()) } returns listOf(epic)
                 every { taskRepository.findByAssigneeId(userId) } returns emptyList()
 
                 val result = service.getWorkerDashboard()
