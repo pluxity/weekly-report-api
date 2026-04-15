@@ -101,7 +101,10 @@ class ChatDtoMapper {
 
     // ── merge: 기존값 + LLM 변경값 (non-null만 덮어씌움) ──
 
-    fun merge(existing: ChatDto, changes: ChatDto): ChatDto =
+    fun merge(
+        existing: ChatDto,
+        changes: ChatDto,
+    ): ChatDto =
         when {
             existing is TaskChatDto && changes is TaskChatDto ->
                 TaskChatDto(

@@ -110,13 +110,14 @@ class ChatService(
                         }
                         action.action in listOf("create", "update") -> {
                             val selectFields = selectFieldResolver.resolve(action)
-                            val dto = if (action.action == "update" && action.id != null) {
-                                val existing = loadExistingDto(target, action.id)
-                                val changes = chatDtoMapper.toDto(action)
-                                if (existing != null && changes != null) chatDtoMapper.merge(existing, changes) else changes
-                            } else {
-                                chatDtoMapper.toDto(action)
-                            }
+                            val dto =
+                                if (action.action == "update" && action.id != null) {
+                                    val existing = loadExistingDto(target, action.id)
+                                    val changes = chatDtoMapper.toDto(action)
+                                    if (existing != null && changes != null) chatDtoMapper.merge(existing, changes) else changes
+                                } else {
+                                    chatDtoMapper.toDto(action)
+                                }
                             ChatActionResponse(
                                 action = action.action,
                                 target = target,
@@ -204,7 +205,10 @@ class ChatService(
             }
         }
 
-    private fun loadExistingDto(target: String, id: Long): ChatDto? =
+    private fun loadExistingDto(
+        target: String,
+        id: Long,
+    ): ChatDto? =
         when (target) {
             "task" -> chatDtoMapper.fromTaskResponse(taskService.findById(id))
             "epic" -> chatDtoMapper.fromEpicResponse(epicService.findById(id))
