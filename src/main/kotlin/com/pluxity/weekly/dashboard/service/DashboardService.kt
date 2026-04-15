@@ -55,7 +55,8 @@ class DashboardService(
         val user = authorizationService.currentUser()
         val userId = user.requiredId
 
-        val epics = epicRepository.findByAssignmentsUserIdWithProject(userId)
+        val visibleEpicIds = authorizationService.visibleEpicIds(user)
+        val epics = if (visibleEpicIds == null) epicRepository.findAll() else epicRepository.findAllById(visibleEpicIds)
         val tasks =
             taskRepository.findByAssigneeId(userId)
         val tasksByEpicId = tasks.groupBy { it.epic.requiredId }
