@@ -115,7 +115,7 @@ class AuthorizationService(
         target: String,
         actions: List<String>,
     ) {
-        val hasMutation = actions.any { it in listOf("create", "update", "delete") }
+        val hasMutation = actions.any { it in listOf("create", "update", "delete", "assign", "unassign") }
         if (!hasMutation) return
 
         when (target) {
