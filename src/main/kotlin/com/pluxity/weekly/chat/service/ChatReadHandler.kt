@@ -6,7 +6,6 @@ import com.pluxity.weekly.chat.dto.LlmAction
 import com.pluxity.weekly.chat.dto.ProjectSearchFilter
 import com.pluxity.weekly.chat.dto.TaskSearchFilter
 import com.pluxity.weekly.chat.dto.TeamSearchFilter
-import com.pluxity.weekly.chat.util.ChatScope
 import com.pluxity.weekly.epic.entity.EpicStatus
 import com.pluxity.weekly.epic.service.EpicService
 import com.pluxity.weekly.project.entity.ProjectStatus
@@ -33,21 +32,18 @@ class ChatReadHandler(
                     tasks =
                         taskService
                             .search(buildTaskFilter(filters))
-                            .filter { ChatScope.isWithinScope(it.startDate) || it.status != TaskStatus.DONE },
                 )
             "project" ->
                 ChatReadResponse(
                     projects =
                         projectService
                             .search(buildProjectFilter(filters))
-                            .filter { ChatScope.isWithinScope(it.startDate) || it.status != ProjectStatus.DONE },
                 )
             "epic" ->
                 ChatReadResponse(
                     epics =
                         epicService
                             .search(buildEpicFilter(filters))
-                            .filter { ChatScope.isWithinScope(it.startDate) || it.status != EpicStatus.DONE },
                 )
             "team" ->
                 ChatReadResponse(
@@ -62,7 +58,6 @@ class ChatReadHandler(
                     tasks =
                         taskService
                             .search(buildTaskFilter(filters))
-                            .filter { ChatScope.isWithinScope(it.startDate) || it.status != TaskStatus.DONE },
                 )
         }
     }
