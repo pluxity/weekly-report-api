@@ -1,5 +1,6 @@
 package com.pluxity.weekly.teams.service
 
+import com.pluxity.weekly.auth.user.repository.UserRepository
 import com.pluxity.weekly.authorization.AuthorizationService
 import com.pluxity.weekly.teams.converter.AdaptiveCardConverter
 import com.pluxity.weekly.teams.dto.Activity
@@ -14,6 +15,7 @@ class TeamsMessageHandler(
     private val cardConverter: AdaptiveCardConverter,
     private val messageSender: TeamsMessageSender,
     private val authorizationService: AuthorizationService,
+    private val userRepository: UserRepository,
 ) {
     fun handleActivity(activity: Activity) {
         when (activity.type) {
@@ -41,6 +43,7 @@ class TeamsMessageHandler(
         } else if (!aadObjectId.isNullOrBlank()) {
             val currentUser = authorizationService.currentUser()
             currentUser.updateTeamsInfo(aadObjectId, serviceUrl, conversationId)
+            userRepository.save(currentUser)
         } else {
             log.warn { "aadObjectId 누락 - Teams 정보 저장 불가" }
         }
