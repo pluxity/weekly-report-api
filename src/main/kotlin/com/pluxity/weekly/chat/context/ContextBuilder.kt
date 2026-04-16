@@ -216,8 +216,7 @@ class ContextBuilder(
 
     private fun findUsersByRole(roleName: String): List<UserRef> =
         userRepository
-            .findAllBy(Sort.by("name"))
-            .filter { user -> user.userRoles.any { it.role.name.uppercase() == roleName } }
+            .findAllByRoleName(roleName)
             .map { it.toRef() }
 
     private fun findAllUsers(): List<UserRef> =
