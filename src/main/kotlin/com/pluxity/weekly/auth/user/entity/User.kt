@@ -25,6 +25,15 @@ class User(
     @Column(unique = true)
     var email: String? = null,
 ) : IdentityIdEntity() {
+    @Column(name = "aad_object_id", unique = true)
+    var aadObjectId: String? = null
+
+    @Column(name = "teams_conversation_id")
+    var teamsConversationId: String? = null
+
+    @Column(name = "teams_service_url")
+    var teamsServiceUrl: String? = null
+
     @Column(name = "profile_image_id")
     var profileImageId: Long? = null
 
@@ -98,6 +107,16 @@ class User(
 
     fun changeProfileImageId(profileImageId: Long?) {
         this.profileImageId = profileImageId
+    }
+
+    fun updateTeamsInfo(
+        aadObjectId: String,
+        serviceUrl: String,
+        conversationId: String,
+    ) {
+        this.aadObjectId = aadObjectId
+        this.teamsServiceUrl = serviceUrl
+        this.teamsConversationId = conversationId
     }
 
     fun isAdmin(): Boolean = userRoles.any { it.role.auth == RoleType.ADMIN.roleName }

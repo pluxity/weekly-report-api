@@ -1,10 +1,9 @@
 package com.pluxity.weekly.teams.service
 
+import com.pluxity.weekly.auth.user.repository.UserRepository
 import com.pluxity.weekly.authorization.AuthorizationService
 import com.pluxity.weekly.teams.converter.AdaptiveCardConverter
 import com.pluxity.weekly.teams.dto.Activity
-import com.pluxity.weekly.teams.entity.TeamsAccount
-import com.pluxity.weekly.teams.repository.TeamsAccountRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.stereotype.Service
 
@@ -16,7 +15,7 @@ class TeamsMessageHandler(
     private val cardConverter: AdaptiveCardConverter,
     private val messageSender: TeamsMessageSender,
     private val authorizationService: AuthorizationService,
-    private val teamsAccountRepository: TeamsAccountRepository,
+    private val userRepository: UserRepository,
 ) {
     fun handleActivity(activity: Activity) {
         when (activity.type) {
@@ -41,23 +40,12 @@ class TeamsMessageHandler(
         val aadObjectId = activity.from?.aadObjectId
         if (serviceUrl.isNullOrBlank() || conversationId.isNullOrBlank()) {
             log.warn { "serviceUrl 또는 conversationId 누락 - conversationReference 저장 불가" }
-        } else {
+        } else if (!aadObjectId.isNullOrBlank()) {
             val currentUser = authorizationService.currentUser()
-            val existing = teamsAccountRepository.findByUserId(currentUser.requiredId)
-            if (existing != null) {
-                existing.update(serviceUrl, conversationId)
-            } else if (!aadObjectId.isNullOrBlank()) {
-                teamsAccountRepository.save(
-                    TeamsAccount(
-                        aadObjectId = aadObjectId,
-                        userId = currentUser.requiredId,
-                        serviceUrl = serviceUrl,
-                        conversationId = conversationId,
-                    ),
-                )
-            } else {
-                log.warn { "aadObjectId 누락 - TeamsAccount 저장 불가" }
-            }
+            currentUser.updateTeamsInfo(aadObjectId, serviceUrl, conversationId)
+            userRepository.save(currentUser)
+        } else {
+            log.warn { "aadObjectId 누락 - Teams 정보 저장 불가" }
         }
 
         if (action == "add") {

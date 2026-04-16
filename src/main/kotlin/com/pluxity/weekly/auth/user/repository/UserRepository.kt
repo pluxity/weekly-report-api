@@ -41,4 +41,11 @@ interface UserRepository : JpaRepository<User, Long> {
         ],
     )
     fun findByName(name: String): User?
+
+    @EntityGraph(
+        attributePaths = [
+            "userRoles", "userRoles.role",
+        ],
+    )
+    fun findByAadObjectId(aadObjectId: String): User?
 }

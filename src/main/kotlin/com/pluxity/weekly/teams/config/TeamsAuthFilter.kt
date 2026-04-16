@@ -3,7 +3,6 @@ package com.pluxity.weekly.teams.config
 import com.pluxity.weekly.auth.authentication.security.CustomUserDetails
 import com.pluxity.weekly.auth.user.entity.User
 import com.pluxity.weekly.auth.user.repository.UserRepository
-import com.pluxity.weekly.teams.repository.TeamsAccountRepository
 import com.pluxity.weekly.teams.service.TeamsApiClient
 import io.github.oshai.kotlinlogging.KotlinLogging
 import jakarta.servlet.FilterChain
@@ -30,7 +29,6 @@ private val log = KotlinLogging.logger {}
 class TeamsAuthFilter(
     private val objectMapper: ObjectMapper,
     private val userRepository: UserRepository,
-    private val teamsAccountRepository: TeamsAccountRepository,
     private val teamsApiClient: TeamsApiClient,
 ) : OncePerRequestFilter() {
     override fun shouldNotFilter(request: HttpServletRequest): Boolean = !request.requestURI.endsWith("/teams/messages")
@@ -77,13 +75,10 @@ class TeamsAuthFilter(
     }
 
     private fun resolveUser(aadObjectId: String): User? {
-        // 1. TeamsAccount에서 매핑된 사용자 조회
-        val account = teamsAccountRepository.findByAadObjectId(aadObjectId)
-        if (account != null) {
-            return userRepository.findWithGraphById(account.userId)
-        }
+        // 1. aadObjectId로 직접 사용자 조회
+        userRepository.findByAadObjectId(aadObjectId)?.let { return it }
 
-        // 2. Graph API로 사용자 정보 조회 → username(이메일) 매칭
+        // 2. Graph API로 사용자 정보 조회 → email 매칭
         val graphUser = teamsApiClient.getGraphUser(aadObjectId)
         if (graphUser == null) {
             log.warn { "Graph API 사용자 조회 실패 - aadObjectId: $aadObjectId" }
