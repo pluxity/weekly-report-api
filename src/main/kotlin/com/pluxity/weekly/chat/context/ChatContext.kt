@@ -52,18 +52,48 @@ data class TeamContext(
     val users: List<UserRef>,
 ) : ChatContext()
 
-data class UserRef(val id: Long, val name: String)
+data class UserRef(
+    val id: Long,
+    val name: String,
+)
 
-data class TeamRef(val id: Long, val name: String)
+data class TeamRef(
+    val id: Long,
+    val name: String,
+)
 
-data class ProjectSimple(val id: Long, val name: String, val status: String)
+data class ProjectSimple(
+    val id: Long,
+    val name: String,
+    val status: String,
+)
 
-data class EpicRef(val id: Long, val name: String)
+data class EpicRef(
+    val id: Long,
+    val name: String,
+)
 
-data class ProjectWithEpics(val id: Long, val name: String, val epics: List<EpicRef>)
+data class ProjectWithEpics(
+    val id: Long,
+    val name: String,
+    val epics: List<EpicRef>,
+)
 
-data class TaskRef(val id: Long, val name: String, val status: String, val progress: Int)
+data class TaskRef(
+    val id: Long,
+    val name: String,
+    val status: String,
+    val progress: Int,
+)
 
-data class EpicWithTasks(val id: Long, val name: String, val tasks: List<TaskRef>)
+data class EpicWithTasks(
+    val id: Long,
+    val name: String,
+    val tasks: List<TaskRef>,
+)
 
-data class ProjectWithEpicsAndTasks(val id: Long, val name: String, val epics: List<EpicWithTasks>)
+data class ProjectWithEpicsAndTasks(
+    val id: Long,
+    val name: String,
+    val epics: List<EpicWithTasks>,
+)

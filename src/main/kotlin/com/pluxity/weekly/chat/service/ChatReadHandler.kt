@@ -60,7 +60,7 @@ class ChatReadHandler(
     ): TaskSearchFilter =
         TaskSearchFilter(
             taskId = id,
-            status = filters?.status?.let(TaskStatus::valueOf),
+            status = filters?.status?.let { s -> TaskStatus.entries.find { it.name.equals(s, ignoreCase = true) } },
             epicId = filters?.epicId,
             projectId = filters?.projectId,
             assigneeId = filters?.assigneeId,
@@ -75,7 +75,7 @@ class ChatReadHandler(
     ): ProjectSearchFilter =
         ProjectSearchFilter(
             projectIds = id?.let { listOf(it) },
-            status = filters?.status?.let(ProjectStatus::valueOf),
+            status = filters?.status?.let { s -> ProjectStatus.entries.find { it.name.equals(s, ignoreCase = true) } },
             name = filters?.name,
             pmId = filters?.pmId,
             dueDateFrom = filters?.dueDateFrom,
@@ -88,7 +88,7 @@ class ChatReadHandler(
     ): EpicSearchFilter =
         EpicSearchFilter(
             epicIds = id?.let { listOf(it) },
-            status = filters?.status?.let(EpicStatus::valueOf),
+            status = filters?.status?.let { s -> EpicStatus.entries.find { it.name.equals(s, ignoreCase = true) } },
             name = filters?.name,
             projectId = filters?.projectId,
             assigneeId = filters?.assigneeId,

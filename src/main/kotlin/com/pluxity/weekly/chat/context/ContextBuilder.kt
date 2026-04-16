@@ -130,11 +130,9 @@ class ContextBuilder(
         user: UserRef,
         createOnly: Boolean,
         excludeDone: Boolean,
-    ): ChatContext {
-        val epics = epicService.findAll()
-
-        return if (createOnly) {
-            val activeEpics = epics.filter { it.status != EpicStatus.DONE }
+    ): ChatContext =
+        if (createOnly) {
+            val activeEpics = epicService.findAll().filter { it.status != EpicStatus.DONE }
             TaskCreateContext(
                 today = today,
                 todayDayOfWeek = todayDayOfWeek,
@@ -150,7 +148,12 @@ class ContextBuilder(
                     ),
                 )
             val tasksByEpicId = tasks.groupBy { it.epicId }
-            val activeEpics = epics.filter { tasksByEpicId.containsKey(it.id) }
+            val activeEpics =
+                if (tasksByEpicId.isEmpty()) {
+                    emptyList()
+                } else {
+                    epicService.search(EpicSearchFilter(epicIds = tasksByEpicId.keys.toList()))
+                }
             TaskContext(
                 today = today,
                 todayDayOfWeek = todayDayOfWeek,
@@ -159,7 +162,6 @@ class ContextBuilder(
                 users = findAllUsers(),
             )
         }
-    }
 
     private fun buildTeamContext(
         today: String,
