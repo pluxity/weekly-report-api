@@ -1,5 +1,6 @@
 package com.pluxity.weekly.chat.context
 
+import com.pluxity.weekly.auth.user.entity.User
 import com.pluxity.weekly.auth.user.repository.UserRepository
 import com.pluxity.weekly.authorization.AuthorizationService
 import com.pluxity.weekly.chat.dto.EpicSearchFilter
@@ -18,6 +19,8 @@ import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 import tools.jackson.databind.ObjectMapper
 import java.time.LocalDate
+import java.time.format.TextStyle
+import java.util.Locale
 
 /**
  * target별 CONTEXT 포함 데이터
@@ -27,7 +30,6 @@ import java.time.LocalDate
  * task    → create: projects > epics / 그 외: projects > epics > tasks
  * team    → teams + users(전체)
  *
- * users는 항상 포함 (read에서도 이름→ID 매칭 필요)
  * 조회 범위는 Service.search()에서 AuthorizationService 기반으로 제한
  */
 @Component
@@ -49,48 +51,53 @@ class ContextBuilder(
 
         authorizationService.checkChatPermission(user, target, actions)
 
-        val context =
-            mutableMapOf<String, Any?>(
-                "today" to LocalDate.now().toString(),
-                "today_day_of_week" to LocalDate.now().dayOfWeek.getDisplayName(java.time.format.TextStyle.FULL, java.util.Locale.KOREAN),
-                "user" to mapOf("id" to user.requiredId, "name" to user.name),
-            )
+        val today = LocalDate.now().toString()
+        val todayDayOfWeek = LocalDate.now().dayOfWeek.getDisplayName(TextStyle.FULL, Locale.KOREAN)
+        val userRef = UserRef(id = user.requiredId, name = user.name)
 
         val hasCreateOnly = "create" in actions && "update" !in actions
         val excludeDone = "update" in actions || "delete" in actions
 
-        when (target) {
-            "project" -> buildProjectContext(context, excludeDone)
-            "epic" -> buildEpicContext(context, excludeDone)
-            "team" -> buildTeamContext(context)
-            else -> buildTaskContext(context, hasCreateOnly, excludeDone)
-        }
+        val context: ChatContext =
+            when (target) {
+                "project" -> buildProjectContext(today, todayDayOfWeek, userRef, excludeDone)
+                "epic" -> buildEpicContext(today, todayDayOfWeek, userRef, excludeDone)
+                "team" -> buildTeamContext(today, todayDayOfWeek, userRef)
+                else -> buildTaskContext(today, todayDayOfWeek, userRef, hasCreateOnly, excludeDone)
+            }
 
         return objectMapper.writeValueAsString(context)
     }
 
     private fun buildProjectContext(
-        context: MutableMap<String, Any?>,
+        today: String,
+        todayDayOfWeek: String,
+        user: UserRef,
         excludeDone: Boolean,
-    ) {
+    ): ProjectContext {
         val projects =
-            projectService.search(
-                ProjectSearchFilter(
-                    excludeDone = excludeDone,
-                    scopeStartDate = ChatScope.scopeStartDate(),
-                ),
-            )
-        context["projects"] =
-            projects.map {
-                mapOf("id" to it.id, "name" to it.name, "status" to it.status.name)
-            }
-        context["users"] = findUsersByRole("PM")
+            projectService
+                .search(
+                    ProjectSearchFilter(
+                        excludeDone = excludeDone,
+                        scopeStartDate = ChatScope.scopeStartDate(),
+                    ),
+                ).map { ProjectSimple(id = it.id, name = it.name, status = it.status.name) }
+        return ProjectContext(
+            today = today,
+            todayDayOfWeek = todayDayOfWeek,
+            user = user,
+            projects = projects,
+            users = findUsersByRole("PM"),
+        )
     }
 
     private fun buildEpicContext(
-        context: MutableMap<String, Any?>,
+        today: String,
+        todayDayOfWeek: String,
+        user: UserRef,
         excludeDone: Boolean,
-    ) {
+    ): EpicContext {
         val projects = projectService.findAll()
         val epics =
             epicService.search(
@@ -100,31 +107,38 @@ class ContextBuilder(
                 ),
             )
         val epicsByProject = epics.groupBy { it.projectId }
-        context["projects"] =
-            projects
-                .map { project ->
-                    mapOf(
-                        "id" to project.id,
-                        "name" to project.name,
-                        "epics" to
-                            (epicsByProject[project.id] ?: emptyList()).map {
-                                mapOf("id" to it.id, "name" to it.name)
-                            },
-                    )
-                }
-        context["users"] = findAllUsers()
+        val projectList =
+            projects.map { project ->
+                ProjectWithEpics(
+                    id = project.id,
+                    name = project.name,
+                    epics = (epicsByProject[project.id] ?: emptyList()).map { EpicRef(id = it.id, name = it.name) },
+                )
+            }
+        return EpicContext(
+            today = today,
+            todayDayOfWeek = todayDayOfWeek,
+            user = user,
+            projects = projectList,
+            users = findAllUsers(),
+        )
     }
 
     private fun buildTaskContext(
-        context: MutableMap<String, Any?>,
+        today: String,
+        todayDayOfWeek: String,
+        user: UserRef,
         createOnly: Boolean,
         excludeDone: Boolean,
-    ) {
-        val epics = epicService.findAll()
-
+    ): ChatContext =
         if (createOnly) {
-            val activeEpics = epics.filter { it.status != EpicStatus.DONE }
-            context["projects"] = groupByProject(activeEpics)
+            val activeEpics = epicService.findAll().filter { it.status != EpicStatus.DONE }
+            TaskCreateContext(
+                today = today,
+                todayDayOfWeek = todayDayOfWeek,
+                user = user,
+                projects = groupByProject(activeEpics),
+            )
         } else {
             val tasks =
                 taskService.search(
@@ -134,50 +148,67 @@ class ContextBuilder(
                     ),
                 )
             val tasksByEpicId = tasks.groupBy { it.epicId }
-            val activeEpics = epics.filter { tasksByEpicId.containsKey(it.id) }
-            context["projects"] = groupByProjectFull(activeEpics, tasksByEpicId)
-            context["users"] = findAllUsers()
+            val activeEpics =
+                if (tasksByEpicId.isEmpty()) {
+                    emptyList()
+                } else {
+                    epicService.search(EpicSearchFilter(epicIds = tasksByEpicId.keys.toList()))
+                }
+            TaskContext(
+                today = today,
+                todayDayOfWeek = todayDayOfWeek,
+                user = user,
+                projects = groupByProjectFull(activeEpics, tasksByEpicId),
+                users = findAllUsers(),
+            )
         }
-    }
 
-    private fun buildTeamContext(context: MutableMap<String, Any?>) {
-        context["teams"] = teamService.findAll().map { mapOf("id" to it.id, "name" to it.name) }
-        context["users"] = findAllUsers()
-    }
+    private fun buildTeamContext(
+        today: String,
+        todayDayOfWeek: String,
+        user: UserRef,
+    ): TeamContext =
+        TeamContext(
+            today = today,
+            todayDayOfWeek = todayDayOfWeek,
+            user = user,
+            teams = teamService.findAll().map { TeamRef(id = it.id, name = it.name) },
+            users = findAllUsers(),
+        )
 
-    private fun groupByProject(epics: List<EpicResponse>): List<Map<String, Any?>> =
+    private fun groupByProject(epics: List<EpicResponse>): List<ProjectWithEpics> =
         epics
             .groupBy { it.projectId to it.projectName }
             .map { (key, epics) ->
-                mapOf(
-                    "id" to key.first,
-                    "name" to key.second,
-                    "epics" to epics.map { mapOf("id" to it.id, "name" to it.name) },
+                ProjectWithEpics(
+                    id = key.first,
+                    name = key.second,
+                    epics = epics.map { EpicRef(id = it.id, name = it.name) },
                 )
             }
 
     private fun groupByProjectFull(
         epics: List<EpicResponse>,
         tasksByEpicId: Map<Long, List<TaskResponse>>,
-    ): List<Map<String, Any?>> =
+    ): List<ProjectWithEpicsAndTasks> =
         epics
             .groupBy { it.projectId to it.projectName }
             .map { (key, epics) ->
-                mapOf(
-                    "id" to key.first,
-                    "name" to key.second,
-                    "epics" to
+                ProjectWithEpicsAndTasks(
+                    id = key.first,
+                    name = key.second,
+                    epics =
                         epics.map { epic ->
-                            mapOf(
-                                "id" to epic.id,
-                                "name" to epic.name,
-                                "tasks" to
+                            EpicWithTasks(
+                                id = epic.id,
+                                name = epic.name,
+                                tasks =
                                     (tasksByEpicId[epic.id] ?: emptyList()).map { task ->
-                                        mapOf(
-                                            "id" to task.id,
-                                            "name" to task.name,
-                                            "status" to task.status,
-                                            "progress" to task.progress,
+                                        TaskRef(
+                                            id = task.id,
+                                            name = task.name,
+                                            status = task.status.name,
+                                            progress = task.progress,
                                         )
                                     },
                             )
@@ -185,14 +216,15 @@ class ContextBuilder(
                 )
             }
 
-    private fun findUsersByRole(roleName: String): List<Map<String, Any?>> =
+    private fun findUsersByRole(roleName: String): List<UserRef> =
         userRepository
-            .findAllBy(Sort.by("name"))
-            .filter { user -> user.userRoles.any { it.role.name.uppercase() == roleName } }
-            .map { mapOf("id" to it.requiredId, "name" to it.name) }
+            .findAllByRoleName(roleName)
+            .map { it.toRef() }
 
-    private fun findAllUsers(): List<Map<String, Any?>> =
+    private fun findAllUsers(): List<UserRef> =
         userRepository
             .findAllBy(Sort.by("name"))
-            .map { mapOf("id" to it.requiredId, "name" to it.name) }
+            .map { it.toRef() }
+
+    private fun User.toRef(): UserRef = UserRef(id = this.requiredId, name = this.name)
 }

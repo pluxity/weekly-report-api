@@ -10,7 +10,6 @@ import com.pluxity.weekly.project.repository.ProjectRepository
 import com.pluxity.weekly.project.service.ProjectService
 import com.pluxity.weekly.task.repository.TaskRepository
 import org.springframework.data.domain.Sort
-import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Component
 
 @Component
@@ -25,18 +24,10 @@ class SelectFieldResolver(
     fun resolve(action: LlmAction): List<SelectField> {
         val missingFields = action.missingFields ?: emptyList()
         val candidateIds = action.candidates ?: emptyList()
-        val result = mutableListOf<SelectField>()
-
-        for (field in missingFields) {
-            val selectField =
-                when (field) {
-                    "id" -> resolveIdCandidates(action.target, candidateIds)
-                    "project_id" -> resolveProjectCandidates(candidateIds)
-                    "epic_id" -> resolveEpicCandidates(candidateIds)
-                    else -> null
-                }
-            if (selectField != null) result.add(selectField)
-        }
+        val result =
+            missingFields
+                .mapNotNull { dispatch(it, action.target, candidateIds) }
+                .toMutableList()
 
         addSelectFields(action, result)
 
@@ -47,12 +38,18 @@ class SelectFieldResolver(
         field: String,
         target: String?,
         candidateIds: List<Long>,
-    ): List<String> =
+    ): List<String> = dispatch(field, target, candidateIds)?.candidates?.map { it.name } ?: emptyList()
+
+    private fun dispatch(
+        field: String,
+        target: String?,
+        candidateIds: List<Long>,
+    ): SelectField? =
         when (field) {
-            "id" -> resolveIdCandidates(target, candidateIds)?.candidates?.map { it.name } ?: emptyList()
-            "project_id" -> resolveProjectCandidates(candidateIds)?.candidates?.map { it.name } ?: emptyList()
-            "epic_id" -> resolveEpicCandidates(candidateIds)?.candidates?.map { it.name } ?: emptyList()
-            else -> emptyList()
+            "id" -> resolveIdCandidates(target, candidateIds)
+            "project_id" -> resolveProjectCandidates(candidateIds)
+            "epic_id" -> resolveEpicCandidates(candidateIds)
+            else -> null
         }
 
     private fun resolveIdCandidates(
@@ -63,24 +60,15 @@ class SelectFieldResolver(
         val candidates =
             when (target) {
                 "task" ->
-                    candidateIds.mapNotNull { id ->
-                        taskRepository.findByIdOrNull(id)?.let { task ->
-                            val epic = epicRepository.findByIdOrNull(task.epic.id!!)
-                            val project = epic?.let { projectRepository.findByIdOrNull(it.project.id!!) }
-                            Candidate(id.toString(), "${task.name} (${project?.name ?: ""}/${epic?.name ?: ""})")
-                        }
+                    taskRepository.findAllWithEpicAndProjectByIdIn(candidateIds).map { task ->
+                        Candidate(task.requiredId.toString(), "${task.name} (${task.epic.project.name}/${task.epic.name})")
                     }
                 "epic" ->
-                    candidateIds.mapNotNull { id ->
-                        epicRepository.findByIdOrNull(id)?.let { epic ->
-                            val project = projectRepository.findByIdOrNull(epic.project.id!!)
-                            Candidate(id.toString(), "${epic.name} (${project?.name ?: ""})")
-                        }
+                    epicRepository.findAllWithProjectByIdIn(candidateIds).map { epic ->
+                        Candidate(epic.requiredId.toString(), "${epic.name} (${epic.project.name})")
                     }
                 "project" ->
-                    candidateIds.mapNotNull { id ->
-                        projectRepository.findByIdOrNull(id)?.let { Candidate(id.toString(), it.name) }
-                    }
+                    projectRepository.findAllById(candidateIds).map { Candidate(it.requiredId.toString(), it.name) }
                 else -> return null
             }
         return SelectField(field = "id", candidates = candidates)
@@ -89,9 +77,7 @@ class SelectFieldResolver(
     private fun resolveProjectCandidates(candidateIds: List<Long>): SelectField? {
         val candidates =
             if (candidateIds.isNotEmpty()) {
-                candidateIds.mapNotNull { id ->
-                    projectRepository.findByIdOrNull(id)?.let { Candidate(id.toString(), it.name) }
-                }
+                projectRepository.findAllById(candidateIds).map { Candidate(it.requiredId.toString(), it.name) }
             } else {
                 projectService.findAll().map { Candidate(it.id.toString(), it.name) }
             }
@@ -102,11 +88,8 @@ class SelectFieldResolver(
     private fun resolveEpicCandidates(candidateIds: List<Long>): SelectField? {
         val candidates =
             if (candidateIds.isNotEmpty()) {
-                candidateIds.mapNotNull { id ->
-                    epicRepository.findByIdOrNull(id)?.let { epic ->
-                        val project = projectRepository.findByIdOrNull(epic.project.id!!)
-                        Candidate(id.toString(), "${epic.name} (${project?.name ?: ""})")
-                    }
+                epicRepository.findAllWithProjectByIdIn(candidateIds).map { epic ->
+                    Candidate(epic.requiredId.toString(), "${epic.name} (${epic.project.name})")
                 }
             } else {
                 epicService.findAll().map { Candidate(it.id.toString(), it.name) }

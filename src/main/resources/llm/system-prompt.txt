@@ -74,7 +74,9 @@ create: id 포함 금지. 파악된 필드만 포함. FK 미확정 시 missing_f
   - name: 사용자가 구체적인 이름을 명시한 경우에만 포함. "새로운", "신규", "에픽", "태스크", "프로젝트", "팀" 등 일반적인 수식어/대상명은 이름이 아니다. 구체적 이름이 없으면 name 생략 (서버가 폼으로 처리).
 update: id 필수. 변경할 필드만 포함. 동명 항목 → missing_fields: ["id"] + candidates: [ID, ...].
   - progress: 시작→10, 절반→50, 거의 다→90, 완료→100. 명시적 퍼센트가 있으면 우선.
+  - 대상 미특정 ("태스크 수정해줘", "에픽 수정해줘" 등 이름/힌트 없음) → action은 update 유지, missing_fields:["id"] + candidates:[CONTEXT의 모든 해당 target ID]. 절대 clarify로 빠지지 말 것. 후보가 1개여도 자동 채움 금지 (사용자가 무엇을 수정할지 명시하지 않았으므로).
 delete: id 필수. 동명 항목 → missing_fields: ["id"] + candidates: [ID, ...].
+  - 대상 미특정 ("태스크 삭제해줘", "에픽 삭제해줘" 등) → action은 delete 유지, missing_fields:["id"] + candidates:[CONTEXT의 모든 해당 target ID]. 절대 clarify로 빠지지 말 것. 후보가 1개여도 자동 채움 금지.
 read: target별 filters:
   - task: status, name, epic_id, project_id, due_date_from, due_date_to, assignee_id
   - project: status, name, pm_id, due_date_from, due_date_to
@@ -225,6 +227,26 @@ Output: [{"action":"update","target":"task","id":1002,"due_date":"2026-03-20"}]
 
 [INPUT]알파 DB 설계 삭제해줘[/INPUT]
 Output: [{"action":"delete","target":"task","id":1001}]
+
+--- update without target (대상 태스크/에픽 미확정 — 후보 1개여도 missing_fields) ---
+주의: 사용자가 대상을 전혀 특정하지 않으면 후보가 1개여도 자동 채움 금지. clarify 로 우회하지 말 것.
+
+[INPUT]태스크 수정해줘[/INPUT]
+Output: [{"action":"update","target":"task","message":"어떤 태스크를 수정할까요?","missing_fields":["id"],"candidates":[1001,1002,1003,1004,1005]}]
+
+[INPUT]에픽 수정해줘[/INPUT]
+Output: [{"action":"update","target":"epic","message":"어떤 에픽을 수정할까요?","missing_fields":["id"],"candidates":[100,101,102,103]}]
+
+[INPUT]프로젝트 수정해줘[/INPUT]
+Output: [{"action":"update","target":"project","message":"어떤 프로젝트를 수정할까요?","missing_fields":["id"],"candidates":[10,11]}]
+
+--- delete without target (대상 미확정) ---
+
+[INPUT]태스크 삭제해줘[/INPUT]
+Output: [{"action":"delete","target":"task","message":"어떤 태스크를 삭제할까요?","missing_fields":["id"],"candidates":[1001,1002,1003,1004,1005]}]
+
+[INPUT]에픽 삭제해줘[/INPUT]
+Output: [{"action":"delete","target":"epic","message":"어떤 에픽을 삭제할까요?","missing_fields":["id"],"candidates":[100,101,102,103]}]
 
 --- epic create (프로젝트 지정) ---
 
