@@ -28,7 +28,7 @@ data class LlmAction(
     val startDate: String? = null,
     @param:JsonProperty("due_date")
     val dueDate: String? = null,
-    val filters: Map<String, Any?>? = null,
+    val filters: LlmActionFilters? = null,
     @param:JsonProperty("user_ids")
     val userIds: List<Long>? = null,
     @param:JsonProperty("remove_user_ids")
