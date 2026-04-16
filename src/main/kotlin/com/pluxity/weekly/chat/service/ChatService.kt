@@ -3,15 +3,9 @@ package com.pluxity.weekly.chat.service
 import com.pluxity.weekly.authorization.AuthorizationService
 import com.pluxity.weekly.chat.context.ContextBuilder
 import com.pluxity.weekly.chat.dto.ChatActionResponse
-import com.pluxity.weekly.chat.dto.ChatDto
-import com.pluxity.weekly.chat.dto.LlmAction
-import com.pluxity.weekly.chat.exception.ChatClarifyException
 import com.pluxity.weekly.chat.llm.LlmService
 import com.pluxity.weekly.core.constant.ErrorCode
 import com.pluxity.weekly.core.exception.CustomException
-import com.pluxity.weekly.epic.service.EpicService
-import com.pluxity.weekly.project.service.ProjectService
-import com.pluxity.weekly.task.service.TaskService
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.core.io.ClassPathResource
 import org.springframework.data.redis.core.RedisTemplate
@@ -28,17 +22,11 @@ class ChatService(
     private val llmService: LlmService,
     private val promptBuilder: ChatPromptBuilder,
     private val contextBuilder: ContextBuilder,
-    private val chatDtoMapper: ChatDtoMapper,
-    private val selectFieldResolver: SelectFieldResolver,
-    private val chatReadHandler: ChatReadHandler,
-    private val chatExecutor: ChatExecutor,
+    private val chatActionRouter: ChatActionRouter,
     private val chatHistoryStore: ChatHistoryStore,
     private val objectMapper: ObjectMapper,
     private val redisTemplate: RedisTemplate<String, Any>,
     private val authorizationService: AuthorizationService,
-    private val taskService: TaskService,
-    private val epicService: EpicService,
-    private val projectService: ProjectService,
 ) {
     companion object {
         private val RELEASE_LOCK_SCRIPT =
@@ -91,54 +79,7 @@ class ChatService(
 
         // LlmAction → ChatActionResponse 변환
         try {
-            val responses =
-                actions.map { action ->
-                    val target = action.target ?: "task"
-                    when {
-                        action.action == "read" ->
-                            ChatActionResponse(
-                                action = action.action,
-                                target = target,
-                                readResult = chatReadHandler.handle(action),
-                            )
-                        action.action == "clarify" -> throw ChatClarifyException(
-                            message = action.message ?: "좀 더 구체적으로 말씀해주세요.",
-                        )
-                        target == "team" && action.action != "read" -> throw ChatClarifyException(
-                            message = "팀 관리는 웹페이지에서 이용해주세요.",
-                        )
-                        !action.missingFields.isNullOrEmpty() ||
-                            (action.action in listOf("update", "delete", "review_request", "assign", "unassign") && action.id == null) -> {
-                            throw buildClarifyException(action)
-                        }
-                        action.action in listOf("create", "update") -> {
-                            val selectFields = selectFieldResolver.resolve(action)
-                            val dto =
-                                if (action.action == "update" && action.id != null) {
-                                    val existing = loadExistingDto(target, action.id)
-                                    val changes = chatDtoMapper.toDto(action)
-                                    if (existing != null && changes != null) chatDtoMapper.merge(existing, changes) else changes
-                                } else {
-                                    chatDtoMapper.toDto(action)
-                                }
-                            ChatActionResponse(
-                                action = action.action,
-                                target = target,
-                                id = action.id,
-                                dto = dto,
-                                selectFields = selectFields.ifEmpty { null },
-                            )
-                        }
-                        else -> {
-                            val resultId = chatExecutor.execute(action)
-                            ChatActionResponse(
-                                action = action.action,
-                                target = target,
-                                id = resultId,
-                            )
-                        }
-                    }
-                }
+            val responses = actions.map { chatActionRouter.route(it) }
 
             saveHistory(userId, message, intent.target, intent.actions, buildActionSummary(responses))
             return responses
@@ -148,29 +89,6 @@ class ChatService(
             }
             throw e
         }
-    }
-
-    private fun buildClarifyException(action: LlmAction): ChatClarifyException {
-        val base = action.message ?: "대상을 특정할 수 없습니다."
-        val candidates = action.candidates
-        val missingFields = action.missingFields
-
-        if (candidates.isNullOrEmpty() || missingFields.isNullOrEmpty()) {
-            return ChatClarifyException(message = base)
-        }
-
-        val names =
-            missingFields
-                .firstNotNullOfOrNull { field ->
-                    selectFieldResolver
-                        .resolveCandidateNames(field, action.target, candidates)
-                        .takeIf { it.isNotEmpty() }
-                }.orEmpty()
-
-        return ChatClarifyException(
-            message = base,
-            candidates = names.ifEmpty { null },
-        )
     }
 
     private fun saveHistory(
@@ -206,16 +124,5 @@ class ChatService(
                 "create", "update", "delete", "review_request", "assign", "unassign" -> "${r.action} ${r.target} id=${r.id ?: "pending"}"
                 else -> "${r.action} ${r.target}"
             }
-        }
-
-    private fun loadExistingDto(
-        target: String,
-        id: Long,
-    ): ChatDto? =
-        when (target) {
-            "task" -> chatDtoMapper.fromTaskResponse(taskService.findById(id))
-            "epic" -> chatDtoMapper.fromEpicResponse(epicService.findById(id))
-            "project" -> chatDtoMapper.fromProjectResponse(projectService.findById(id))
-            else -> null
         }
 }
