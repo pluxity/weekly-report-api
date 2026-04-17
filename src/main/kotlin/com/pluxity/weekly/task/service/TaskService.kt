@@ -92,19 +92,11 @@ class TaskService(
         val user = authorizationService.currentUser()
         val task = getTaskById(id)
         authorizationService.requireTaskOwner(user, task)
-        if (task.status == TaskStatus.DONE) {
-            throw CustomException(ErrorCode.INVALID_STATUS_TRANSITION, task.status, "update")
-        }
-        request.status?.let { newStatus ->
-            if (task.status == TaskStatus.IN_REVIEW || newStatus == TaskStatus.IN_REVIEW || newStatus == TaskStatus.DONE) {
-                throw CustomException(ErrorCode.INVALID_STATUS_TRANSITION, task.status, newStatus)
-            }
-        }
+        request.status?.let { task.changeStatus(it) }
         task.update(
             epic = request.epicId?.let { getEpicById(it) },
             name = request.name,
             description = request.description,
-            status = request.status,
             progress = request.progress,
             startDate = request.startDate,
             dueDate = request.dueDate,
@@ -117,10 +109,7 @@ class TaskService(
         val user = authorizationService.currentUser()
         val task = getTaskById(id)
         authorizationService.requireTaskOwner(user, task)
-        if (task.status != TaskStatus.TODO && task.status != TaskStatus.IN_PROGRESS) {
-            throw CustomException(ErrorCode.INVALID_STATUS_TRANSITION, task.status, TaskApprovalAction.REVIEW_REQUEST)
-        }
-        task.update(status = TaskStatus.IN_REVIEW, progress = 100)
+        task.requestReview()
         writeLog(task, user, TaskApprovalAction.REVIEW_REQUEST)
         task.epic.project.pmId?.let { pmId ->
             val card =
@@ -146,10 +135,7 @@ class TaskService(
         val user = authorizationService.currentUser()
         val task = getTaskById(id)
         authorizationService.requireTaskReviewer(user, task)
-        if (task.status != TaskStatus.IN_REVIEW) {
-            throw CustomException(ErrorCode.INVALID_STATUS_TRANSITION, task.status, TaskApprovalAction.APPROVE)
-        }
-        task.update(status = TaskStatus.DONE)
+        task.approve()
         writeLog(task, user, TaskApprovalAction.APPROVE)
         task.assignee?.requiredId?.let { assigneeId ->
             eventPublisher.publishEvent(
@@ -169,11 +155,8 @@ class TaskService(
         val user = authorizationService.currentUser()
         val task = getTaskById(id)
         authorizationService.requireTaskReviewer(user, task)
-        if (task.status != TaskStatus.IN_REVIEW) {
-            throw CustomException(ErrorCode.INVALID_STATUS_TRANSITION, task.status, TaskApprovalAction.REJECT)
-        }
+        task.reject()
         val normalizedReason = reason?.takeIf { it.isNotBlank() }
-        task.update(status = TaskStatus.IN_PROGRESS)
         writeLog(task, user, TaskApprovalAction.REJECT, normalizedReason)
         task.assignee?.requiredId?.let { assigneeId ->
             val suffix = normalizedReason?.let { " 사유: $it" } ?: ""

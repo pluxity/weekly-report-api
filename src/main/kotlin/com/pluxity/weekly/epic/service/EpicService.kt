@@ -81,24 +81,22 @@ class EpicService(
         val epic = getEpicById(id)
         authorizationService.requireEpicManage(user, epic.project.requiredId)
 
-        if (epic.status == EpicStatus.DONE) {
-            throw CustomException(ErrorCode.INVALID_STATUS_TRANSITION, epic.status, "update")
-        }
-
         request.status?.let { newStatus ->
-            if (newStatus == EpicStatus.DONE) {
-                val tasks = taskRepository.findByEpicId(id)
-                if (tasks.isEmpty() || tasks.any { it.status != TaskStatus.DONE }) {
-                    throw CustomException(ErrorCode.TASK_NOT_ALL_DONE)
+            val allTasksDone =
+                if (newStatus == EpicStatus.DONE) {
+                    taskRepository.findByEpicId(id).let { tasks ->
+                        tasks.isNotEmpty() && tasks.all { it.status == TaskStatus.DONE }
+                    }
+                } else {
+                    false
                 }
-            }
+            epic.changeStatus(newStatus, allTasksDone)
         }
 
         epic.update(
             project = request.projectId?.let { getProjectById(it) },
             name = request.name,
             description = request.description,
-            status = request.status,
             startDate = request.startDate,
             dueDate = request.dueDate,
         )

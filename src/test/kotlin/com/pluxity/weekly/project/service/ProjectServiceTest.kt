@@ -82,7 +82,7 @@ class ProjectServiceTest :
                     )
 
                 every { projectRepository.findByIdOrNull(1L) } returns entity
-                every { projectRepository.findMembersByProjectId(1L) } returns emptyList()
+                every { projectRepository.findMembersByProjectIds(listOf(1L)) } returns emptyList()
                 every { userRepository.findByIdOrNull(10L) } returns dummyUser(id = 10L, name = "PM유저")
 
                 val result = service.findById(1L)
@@ -171,7 +171,6 @@ class ProjectServiceTest :
             When("존재하는 프로젝트를 삭제하면") {
                 val entity = dummyProject(id = 1L, name = "삭제대상 프로젝트")
 
-                every { epicRepository.existsByProjectId(1L) } returns false
                 every { projectRepository.findByIdOrNull(1L) } returns entity
                 every { projectRepository.delete(any<Project>()) } just runs
 
@@ -184,7 +183,6 @@ class ProjectServiceTest :
 
             When("존재하지 않는 프로젝트를 삭제하면") {
 
-                every { epicRepository.existsByProjectId(999L) } returns false
                 every { projectRepository.findByIdOrNull(999L) } returns null
 
                 val exception =
@@ -224,7 +222,7 @@ class ProjectServiceTest :
                         .dummyEpic(id = 2L, status = com.pluxity.weekly.epic.entity.EpicStatus.IN_PROGRESS)
 
                 every { projectRepository.findByIdOrNull(71L) } returns entity
-                every { epicRepository.findByProjectId(71L) } returns listOf(epic1, epic2)
+                every { epicRepository.findByProjectIdIn(listOf(71L)) } returns listOf(epic1, epic2)
 
                 val exception =
                     shouldThrow<CustomException> {
@@ -239,7 +237,7 @@ class ProjectServiceTest :
             When("하위 에픽이 0개인 프로젝트를 status=DONE 으로 변경하려 하면") {
                 val entity = dummyProject(id = 72L, status = ProjectStatus.IN_PROGRESS)
                 every { projectRepository.findByIdOrNull(72L) } returns entity
-                every { epicRepository.findByProjectId(72L) } returns emptyList()
+                every { epicRepository.findByProjectIdIn(listOf(72L)) } returns emptyList()
 
                 val exception =
                     shouldThrow<CustomException> {
