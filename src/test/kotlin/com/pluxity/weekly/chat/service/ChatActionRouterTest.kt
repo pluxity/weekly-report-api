@@ -229,6 +229,48 @@ class ChatActionRouterTest :
                     verify(exactly = 0) { chatExecutor.execute(any()) }
                 }
             }
+
+            When("missingFields 없이 userIds 만 누락된 상태이면") {
+                val action = LlmAction(action = "assign", target = "epic", id = 3L)
+
+                Then("defense-in-depth clarify 가 발생한다") {
+                    shouldThrow<ChatClarifyException> { router.route(action) }
+                    verify(exactly = 0) { chatExecutor.execute(any()) }
+                }
+            }
+
+            When("missingFields 없이 userIds 가 빈 리스트이면") {
+                val action = LlmAction(action = "assign", target = "epic", id = 3L, userIds = emptyList())
+
+                Then("clarify 가 발생한다") {
+                    shouldThrow<ChatClarifyException> { router.route(action) }
+                    verify(exactly = 0) { chatExecutor.execute(any()) }
+                }
+            }
+        }
+
+        Given("unassign 액션") {
+            When("id 와 removeUserIds 가 모두 있으면") {
+                val action =
+                    LlmAction(action = "unassign", target = "epic", id = 3L, removeUserIds = listOf(1L))
+                every { chatExecutor.execute(action) } returns 3L
+
+                val response = router.route(action)
+
+                Then("executor 가 호출된다") {
+                    response.id shouldBe 3L
+                    verify { chatExecutor.execute(action) }
+                }
+            }
+
+            When("missingFields 없이 removeUserIds 만 누락된 상태이면") {
+                val action = LlmAction(action = "unassign", target = "epic", id = 3L)
+
+                Then("defense-in-depth clarify 가 발생한다") {
+                    shouldThrow<ChatClarifyException> { router.route(action) }
+                    verify(exactly = 0) { chatExecutor.execute(any()) }
+                }
+            }
         }
 
         Given("review_request 액션") {

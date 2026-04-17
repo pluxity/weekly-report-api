@@ -48,7 +48,10 @@ class ChatActionRouter(
                 (
                     action.action in listOf("delete", "review_request", "assign", "unassign") &&
                         !action.missingFields.isNullOrEmpty()
-                ) -> throw buildClarifyException(action)
+                ) ||
+                (action.action == "assign" && action.userIds.isNullOrEmpty()) ||
+                (action.action == "unassign" && action.removeUserIds.isNullOrEmpty()) ->
+                throw buildClarifyException(action)
             action.action == "update" -> {
                 val selectFields = selectFieldResolver.resolve(action)
                 val existing = loadExistingDto(target, action.id)

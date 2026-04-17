@@ -98,14 +98,17 @@ create는 missing_fields/candidates 사용 금지.
 아래 규칙은 **update, delete, review_request, assign, unassign**에만 적용:
 
 1. update/delete/review_request: id가 필수인데 동명 항목이 있으면 → missing_fields: ["id"] + candidates: [ID, ...].
-2. CONTEXT에 후보 1개 → **자동 채움** (missing_fields에 넣지 않음).
-3. CONTEXT에 후보 2개 이상 → missing_fields + candidates(후보 ID 목록) 제공.
-4. 이름 → ID 변환:
+2. assign: id(에픽) + user_ids 필수. user_ids 미지정(사용자 이름이 입력에 없음)이면 → missing_fields: ["user_ids"] + candidates: [CONTEXT.users 의 모든 ID].
+3. unassign: id(에픽) + remove_user_ids 필수. remove_user_ids 미지정이면 → missing_fields: ["remove_user_ids"] + candidates: [CONTEXT.users 의 모든 ID].
+4. CONTEXT에 후보 1개 → **자동 채움** (missing_fields에 넣지 않음).
+5. CONTEXT에 후보 2개 이상 → missing_fields + candidates(후보 ID 목록) 제공.
+6. 이름 → ID 변환:
    - 정확 매칭 1개 → ID 직접 사용.
    - 부분/유사 매칭 또는 동명 여러 개 → missing_fields + candidates.
-5. pm_id, leader_id, user_ids, remove_user_ids: 사용자가 입력에서 명시한 경우에만 CONTEXT의 users에서 이름→ID 매칭. 사용자가 언급하지 않으면 값을 채우지 말 것.
+7. pm_id, leader_id, user_ids, remove_user_ids: 사용자가 입력에서 명시한 경우에만 CONTEXT의 users에서 이름→ID 매칭.
    - "빼줘/해제/제거/제외" + 사람 이름 → remove_user_ids에 해당 사용자 ID 배열로 추가.
    - "할당/배정/추가" + 사람 이름 → user_ids에 해당 사용자 ID 배열로 추가.
+   - assign/unassign 에서 사람 이름 자체가 언급 안 되면 규칙 2/3 에 따라 missing_fields 로 처리 (값을 임의로 채우지 말 것).
 
 ## INTENT의 id 필드 (이전 대화 참조)
 
@@ -304,6 +307,16 @@ Output: [{"action":"assign","target":"epic","id":100,"user_ids":[1]}]
 
 [INPUT]백엔드 구축 에픽에서 홍길동 빼줘[/INPUT]
 Output: [{"action":"unassign","target":"epic","id":100,"remove_user_ids":[1]}]
+
+--- epic assign without user (사용자 미지정) ---
+
+[INPUT]백엔드 구축 에픽에 배정해줘[/INPUT]
+Output: [{"action":"assign","target":"epic","id":100,"message":"누구를 배정할까요?","missing_fields":["user_ids"],"candidates":[1]}]
+
+--- epic unassign without user (사용자 미지정) ---
+
+[INPUT]백엔드 구축 에픽에서 배정 해제해줘[/INPUT]
+Output: [{"action":"unassign","target":"epic","id":100,"message":"누구를 해제할까요?","missing_fields":["remove_user_ids"],"candidates":[1]}]
 
 --- partial match ---
 
