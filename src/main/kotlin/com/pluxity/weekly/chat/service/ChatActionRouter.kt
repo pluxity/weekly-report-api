@@ -19,10 +19,6 @@ class ChatActionRouter(
     private val epicService: EpicService,
     private val projectService: ProjectService,
 ) {
-    companion object {
-        private val VALID_MISSING_FIELDS = setOf("id", "project_id", "epic_id")
-    }
-
     fun route(action: LlmAction): ChatActionResponse {
         val target = action.target ?: "task"
         return when {
@@ -38,44 +34,41 @@ class ChatActionRouter(
             target == "team" && action.action != "read" -> throw ChatClarifyException(
                 message = "팀 관리는 웹페이지에서 이용해주세요.",
             )
+            action.action == "create" -> {
+                val selectFields = selectFieldResolver.resolve(action)
+                val dto = chatDtoMapper.toDto(action)
+                ChatActionResponse(
+                    action = action.action,
+                    target = target,
+                    dto = dto,
+                    selectFields = selectFields.ifEmpty { null },
+                )
+            }
+            action.id == null ||
+                (
+                    action.action in listOf("delete", "review_request", "assign", "unassign") &&
+                        !action.missingFields.isNullOrEmpty()
+                ) -> throw buildClarifyException(action)
+            action.action == "update" -> {
+                val selectFields = selectFieldResolver.resolve(action)
+                val existing = loadExistingDto(target, action.id)
+                val changes = chatDtoMapper.toDto(action)
+                val dto = if (existing != null && changes != null) chatDtoMapper.merge(existing, changes) else changes
+                ChatActionResponse(
+                    action = action.action,
+                    target = target,
+                    id = action.id,
+                    dto = dto,
+                    selectFields = selectFields.ifEmpty { null },
+                )
+            }
             else -> {
-                val missingFields = action.missingFields?.filter { it in VALID_MISSING_FIELDS }
-                val filteredAction = action.copy(missingFields = missingFields?.ifEmpty { null })
-                when {
-                    !missingFields.isNullOrEmpty() ||
-                        (
-                            filteredAction.action in listOf("update", "delete", "review_request", "assign", "unassign") &&
-                                filteredAction.id == null
-                        ) -> {
-                        throw buildClarifyException(filteredAction)
-                    }
-                    filteredAction.action in listOf("create", "update") -> {
-                        val selectFields = selectFieldResolver.resolve(filteredAction)
-                        val dto =
-                            if (filteredAction.action == "update" && filteredAction.id != null) {
-                                val existing = loadExistingDto(target, filteredAction.id)
-                                val changes = chatDtoMapper.toDto(filteredAction)
-                                if (existing != null && changes != null) chatDtoMapper.merge(existing, changes) else changes
-                            } else {
-                                chatDtoMapper.toDto(filteredAction)
-                            }
-                        ChatActionResponse(
-                            action = filteredAction.action,
-                            target = target,
-                            id = filteredAction.id,
-                            dto = dto,
-                            selectFields = selectFields.ifEmpty { null },
-                        )
-                    }
-                    else -> {
-                        val resultId = chatExecutor.execute(filteredAction)
-                        ChatActionResponse(
-                            action = filteredAction.action,
-                            target = target,
-                            id = resultId,
-                        )
-                    }
-                }
+                val resultId = chatExecutor.execute(action)
+                ChatActionResponse(
+                    action = action.action,
+                    target = target,
+                    id = resultId,
+                )
             }
         }
     }
