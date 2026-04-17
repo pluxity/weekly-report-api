@@ -49,6 +49,9 @@ class SelectFieldResolver(
             "id" -> resolveIdCandidates(target, candidateIds)
             "project_id" -> resolveProjectCandidates(candidateIds)
             "epic_id" -> resolveEpicCandidates(candidateIds)
+            // user_ids / remove_user_ids: 프롬프트는 candidates(전체 사용자 ID)를 담아 보내지만
+            // 후보가 많아 드롭다운 UX 가 부적합해 의도적으로 선택지를 만들지 않는다.
+            // (unassign 의 경우 "해당 에픽 배정자"로 좁히면 적합하므로 추후 분기 추가 여지)
             else -> null
         }
 
