@@ -1,7 +1,9 @@
 package com.pluxity.weekly.epic.entity
 
 import com.pluxity.weekly.auth.user.entity.User
+import com.pluxity.weekly.core.constant.ErrorCode
 import com.pluxity.weekly.core.entity.IdentityIdEntity
+import com.pluxity.weekly.core.exception.CustomException
 import com.pluxity.weekly.project.entity.Project
 import com.pluxity.weekly.task.entity.Task
 import jakarta.persistence.CascadeType
@@ -52,18 +54,29 @@ class Epic(
         assignments.removeIf { it.user == user }
     }
 
+    fun changeStatus(
+        newStatus: EpicStatus,
+        allTasksDone: Boolean,
+    ) {
+        if (status == EpicStatus.DONE) {
+            throw CustomException(ErrorCode.INVALID_STATUS_TRANSITION, status, "update")
+        }
+        if (newStatus == EpicStatus.DONE && !allTasksDone) {
+            throw CustomException(ErrorCode.TASK_NOT_ALL_DONE)
+        }
+        status = newStatus
+    }
+
     fun update(
         project: Project? = null,
         name: String? = null,
         description: String? = null,
-        status: EpicStatus? = null,
         startDate: LocalDate? = null,
         dueDate: LocalDate? = null,
     ) {
         project?.let { this.project = it }
         name?.let { this.name = it }
         description?.let { this.description = it }
-        status?.let { this.status = it }
         startDate?.let { this.startDate = it }
         dueDate?.let { this.dueDate = it }
     }

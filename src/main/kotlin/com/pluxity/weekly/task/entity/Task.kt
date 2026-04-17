@@ -1,7 +1,9 @@
 package com.pluxity.weekly.task.entity
 
 import com.pluxity.weekly.auth.user.entity.User
+import com.pluxity.weekly.core.constant.ErrorCode
 import com.pluxity.weekly.core.entity.IdentityIdEntity
+import com.pluxity.weekly.core.exception.CustomException
 import com.pluxity.weekly.epic.entity.Epic
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
@@ -38,11 +40,42 @@ class Task(
     @JoinColumn(name = "assignee_id")
     var assignee: User? = null,
 ) : IdentityIdEntity() {
+    fun changeStatus(newStatus: TaskStatus) {
+        if (status == TaskStatus.DONE) {
+            throw CustomException(ErrorCode.INVALID_STATUS_TRANSITION, status, "update")
+        }
+        if (status == TaskStatus.IN_REVIEW || newStatus == TaskStatus.IN_REVIEW || newStatus == TaskStatus.DONE) {
+            throw CustomException(ErrorCode.INVALID_STATUS_TRANSITION, status, newStatus)
+        }
+        status = newStatus
+    }
+
+    fun requestReview() {
+        if (status != TaskStatus.TODO && status != TaskStatus.IN_PROGRESS) {
+            throw CustomException(ErrorCode.INVALID_STATUS_TRANSITION, status, TaskApprovalAction.REVIEW_REQUEST)
+        }
+        status = TaskStatus.IN_REVIEW
+        progress = 100
+    }
+
+    fun approve() {
+        if (status != TaskStatus.IN_REVIEW) {
+            throw CustomException(ErrorCode.INVALID_STATUS_TRANSITION, status, TaskApprovalAction.APPROVE)
+        }
+        status = TaskStatus.DONE
+    }
+
+    fun reject() {
+        if (status != TaskStatus.IN_REVIEW) {
+            throw CustomException(ErrorCode.INVALID_STATUS_TRANSITION, status, TaskApprovalAction.REJECT)
+        }
+        status = TaskStatus.IN_PROGRESS
+    }
+
     fun update(
         epic: Epic? = null,
         name: String? = null,
         description: String? = null,
-        status: TaskStatus? = null,
         progress: Int? = null,
         startDate: LocalDate? = null,
         dueDate: LocalDate? = null,
@@ -51,7 +84,6 @@ class Task(
         epic?.let { this.epic = it }
         name?.let { this.name = it }
         description?.let { this.description = it }
-        status?.let { this.status = it }
         progress?.let { this.progress = it }
         startDate?.let { this.startDate = it }
         dueDate?.let { this.dueDate = it }

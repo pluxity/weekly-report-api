@@ -76,23 +76,17 @@ class ProjectService(
         authorizationService.requireProjectManager(user, id)
         val project = getById(id)
 
-        if (project.status == ProjectStatus.DONE) {
-            throw CustomException(ErrorCode.INVALID_STATUS_TRANSITION, project.status, "update")
-        }
-
         request.status?.let { newStatus ->
-            if (newStatus == ProjectStatus.DONE) {
-                val epics = epicRepository.findByProjectId(id)
-                if (epics.isEmpty() || epics.any { it.status != EpicStatus.DONE }) {
-                    throw CustomException(ErrorCode.EPIC_NOT_ALL_DONE)
+            val allEpicsDone =
+                epicRepository.findByProjectId(id).let { epics ->
+                    epics.isNotEmpty() && epics.all { it.status == EpicStatus.DONE }
                 }
-            }
+            project.changeStatus(newStatus, allEpicsDone)
         }
 
         project.update(
             name = request.name,
             description = request.description,
-            status = request.status,
             startDate = request.startDate,
             dueDate = request.dueDate,
             pmId = request.pmId,

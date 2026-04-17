@@ -1,6 +1,8 @@
 package com.pluxity.weekly.project.entity
 
+import com.pluxity.weekly.core.constant.ErrorCode
 import com.pluxity.weekly.core.entity.IdentityIdEntity
+import com.pluxity.weekly.core.exception.CustomException
 import com.pluxity.weekly.epic.entity.Epic
 import jakarta.persistence.CascadeType
 import jakarta.persistence.Column
@@ -33,17 +35,28 @@ class Project(
     @OneToMany(mappedBy = "project", cascade = [CascadeType.REMOVE])
     val epics: MutableList<Epic> = mutableListOf()
 
+    fun changeStatus(
+        newStatus: ProjectStatus,
+        allEpicsDone: Boolean,
+    ) {
+        if (status == ProjectStatus.DONE) {
+            throw CustomException(ErrorCode.INVALID_STATUS_TRANSITION, status, "update")
+        }
+        if (newStatus == ProjectStatus.DONE && !allEpicsDone) {
+            throw CustomException(ErrorCode.EPIC_NOT_ALL_DONE)
+        }
+        status = newStatus
+    }
+
     fun update(
         name: String? = null,
         description: String? = null,
-        status: ProjectStatus? = null,
         startDate: LocalDate? = null,
         dueDate: LocalDate? = null,
         pmId: Long? = null,
     ) {
         name?.let { this.name = it }
         description?.let { this.description = it }
-        status?.let { this.status = it }
         startDate?.let { this.startDate = it }
         dueDate?.let { this.dueDate = it }
         pmId?.let { this.pmId = it }
