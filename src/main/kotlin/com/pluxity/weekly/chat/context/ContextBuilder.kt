@@ -148,12 +148,7 @@ class ContextBuilder(
                     ),
                 )
             val tasksByEpicId = tasks.groupBy { it.epicId }
-            val activeEpics =
-                if (tasksByEpicId.isEmpty()) {
-                    emptyList()
-                } else {
-                    epicService.search(EpicSearchFilter(epicIds = tasksByEpicId.keys.toList()))
-                }
+            val activeEpics = epicService.findAll()
             TaskContext(
                 today = today,
                 todayDayOfWeek = todayDayOfWeek,
