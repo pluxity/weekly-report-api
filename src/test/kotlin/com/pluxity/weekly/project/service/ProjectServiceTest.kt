@@ -82,7 +82,7 @@ class ProjectServiceTest :
                     )
 
                 every { projectRepository.findByIdOrNull(1L) } returns entity
-                every { projectRepository.findMembersByProjectId(1L) } returns emptyList()
+                every { projectRepository.findMembersByProjectIds(listOf(1L)) } returns emptyList()
                 every { userRepository.findByIdOrNull(10L) } returns dummyUser(id = 10L, name = "PM유저")
 
                 val result = service.findById(1L)
@@ -171,7 +171,6 @@ class ProjectServiceTest :
             When("존재하는 프로젝트를 삭제하면") {
                 val entity = dummyProject(id = 1L, name = "삭제대상 프로젝트")
 
-                every { epicRepository.existsByProjectId(1L) } returns false
                 every { projectRepository.findByIdOrNull(1L) } returns entity
                 every { projectRepository.delete(any<Project>()) } just runs
 
@@ -184,7 +183,6 @@ class ProjectServiceTest :
 
             When("존재하지 않는 프로젝트를 삭제하면") {
 
-                every { epicRepository.existsByProjectId(999L) } returns false
                 every { projectRepository.findByIdOrNull(999L) } returns null
 
                 val exception =

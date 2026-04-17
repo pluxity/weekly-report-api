@@ -47,7 +47,7 @@ class ProjectService(
     fun findById(id: Long): ProjectResponse {
         val project = getById(id)
         val pmName = project.pmId?.let { userRepository.findByIdOrNull(it)?.name }
-        return project.toResponse(projectRepository.findMembersByProjectId(project.requiredId), pmName)
+        return project.toResponse(projectRepository.findMembersByProjectIds(listOf(project.requiredId)), pmName)
     }
 
     @Transactional

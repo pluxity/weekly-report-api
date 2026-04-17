@@ -37,21 +37,6 @@ interface ProjectRepository :
         JOIN ea.user u
         LEFT JOIN TeamMember tm ON tm.user = u
         LEFT JOIN tm.team t
-        WHERE ea.epic.project.id = :projectId
-        GROUP BY ea.epic.project.id, u.id, u.name, t.id, t.name
-        """,
-    )
-    fun findMembersByProjectId(projectId: Long): List<ProjectMemberResponse>
-
-    @Query(
-        """
-        SELECT new com.pluxity.weekly.project.dto.ProjectMemberResponse(
-            ea.epic.project.id, u.id, u.name, t.id, t.name
-        )
-        FROM EpicAssignment ea
-        JOIN ea.user u
-        LEFT JOIN TeamMember tm ON tm.user = u
-        LEFT JOIN tm.team t
         WHERE ea.epic.project.id IN :projectIds
         GROUP BY ea.epic.project.id, u.id, u.name, t.id, t.name
         """,

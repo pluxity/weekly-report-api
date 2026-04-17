@@ -17,8 +17,6 @@ interface EpicRepository :
         epicId: Long,
     ): Boolean
 
-    fun existsByProjectId(projectId: Long): Boolean
-
     fun findByProjectId(projectId: Long): List<Epic>
 
     fun findByProjectIdIn(projectIds: List<Long>): List<Epic>
