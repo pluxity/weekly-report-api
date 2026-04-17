@@ -96,7 +96,7 @@ class DashboardService(
         val pmName =
             project.pmId?.let { userRepository.findByIdOrNull(it)?.name } ?: ""
 
-        val epics = epicRepository.findByProjectId(projectId)
+        val epics = epicRepository.findByProjectIdIn(listOf(projectId))
         val tasks = taskRepository.findByEpicIn(epics)
         val tasksByEpicId = tasks.groupBy { it.epic.requiredId }
         val now = LocalDate.now()

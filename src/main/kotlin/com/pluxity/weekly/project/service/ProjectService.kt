@@ -79,7 +79,7 @@ class ProjectService(
         request.status?.let { newStatus ->
             val allEpicsDone =
                 if (newStatus == ProjectStatus.DONE) {
-                    epicRepository.findByProjectId(id).let { epics ->
+                    epicRepository.findByProjectIdIn(listOf(id)).let { epics ->
                         epics.isNotEmpty() && epics.all { it.status == EpicStatus.DONE }
                     }
                 } else {

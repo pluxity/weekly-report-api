@@ -222,7 +222,7 @@ class ProjectServiceTest :
                         .dummyEpic(id = 2L, status = com.pluxity.weekly.epic.entity.EpicStatus.IN_PROGRESS)
 
                 every { projectRepository.findByIdOrNull(71L) } returns entity
-                every { epicRepository.findByProjectId(71L) } returns listOf(epic1, epic2)
+                every { epicRepository.findByProjectIdIn(listOf(71L)) } returns listOf(epic1, epic2)
 
                 val exception =
                     shouldThrow<CustomException> {
@@ -237,7 +237,7 @@ class ProjectServiceTest :
             When("하위 에픽이 0개인 프로젝트를 status=DONE 으로 변경하려 하면") {
                 val entity = dummyProject(id = 72L, status = ProjectStatus.IN_PROGRESS)
                 every { projectRepository.findByIdOrNull(72L) } returns entity
-                every { epicRepository.findByProjectId(72L) } returns emptyList()
+                every { epicRepository.findByProjectIdIn(listOf(72L)) } returns emptyList()
 
                 val exception =
                     shouldThrow<CustomException> {
