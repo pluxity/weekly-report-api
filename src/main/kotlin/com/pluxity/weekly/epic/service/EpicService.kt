@@ -94,20 +94,33 @@ class EpicService(
         }
 
         epic.update(
-            project = request.projectId?.let { getProjectById(it) },
             name = request.name,
             description = request.description,
             startDate = request.startDate,
             dueDate = request.dueDate,
         )
-        request.userIds?.forEach { userId ->
-            val assignee = getUserById(userId)
-            if (epic.assignments.none { it.user == assignee }) {
-                epic.assign(assignee)
-                eventPublisher.publishEvent(
-                    TeamsNotificationEvent(userId, "${epic.name} 에픽에 배정되었습니다"),
-                )
-            }
+        request.userIds?.let { userIds ->
+            val requestedUsers = userIds.map { getUserById(it) }
+
+            epic.assignments
+                .filter { it.user !in requestedUsers }
+                .forEach { assignment ->
+                    val removedUserId = assignment.user.requiredId
+                    epic.unassign(assignment.user)
+                    taskRepository.deleteByEpicIdAndAssigneeId(epic.requiredId, removedUserId)
+                    eventPublisher.publishEvent(
+                        TeamsNotificationEvent(removedUserId, "${epic.name} 에픽에서 해제되었습니다"),
+                    )
+                }
+
+            requestedUsers
+                .filter { user -> epic.assignments.none { it.user == user } }
+                .forEach { newUser ->
+                    epic.assign(newUser)
+                    eventPublisher.publishEvent(
+                        TeamsNotificationEvent(newUser.requiredId, "${epic.name} 에픽에 배정되었습니다"),
+                    )
+                }
         }
     }
 

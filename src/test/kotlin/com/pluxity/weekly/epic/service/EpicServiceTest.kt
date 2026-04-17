@@ -146,13 +146,11 @@ class EpicServiceTest :
                 val entity = dummyEpic(id = 1L, project = project, name = "기존 에픽")
                 val request =
                     dummyEpicUpdateRequest(
-                        projectId = 1L,
                         name = "수정된 에픽",
                         status = EpicStatus.IN_PROGRESS,
                     )
 
                 every { epicRepository.findByIdOrNull(1L) } returns entity
-                every { projectRepository.findByIdOrNull(1L) } returns project
 
                 service.update(1L, request)
 

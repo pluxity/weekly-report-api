@@ -86,12 +86,15 @@ class AuthorizationService(
         throw CustomException(ErrorCode.PERMISSION_DENIED)
     }
 
-    /** 본인 태스크(assignee)만 허용 — 태스크 수정/삭제 */
+    /** ADMIN, 해당 프로젝트 PM, 또는 본인 태스크(assignee)만 허용 — 태스크 수정/삭제 */
     fun requireTaskOwner(
         user: User,
         task: Task,
     ) {
         if (user.hasRole(UserType.ADMIN)) return
+        if (user.isProjectManager() &&
+            projectRepository.existsByEpicIdAndPmId(task.epic.requiredId, user.requiredId)
+        ) return
         if (task.assignee?.requiredId != user.requiredId) {
             throw CustomException(ErrorCode.PERMISSION_DENIED)
         }

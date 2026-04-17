@@ -68,7 +68,6 @@ class Epic(
     }
 
     fun update(
-        project: Project? = null,
         name: String? = null,
         description: String? = null,
         startDate: LocalDate? = null,
@@ -77,7 +76,6 @@ class Epic(
         if (status == EpicStatus.DONE) {
             throw CustomException(ErrorCode.INVALID_STATUS_TRANSITION, status, "update")
         }
-        project?.let { this.project = it }
         name?.let { this.name = it }
         description?.let { this.description = it }
         startDate?.let { this.startDate = it }

@@ -7,8 +7,6 @@ import java.time.LocalDate
 
 @Schema(description = "에픽 수정 요청 (null인 필드는 변경하지 않음)")
 data class EpicUpdateRequest(
-    @field:Schema(description = "프로젝트 ID", example = "1")
-    val projectId: Long? = null,
     @field:Schema(description = "에픽명", example = "사용자 인증 모듈")
     @field:Size(max = 255, message = "에픽명은 최대 255자까지 입력 가능합니다")
     val name: String? = null,

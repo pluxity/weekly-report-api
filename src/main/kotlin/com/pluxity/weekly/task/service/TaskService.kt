@@ -93,14 +93,18 @@ class TaskService(
         val task = getTaskById(id)
         authorizationService.requireTaskOwner(user, task)
         request.status?.let { task.changeStatus(it) }
+        val newAssigneeId = request.assigneeId?.takeIf { it != task.assignee?.requiredId }
+        if (newAssigneeId != null) {
+            authorizationService.requireAdminOrPm(user)
+            ensureAssigneeInEpic(newAssigneeId, task.epic)
+        }
         task.update(
-            epic = request.epicId?.let { getEpicById(it) },
             name = request.name,
             description = request.description,
             progress = request.progress,
             startDate = request.startDate,
             dueDate = request.dueDate,
-            assignee = request.assigneeId?.let { getUserById(it) },
+            assignee = newAssigneeId?.let { getUserById(it) },
         )
     }
 
@@ -240,6 +244,19 @@ class TaskService(
         val task = getTaskById(id)
         authorizationService.requireTaskOwner(user, task)
         taskRepository.delete(task)
+    }
+
+    private fun ensureAssigneeInEpic(
+        assigneeId: Long,
+        epic: Epic,
+    ) {
+        if (!epicRepository.existsByAssignmentsUserIdAndId(assigneeId, epic.requiredId)) {
+            val assignee = getUserById(assigneeId)
+            epic.assign(assignee)
+            eventPublisher.publishEvent(
+                TeamsNotificationEvent(assigneeId, "${epic.name} 에픽에 배정되었습니다"),
+            )
+        }
     }
 
     private fun getTaskById(id: Long): Task =

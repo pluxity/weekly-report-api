@@ -9,8 +9,6 @@ import java.time.LocalDate
 
 @Schema(description = "태스크 수정 요청 (null인 필드는 변경하지 않음)")
 data class TaskUpdateRequest(
-    @field:Schema(description = "에픽 ID", example = "1")
-    val epicId: Long? = null,
     @field:Schema(description = "태스크명", example = "로그인 API 개발")
     @field:Size(max = 255, message = "태스크명은 최대 255자까지 입력 가능합니다")
     val name: String? = null,

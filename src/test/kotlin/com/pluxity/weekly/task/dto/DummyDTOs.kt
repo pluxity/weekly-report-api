@@ -22,7 +22,6 @@ fun dummyTaskRequest(
 )
 
 fun dummyTaskUpdateRequest(
-    epicId: Long? = null,
     name: String? = null,
     description: String? = null,
     status: TaskStatus? = null,
@@ -31,7 +30,6 @@ fun dummyTaskUpdateRequest(
     dueDate: LocalDate? = null,
     assigneeId: Long? = null,
 ) = TaskUpdateRequest(
-    epicId = epicId,
     name = name,
     description = description,
     status = status,
