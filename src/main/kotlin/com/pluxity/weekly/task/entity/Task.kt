@@ -81,6 +81,9 @@ class Task(
         dueDate: LocalDate? = null,
         assignee: User? = null,
     ) {
+        if (status == TaskStatus.DONE) {
+            throw CustomException(ErrorCode.INVALID_STATUS_TRANSITION, status, "update")
+        }
         epic?.let { this.epic = it }
         name?.let { this.name = it }
         description?.let { this.description = it }

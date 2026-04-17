@@ -83,8 +83,12 @@ class EpicService(
 
         request.status?.let { newStatus ->
             val allTasksDone =
-                taskRepository.findByEpicId(id).let { tasks ->
-                    tasks.isNotEmpty() && tasks.all { it.status == TaskStatus.DONE }
+                if (newStatus == EpicStatus.DONE) {
+                    taskRepository.findByEpicId(id).let { tasks ->
+                        tasks.isNotEmpty() && tasks.all { it.status == TaskStatus.DONE }
+                    }
+                } else {
+                    false
                 }
             epic.changeStatus(newStatus, allTasksDone)
         }
