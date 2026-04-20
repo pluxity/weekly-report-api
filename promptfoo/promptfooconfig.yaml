@@ -364,7 +364,7 @@ tests:
           return o.action === 'update' && o.id === 2001 && o.progress === 90;
 
   ## delete
-  - description: "[system] 바코드 생성 삭제 → delete id=2025"
+  - description: "[system] 바코드 생성 삭제 → delete id=2009"
     vars:
       userMessage: "바코드 생성 삭제해줘"
       intent: '{"actions":["delete"],"target":"task"}'
@@ -375,7 +375,7 @@ tests:
         value: |
           const arr = JSON.parse(output);
           const o = arr[0];
-          return o.action === 'delete' && o.target === 'task' && o.id === 2025;
+          return o.action === 'delete' && o.target === 'task' && o.id === 2009;
 
   ## update without target
   - description: "[system] 태스크 수정해줘 → missing_fields"
