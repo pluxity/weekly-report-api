@@ -36,5 +36,10 @@ out/
 ### VS Code ###
 .vscode/
 
+### Node (promptfoo) ###
+node_modules/
+package-lock.json
+.promptfoo/
+
 ### Claude Code ###
 .claude/

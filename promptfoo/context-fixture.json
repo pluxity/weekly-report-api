@@ -1,0 +1,176 @@
+{
+  "today": "2026-04-15",
+  "today_day_of_week": "수요일",
+  "user": { "id": 3, "name": "박서준", "role": "PM" },
+  "projects": [
+    {
+      "id": 1, "name": "스마트팩토리", "status": "IN_PROGRESS",
+      "epics": [
+        { "id": 101, "name": "센서 연동", "status": "IN_PROGRESS", "tasks": [
+          { "id": 1001, "name": "MQTT 브로커 설정", "status": "IN_PROGRESS", "progress": 40 },
+          { "id": 1002, "name": "데이터 파싱 모듈", "status": "TODO", "progress": 0 },
+          { "id": 1003, "name": "알람 규칙 엔진", "status": "TODO", "progress": 0 }
+        ]},
+        { "id": 102, "name": "대시보드", "status": "TODO", "tasks": [
+          { "id": 1004, "name": "실시간 차트", "status": "TODO", "progress": 0 },
+          { "id": 1005, "name": "리포트 생성", "status": "TODO", "progress": 0 },
+          { "id": 1006, "name": "알림 패널", "status": "TODO", "progress": 0 }
+        ]},
+        { "id": 103, "name": "설비 관리", "status": "IN_PROGRESS", "tasks": [
+          { "id": 1007, "name": "설비 등록", "status": "IN_PROGRESS", "progress": 80 },
+          { "id": 1008, "name": "정비 이력", "status": "IN_PROGRESS", "progress": 50 },
+          { "id": 1009, "name": "가동률 분석", "status": "TODO", "progress": 0 }
+        ]},
+        { "id": 104, "name": "품질 관리", "status": "TODO", "tasks": [
+          { "id": 1010, "name": "불량률 추적", "status": "TODO", "progress": 0 },
+          { "id": 1011, "name": "SPC 차트", "status": "TODO", "progress": 0 },
+          { "id": 1012, "name": "검사 기록", "status": "TODO", "progress": 0 }
+        ]},
+        { "id": 105, "name": "생산 계획", "status": "TODO", "tasks": [
+          { "id": 1013, "name": "작업 지시서", "status": "TODO", "progress": 0 },
+          { "id": 1014, "name": "생산 스케줄러", "status": "TODO", "progress": 0 },
+          { "id": 1015, "name": "자재 소요량", "status": "TODO", "progress": 0 }
+        ]},
+        { "id": 106, "name": "재고 관리", "status": "TODO", "tasks": [
+          { "id": 1016, "name": "입출고 처리", "status": "TODO", "progress": 0 },
+          { "id": 1017, "name": "바코드 스캔", "status": "TODO", "progress": 0 },
+          { "id": 1018, "name": "안전 재고", "status": "TODO", "progress": 0 }
+        ]},
+        { "id": 107, "name": "인프라", "status": "IN_PROGRESS", "tasks": [
+          { "id": 1019, "name": "K8s 클러스터", "status": "IN_PROGRESS", "progress": 70 },
+          { "id": 1020, "name": "CI/CD 파이프라인", "status": "IN_PROGRESS", "progress": 90 },
+          { "id": 1021, "name": "모니터링 구축", "status": "TODO", "progress": 0 }
+        ]},
+        { "id": 108, "name": "API 게이트웨이", "status": "TODO", "tasks": [
+          { "id": 1022, "name": "인증 미들웨어", "status": "TODO", "progress": 0 },
+          { "id": 1023, "name": "레이트 리미터", "status": "TODO", "progress": 0 },
+          { "id": 1024, "name": "API 문서화", "status": "TODO", "progress": 0 }
+        ]},
+        { "id": 109, "name": "데이터 분석", "status": "TODO", "tasks": [
+          { "id": 1025, "name": "ETL 파이프라인", "status": "TODO", "progress": 0 },
+          { "id": 1026, "name": "리포트 생성", "status": "TODO", "progress": 0 },
+          { "id": 1027, "name": "이상 탐지", "status": "TODO", "progress": 0 }
+        ]},
+        { "id": 110, "name": "모바일 앱", "status": "TODO", "tasks": [
+          { "id": 1028, "name": "로그인 화면", "status": "TODO", "progress": 0 },
+          { "id": 1029, "name": "설비 상태 뷰", "status": "TODO", "progress": 0 },
+          { "id": 1030, "name": "QR 스캔", "status": "TODO", "progress": 0 }
+        ]}
+      ]
+    },
+    {
+      "id": 2, "name": "모바일 POS", "status": "IN_PROGRESS",
+      "epics": [
+        { "id": 201, "name": "결제 모듈", "status": "IN_PROGRESS", "tasks": [
+          { "id": 2001, "name": "카드 결제 연동", "status": "IN_PROGRESS", "progress": 70 },
+          { "id": 2002, "name": "영수증 출력", "status": "TODO", "progress": 0 },
+          { "id": 2003, "name": "환불 처리", "status": "TODO", "progress": 0 }
+        ]},
+        { "id": 202, "name": "대시보드", "status": "TODO", "tasks": [
+          { "id": 2004, "name": "매출 통계", "status": "TODO", "progress": 0 },
+          { "id": 2005, "name": "리포트 생성", "status": "TODO", "progress": 0 },
+          { "id": 2006, "name": "엑셀 내보내기", "status": "TODO", "progress": 0 }
+        ]},
+        { "id": 203, "name": "상품 관리", "status": "TODO", "tasks": [
+          { "id": 2007, "name": "상품 등록", "status": "TODO", "progress": 0 },
+          { "id": 2008, "name": "카테고리 관리", "status": "TODO", "progress": 0 },
+          { "id": 2009, "name": "바코드 생성", "status": "TODO", "progress": 0 }
+        ]},
+        { "id": 204, "name": "주문 관리", "status": "TODO", "tasks": [
+          { "id": 2010, "name": "주문 접수", "status": "TODO", "progress": 0 },
+          { "id": 2011, "name": "주문 이력", "status": "TODO", "progress": 0 },
+          { "id": 2012, "name": "배달 연동", "status": "TODO", "progress": 0 }
+        ]},
+        { "id": 205, "name": "회원 관리", "status": "TODO", "tasks": [
+          { "id": 2013, "name": "회원 등록", "status": "TODO", "progress": 0 },
+          { "id": 2014, "name": "포인트 관리", "status": "TODO", "progress": 0 },
+          { "id": 2015, "name": "쿠폰 발행", "status": "TODO", "progress": 0 }
+        ]},
+        { "id": 206, "name": "인프라", "status": "TODO", "tasks": [
+          { "id": 2016, "name": "서버 구축", "status": "TODO", "progress": 0 },
+          { "id": 2017, "name": "DB 설계", "status": "TODO", "progress": 0 },
+          { "id": 2018, "name": "보안 설정", "status": "TODO", "progress": 0 }
+        ]},
+        { "id": 207, "name": "매장 관리", "status": "TODO", "tasks": [
+          { "id": 2019, "name": "매장 등록", "status": "TODO", "progress": 0 },
+          { "id": 2020, "name": "직원 관리", "status": "TODO", "progress": 0 },
+          { "id": 2021, "name": "근무 스케줄", "status": "TODO", "progress": 0 }
+        ]},
+        { "id": 208, "name": "정산", "status": "TODO", "tasks": [
+          { "id": 2022, "name": "일 마감", "status": "TODO", "progress": 0 },
+          { "id": 2023, "name": "월 정산", "status": "TODO", "progress": 0 },
+          { "id": 2024, "name": "세금계산서", "status": "TODO", "progress": 0 }
+        ]},
+        { "id": 209, "name": "알림", "status": "TODO", "tasks": [
+          { "id": 2025, "name": "푸시 알림", "status": "TODO", "progress": 0 },
+          { "id": 2026, "name": "카카오 알림톡", "status": "TODO", "progress": 0 },
+          { "id": 2027, "name": "이메일 알림", "status": "TODO", "progress": 0 }
+        ]},
+        { "id": 210, "name": "모바일 앱", "status": "TODO", "tasks": [
+          { "id": 2028, "name": "로그인 화면", "status": "TODO", "progress": 0 },
+          { "id": 2029, "name": "결제 화면", "status": "TODO", "progress": 0 },
+          { "id": 2030, "name": "상품 검색", "status": "TODO", "progress": 0 }
+        ]}
+      ]
+    }
+  ],
+  "teams": [
+    { "id": 1, "name": "백엔드팀" },
+    { "id": 2, "name": "프론트팀" },
+    { "id": 3, "name": "인프라팀" },
+    { "id": 4, "name": "모바일팀" },
+    { "id": 5, "name": "QA팀" }
+  ],
+  "users": [
+    { "id": 1, "name": "김태호" },
+    { "id": 2, "name": "이수진" },
+    { "id": 3, "name": "박서준" },
+    { "id": 4, "name": "김민지" },
+    { "id": 5, "name": "이도현" },
+    { "id": 6, "name": "정하은" },
+    { "id": 7, "name": "최우석" },
+    { "id": 8, "name": "한소희" },
+    { "id": 9, "name": "윤지호" },
+    { "id": 10, "name": "강예린" },
+    { "id": 11, "name": "조민수" },
+    { "id": 12, "name": "서유나" },
+    { "id": 13, "name": "임재현" },
+    { "id": 14, "name": "배수빈" },
+    { "id": 15, "name": "류한별" },
+    { "id": 16, "name": "문서연" },
+    { "id": 17, "name": "장동혁" },
+    { "id": 18, "name": "오시은" },
+    { "id": 19, "name": "황준영" },
+    { "id": 20, "name": "신다은" },
+    { "id": 21, "name": "권혁진" },
+    { "id": 22, "name": "안소율" },
+    { "id": 23, "name": "송민호" },
+    { "id": 24, "name": "전지원" },
+    { "id": 25, "name": "노태윤" },
+    { "id": 26, "name": "하예지" },
+    { "id": 27, "name": "구본승" },
+    { "id": 28, "name": "양하린" },
+    { "id": 29, "name": "우성민" },
+    { "id": 30, "name": "남은서" },
+    { "id": 31, "name": "차준혁" },
+    { "id": 32, "name": "주아름" },
+    { "id": 33, "name": "고영훈" },
+    { "id": 34, "name": "탁수연" },
+    { "id": 35, "name": "피동건" },
+    { "id": 36, "name": "감수지" },
+    { "id": 37, "name": "봉재원" },
+    { "id": 38, "name": "옥서현" },
+    { "id": 39, "name": "마현우" },
+    { "id": 40, "name": "빈하늘" },
+    { "id": 41, "name": "설동민" },
+    { "id": 42, "name": "길은채" },
+    { "id": 43, "name": "도준서" },
+    { "id": 44, "name": "변소라" },
+    { "id": 45, "name": "석태경" },
+    { "id": 46, "name": "선예은" },
+    { "id": 47, "name": "곽진수" },
+    { "id": 48, "name": "위다현" },
+    { "id": 49, "name": "제갈민" },
+    { "id": 50, "name": "남궁율" }
+  ]
+}

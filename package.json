@@ -1,0 +1,27 @@
+{
+  "name": "weekly-report-api",
+  "version": "1.0.0",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "prompt:eval": "cd promptfoo && npx promptfoo eval",
+    "prompt:view": "cd promptfoo && npx promptfoo view"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pluxity/weekly-report-api.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/pluxity/weekly-report-api/issues"
+  },
+  "homepage": "https://github.com/pluxity/weekly-report-api#readme",
+  "description": "",
+  "devDependencies": {
+    "promptfoo": "^0.120.19"
+  }
+}
