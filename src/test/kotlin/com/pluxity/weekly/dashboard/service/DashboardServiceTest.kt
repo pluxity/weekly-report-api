@@ -1,7 +1,7 @@
 package com.pluxity.weekly.dashboard.service
 
+import com.pluxity.weekly.auth.authorization.AuthorizationService
 import com.pluxity.weekly.auth.user.repository.UserRepository
-import com.pluxity.weekly.authorization.AuthorizationService
 import com.pluxity.weekly.epic.entity.EpicStatus
 import com.pluxity.weekly.epic.entity.dummyEpic
 import com.pluxity.weekly.epic.repository.EpicRepository

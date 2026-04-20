@@ -1,8 +1,8 @@
 package com.pluxity.weekly.epic.service
 
+import com.pluxity.weekly.auth.authorization.AuthorizationService
 import com.pluxity.weekly.auth.user.entity.RoleType
 import com.pluxity.weekly.auth.user.repository.UserRepository
-import com.pluxity.weekly.authorization.AuthorizationService
 import com.pluxity.weekly.core.constant.ErrorCode
 import com.pluxity.weekly.core.exception.CustomException
 import com.pluxity.weekly.epic.dto.dummyEpicRequest
@@ -214,8 +214,7 @@ class EpicServiceTest :
                 epic.assign(user2)
 
                 every { epicRepository.findByIdOrNull(10L) } returns epic
-                every { userRepository.findByIdOrNull(2L) } returns user2
-                every { userRepository.findByIdOrNull(3L) } returns user3
+                every { userRepository.findAllById(listOf(2L, 3L)) } returns listOf(user2, user3)
                 every { taskRepository.deleteByEpicIdAndAssigneeId(10L, 1L) } just runs
                 every { eventPublisher.publishEvent(any<TeamsNotificationEvent>()) } just runs
 
@@ -238,6 +237,7 @@ class EpicServiceTest :
                 epic.assign(user2)
 
                 every { epicRepository.findByIdOrNull(11L) } returns epic
+                every { userRepository.findAllById(emptyList()) } returns emptyList()
                 every { taskRepository.deleteByEpicIdAndAssigneeId(11L, any()) } just runs
                 every { eventPublisher.publishEvent(any<TeamsNotificationEvent>()) } just runs
 

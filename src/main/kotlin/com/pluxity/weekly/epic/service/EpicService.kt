@@ -1,8 +1,8 @@
 package com.pluxity.weekly.epic.service
 
+import com.pluxity.weekly.auth.authorization.AuthorizationService
 import com.pluxity.weekly.auth.user.entity.User
 import com.pluxity.weekly.auth.user.repository.UserRepository
-import com.pluxity.weekly.authorization.AuthorizationService
 import com.pluxity.weekly.chat.dto.EpicSearchFilter
 import com.pluxity.weekly.core.constant.ErrorCode
 import com.pluxity.weekly.core.exception.CustomException
@@ -100,7 +100,7 @@ class EpicService(
             dueDate = request.dueDate,
         )
         request.userIds?.let { userIds ->
-            val requestedUsers = userIds.map { getUserById(it) }
+            val requestedUsers = userRepository.findAllById(userIds)
 
             epic.assignments
                 .filter { it.user !in requestedUsers }

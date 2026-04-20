@@ -1,4 +1,4 @@
-package com.pluxity.weekly.authorization
+package com.pluxity.weekly.auth.authorization
 
 import com.pluxity.weekly.auth.user.entity.User
 import com.pluxity.weekly.auth.user.service.UserService
@@ -92,11 +92,7 @@ class AuthorizationService(
         task: Task,
     ) {
         if (user.hasRole(UserType.ADMIN)) return
-        if (user.isProjectManager() &&
-            projectRepository.existsByEpicIdAndPmId(task.epic.requiredId, user.requiredId)
-        ) {
-            return
-        }
+        if (user.isProjectManager() && task.epic.project.pmId == user.requiredId) return
         if (task.assignee?.requiredId != user.requiredId) {
             throw CustomException(ErrorCode.PERMISSION_DENIED)
         }

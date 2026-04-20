@@ -1,6 +1,6 @@
 package com.pluxity.weekly.chat.service
 
-import com.pluxity.weekly.authorization.AuthorizationService
+import com.pluxity.weekly.auth.authorization.AuthorizationService
 import com.pluxity.weekly.chat.context.ContextBuilder
 import com.pluxity.weekly.chat.dto.ChatActionResponse
 import com.pluxity.weekly.chat.llm.LlmService

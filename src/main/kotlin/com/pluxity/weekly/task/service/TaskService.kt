@@ -1,8 +1,8 @@
 package com.pluxity.weekly.task.service
 
+import com.pluxity.weekly.auth.authorization.AuthorizationService
 import com.pluxity.weekly.auth.user.entity.User
 import com.pluxity.weekly.auth.user.repository.UserRepository
-import com.pluxity.weekly.authorization.AuthorizationService
 import com.pluxity.weekly.chat.dto.TaskSearchFilter
 import com.pluxity.weekly.core.constant.ErrorCode
 import com.pluxity.weekly.core.exception.CustomException
@@ -260,7 +260,7 @@ class TaskService(
     }
 
     private fun getTaskById(id: Long): Task =
-        taskRepository.findByIdOrNull(id)
+        taskRepository.findWithEpicAndProjectById(id)
             ?: throw CustomException(ErrorCode.NOT_FOUND_TASK, id)
 
     private fun getEpicById(id: Long): Epic =
