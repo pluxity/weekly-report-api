@@ -94,7 +94,9 @@ class AuthorizationService(
         if (user.hasRole(UserType.ADMIN)) return
         if (user.isProjectManager() &&
             projectRepository.existsByEpicIdAndPmId(task.epic.requiredId, user.requiredId)
-        ) return
+        ) {
+            return
+        }
         if (task.assignee?.requiredId != user.requiredId) {
             throw CustomException(ErrorCode.PERMISSION_DENIED)
         }

@@ -462,9 +462,10 @@ class TaskServiceTest :
                 val epic = dummyEpic(id = 1L)
                 val oldAssignee = dummyUser(id = 10L, name = "기존 담당자")
                 val newAssignee = dummyUser(id = 20L, name = "새 담당자")
-                val entity = dummyTask(id = 70L, epic = epic, name = "담당자 변경 태스크").apply {
-                    this.assignee = oldAssignee
-                }
+                val entity =
+                    dummyTask(id = 70L, epic = epic, name = "담당자 변경 태스크").apply {
+                        this.assignee = oldAssignee
+                    }
 
                 every { taskRepository.findByIdOrNull(70L) } returns entity
                 every { authorizationService.requireAdminOrPm(any()) } just runs
@@ -480,16 +481,18 @@ class TaskServiceTest :
 
             When("일반 사용자가 담당자를 변경하려 하면") {
                 val epic = dummyEpic(id = 1L)
-                val entity = dummyTask(id = 71L, epic = epic).apply {
-                    this.assignee = adminUser
-                }
+                val entity =
+                    dummyTask(id = 71L, epic = epic).apply {
+                        this.assignee = adminUser
+                    }
 
                 every { taskRepository.findByIdOrNull(71L) } returns entity
                 every { authorizationService.requireAdminOrPm(any()) } throws CustomException(ErrorCode.PERMISSION_DENIED)
 
-                val exception = shouldThrow<CustomException> {
-                    service.update(71L, dummyTaskUpdateRequest(assigneeId = 999L))
-                }
+                val exception =
+                    shouldThrow<CustomException> {
+                        service.update(71L, dummyTaskUpdateRequest(assigneeId = 999L))
+                    }
 
                 Then("PERMISSION_DENIED 예외가 발생한다") {
                     exception.code shouldBe ErrorCode.PERMISSION_DENIED
@@ -500,9 +503,10 @@ class TaskServiceTest :
                 val epic = dummyEpic(id = 1L)
                 val oldAssignee = dummyUser(id = 10L, name = "기존 담당자")
                 val newAssignee = dummyUser(id = 30L, name = "미배정 담당자")
-                val entity = dummyTask(id = 72L, epic = epic, name = "자동배정 태스크").apply {
-                    this.assignee = oldAssignee
-                }
+                val entity =
+                    dummyTask(id = 72L, epic = epic, name = "자동배정 태스크").apply {
+                        this.assignee = oldAssignee
+                    }
 
                 every { taskRepository.findByIdOrNull(72L) } returns entity
                 every { authorizationService.requireAdminOrPm(any()) } just runs
@@ -521,9 +525,10 @@ class TaskServiceTest :
             When("동일한 담당자 ID를 보내면 권한 체크를 건너뛴다") {
                 val epic = dummyEpic(id = 1L)
                 val currentAssignee = dummyUser(id = 10L, name = "현재 담당자")
-                val entity = dummyTask(id = 73L, epic = epic, name = "동일 담당자").apply {
-                    this.assignee = currentAssignee
-                }
+                val entity =
+                    dummyTask(id = 73L, epic = epic, name = "동일 담당자").apply {
+                        this.assignee = currentAssignee
+                    }
 
                 every { taskRepository.findByIdOrNull(73L) } returns entity
 
