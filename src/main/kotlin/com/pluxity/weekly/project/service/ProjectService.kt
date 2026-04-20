@@ -1,7 +1,7 @@
 package com.pluxity.weekly.project.service
 
+import com.pluxity.weekly.auth.authorization.AuthorizationService
 import com.pluxity.weekly.auth.user.repository.UserRepository
-import com.pluxity.weekly.authorization.AuthorizationService
 import com.pluxity.weekly.chat.dto.ProjectSearchFilter
 import com.pluxity.weekly.core.constant.ErrorCode
 import com.pluxity.weekly.core.exception.CustomException

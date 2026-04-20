@@ -1,8 +1,8 @@
 package com.pluxity.weekly.task.service
 
+import com.pluxity.weekly.auth.authorization.AuthorizationService
 import com.pluxity.weekly.auth.user.entity.RoleType
 import com.pluxity.weekly.auth.user.repository.UserRepository
-import com.pluxity.weekly.authorization.AuthorizationService
 import com.pluxity.weekly.core.constant.ErrorCode
 import com.pluxity.weekly.core.exception.CustomException
 import com.pluxity.weekly.epic.entity.dummyEpic
@@ -109,7 +109,7 @@ class TaskServiceTest :
                         dueDate = LocalDate.of(2026, 3, 31),
                     )
 
-                every { taskRepository.findByIdOrNull(1L) } returns entity
+                every { taskRepository.findWithEpicAndProjectById(1L) } returns entity
 
                 val result = service.findById(1L)
 
@@ -126,7 +126,7 @@ class TaskServiceTest :
             }
 
             When("존재하지 않는 태스크를 조회하면") {
-                every { taskRepository.findByIdOrNull(999L) } returns null
+                every { taskRepository.findWithEpicAndProjectById(999L) } returns null
 
                 val exception =
                     shouldThrow<CustomException> {
@@ -192,7 +192,7 @@ class TaskServiceTest :
                         progress = 30,
                     )
 
-                every { taskRepository.findByIdOrNull(1L) } returns entity
+                every { taskRepository.findWithEpicAndProjectById(1L) } returns entity
 
                 service.update(1L, request)
 
@@ -204,7 +204,7 @@ class TaskServiceTest :
             }
 
             When("존재하지 않는 태스크를 수정하면") {
-                every { taskRepository.findByIdOrNull(999L) } returns null
+                every { taskRepository.findWithEpicAndProjectById(999L) } returns null
 
                 val exception =
                     shouldThrow<CustomException> {
@@ -221,7 +221,7 @@ class TaskServiceTest :
             When("존재하는 태스크를 삭제하면") {
                 val entity = dummyTask(id = 1L, name = "삭제대상 태스크")
 
-                every { taskRepository.findByIdOrNull(1L) } returns entity
+                every { taskRepository.findWithEpicAndProjectById(1L) } returns entity
                 every { taskRepository.delete(any<Task>()) } just runs
 
                 service.delete(1L)
@@ -232,7 +232,7 @@ class TaskServiceTest :
             }
 
             When("존재하지 않는 태스크를 삭제하면") {
-                every { taskRepository.findByIdOrNull(999L) } returns null
+                every { taskRepository.findWithEpicAndProjectById(999L) } returns null
 
                 val exception =
                     shouldThrow<CustomException> {
@@ -258,7 +258,7 @@ class TaskServiceTest :
                         status = TaskStatus.IN_PROGRESS,
                     )
 
-                every { taskRepository.findByIdOrNull(10L) } returns entity
+                every { taskRepository.findWithEpicAndProjectById(10L) } returns entity
                 val eventSlot = slot<Any>()
                 every { eventPublisher.publishEvent(capture(eventSlot)) } just runs
 
@@ -282,7 +282,7 @@ class TaskServiceTest :
                         status = TaskStatus.IN_REVIEW,
                     )
 
-                every { taskRepository.findByIdOrNull(11L) } returns entity
+                every { taskRepository.findWithEpicAndProjectById(11L) } returns entity
 
                 val exception =
                     shouldThrow<CustomException> {
@@ -308,7 +308,7 @@ class TaskServiceTest :
                         status = TaskStatus.IN_REVIEW,
                     ).apply { this.assignee = assignee }
 
-                every { taskRepository.findByIdOrNull(20L) } returns entity
+                every { taskRepository.findWithEpicAndProjectById(20L) } returns entity
                 val eventSlot = slot<Any>()
                 every { eventPublisher.publishEvent(capture(eventSlot)) } just runs
 
@@ -323,7 +323,7 @@ class TaskServiceTest :
 
             When("IN_PROGRESS 태스크를 승인하면") {
                 val entity = dummyTask(id = 21L, status = TaskStatus.IN_PROGRESS)
-                every { taskRepository.findByIdOrNull(21L) } returns entity
+                every { taskRepository.findWithEpicAndProjectById(21L) } returns entity
 
                 val exception =
                     shouldThrow<CustomException> {
@@ -348,7 +348,7 @@ class TaskServiceTest :
                         status = TaskStatus.IN_REVIEW,
                     )
 
-                every { taskRepository.findByIdOrNull(30L) } returns entity
+                every { taskRepository.findWithEpicAndProjectById(30L) } returns entity
                 every { eventPublisher.publishEvent(any<TeamsNotificationEvent>()) } just runs
                 val logSlot = slot<TaskApprovalLog>()
                 every { taskApprovalLogRepository.save(capture(logSlot)) } answers { logSlot.captured }
@@ -373,7 +373,7 @@ class TaskServiceTest :
                         status = TaskStatus.IN_REVIEW,
                     )
 
-                every { taskRepository.findByIdOrNull(31L) } returns entity
+                every { taskRepository.findWithEpicAndProjectById(31L) } returns entity
                 every { eventPublisher.publishEvent(any<TeamsNotificationEvent>()) } just runs
                 val logSlot = slot<TaskApprovalLog>()
                 every { taskApprovalLogRepository.save(capture(logSlot)) } answers { logSlot.captured }
@@ -457,10 +457,94 @@ class TaskServiceTest :
             }
         }
 
+        Given("태스크 담당자 변경 권한") {
+            When("ADMIN이 담당자를 변경하면") {
+                val epic = dummyEpic(id = 1L)
+                val oldAssignee = dummyUser(id = 10L, name = "기존 담당자")
+                val newAssignee = dummyUser(id = 20L, name = "새 담당자")
+                val entity =
+                    dummyTask(id = 70L, epic = epic, name = "담당자 변경 태스크").apply {
+                        this.assignee = oldAssignee
+                    }
+
+                every { taskRepository.findWithEpicAndProjectById(70L) } returns entity
+                every { authorizationService.requireAdminOrPm(any()) } just runs
+                every { epicRepository.existsByAssignmentsUserIdAndId(20L, 1L) } returns true
+                every { userRepository.findByIdOrNull(20L) } returns newAssignee
+
+                service.update(70L, dummyTaskUpdateRequest(assigneeId = 20L))
+
+                Then("담당자가 변경된다") {
+                    entity.assignee shouldBe newAssignee
+                }
+            }
+
+            When("일반 사용자가 담당자를 변경하려 하면") {
+                val epic = dummyEpic(id = 1L)
+                val entity =
+                    dummyTask(id = 71L, epic = epic).apply {
+                        this.assignee = adminUser
+                    }
+
+                every { taskRepository.findWithEpicAndProjectById(71L) } returns entity
+                every { authorizationService.requireAdminOrPm(any()) } throws CustomException(ErrorCode.PERMISSION_DENIED)
+
+                val exception =
+                    shouldThrow<CustomException> {
+                        service.update(71L, dummyTaskUpdateRequest(assigneeId = 999L))
+                    }
+
+                Then("PERMISSION_DENIED 예외가 발생한다") {
+                    exception.code shouldBe ErrorCode.PERMISSION_DENIED
+                }
+            }
+
+            When("새 담당자가 에픽에 미배정이면 자동 배정된다") {
+                val epic = dummyEpic(id = 1L)
+                val oldAssignee = dummyUser(id = 10L, name = "기존 담당자")
+                val newAssignee = dummyUser(id = 30L, name = "미배정 담당자")
+                val entity =
+                    dummyTask(id = 72L, epic = epic, name = "자동배정 태스크").apply {
+                        this.assignee = oldAssignee
+                    }
+
+                every { taskRepository.findWithEpicAndProjectById(72L) } returns entity
+                every { authorizationService.requireAdminOrPm(any()) } just runs
+                every { epicRepository.existsByAssignmentsUserIdAndId(30L, 1L) } returns false
+                every { userRepository.findByIdOrNull(30L) } returns newAssignee
+
+                service.update(72L, dummyTaskUpdateRequest(assigneeId = 30L))
+
+                Then("에픽에 자동 배정되고 담당자가 변경된다") {
+                    epic.assignments.any { it.user == newAssignee } shouldBe true
+                    entity.assignee shouldBe newAssignee
+                    verify { eventPublisher.publishEvent(match<TeamsNotificationEvent> { it.userId == 30L }) }
+                }
+            }
+
+            When("동일한 담당자 ID를 보내면 권한 체크를 건너뛴다") {
+                val epic = dummyEpic(id = 1L)
+                val currentAssignee = dummyUser(id = 10L, name = "현재 담당자")
+                val entity =
+                    dummyTask(id = 73L, epic = epic, name = "동일 담당자").apply {
+                        this.assignee = currentAssignee
+                    }
+
+                every { taskRepository.findWithEpicAndProjectById(73L) } returns entity
+
+                service.update(73L, dummyTaskUpdateRequest(assigneeId = 10L))
+
+                Then("requireAdminOrPm이 호출되지 않는다") {
+                    verify(exactly = 0) { authorizationService.requireAdminOrPm(any()) }
+                    entity.assignee shouldBe currentAssignee
+                }
+            }
+        }
+
         Given("일반 수정으로 IN_REVIEW / DONE 상태 전이 차단") {
             When("update 로 status 를 IN_REVIEW 로 변경하려 하면") {
                 val entity = dummyTask(id = 40L, status = TaskStatus.IN_PROGRESS)
-                every { taskRepository.findByIdOrNull(40L) } returns entity
+                every { taskRepository.findWithEpicAndProjectById(40L) } returns entity
 
                 val exception =
                     shouldThrow<CustomException> {
@@ -474,7 +558,7 @@ class TaskServiceTest :
 
             When("update 로 status 를 DONE 으로 변경하려 하면") {
                 val entity = dummyTask(id = 41L, status = TaskStatus.IN_PROGRESS)
-                every { taskRepository.findByIdOrNull(41L) } returns entity
+                every { taskRepository.findWithEpicAndProjectById(41L) } returns entity
 
                 val exception =
                     shouldThrow<CustomException> {
@@ -488,7 +572,7 @@ class TaskServiceTest :
 
             When("현재 상태가 DONE 인 태스크를 update 로 수정하려 하면") {
                 val entity = dummyTask(id = 42L, status = TaskStatus.DONE, name = "완료된 태스크")
-                every { taskRepository.findByIdOrNull(42L) } returns entity
+                every { taskRepository.findWithEpicAndProjectById(42L) } returns entity
 
                 val exception =
                     shouldThrow<CustomException> {

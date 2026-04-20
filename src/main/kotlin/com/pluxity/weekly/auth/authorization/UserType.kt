@@ -1,4 +1,4 @@
-package com.pluxity.weekly.authorization
+package com.pluxity.weekly.auth.authorization
 
 enum class UserType(
     val roleName: String,

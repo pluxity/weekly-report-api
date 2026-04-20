@@ -25,6 +25,9 @@ interface TaskRepository :
     fun findByEpicId(epicId: Long): List<Task>
 
     @EntityGraph(attributePaths = ["epic", "epic.project"])
+    fun findWithEpicAndProjectById(id: Long): Task?
+
+    @EntityGraph(attributePaths = ["epic", "epic.project"])
     fun findAllWithEpicAndProjectByIdIn(ids: Collection<Long>): List<Task>
 
     @EntityGraph(attributePaths = ["epic", "epic.project", "assignee"])
