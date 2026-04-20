@@ -88,7 +88,7 @@ class ContextBuilder(
             todayDayOfWeek = todayDayOfWeek,
             user = user,
             projects = projects,
-            users = findUsersByRole("PM"),
+            users = findUsersByRole("PM", "PO"),
         )
     }
 
@@ -211,9 +211,10 @@ class ContextBuilder(
                 )
             }
 
-    private fun findUsersByRole(roleName: String): List<UserRef> =
-        userRepository
-            .findAllByRoleName(roleName)
+    private fun findUsersByRole(vararg roleNames: String): List<UserRef> =
+        roleNames
+            .flatMap { userRepository.findAllByRoleName(it) }
+            .distinctBy { it.requiredId }
             .map { it.toRef() }
 
     private fun findAllUsers(): List<UserRef> =
