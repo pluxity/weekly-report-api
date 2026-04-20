@@ -30,17 +30,17 @@ class AuthorizationService(
         }
     }
 
-    /** ADMIN 또는 PM만 허용  */
+    /** ADMIN 또는 PM/PO만 허용  */
     fun requireAdminOrPm(user: User) {
         if (user.hasRole(UserType.ADMIN)) return
-        if (user.hasRole(UserType.PM)) return
+        if (user.isProjectManager()) return
         throw CustomException(ErrorCode.PERMISSION_DENIED)
     }
 
     /** PM 이 관리하는 프로젝트 ID 목록. ADMIN 이면 null(전체) 반환 */
     fun pmScopedProjectIds(user: User): List<Long>? {
         if (user.hasRole(UserType.ADMIN)) return null
-        if (!user.hasRole(UserType.PM)) throw CustomException(ErrorCode.PERMISSION_DENIED)
+        if (!user.isProjectManager()) throw CustomException(ErrorCode.PERMISSION_DENIED)
         return projectRepository.findByPmId(user.requiredId).map { it.requiredId }
     }
 
@@ -50,17 +50,17 @@ class AuthorizationService(
         projectId: Long,
     ) {
         if (user.hasRole(UserType.ADMIN)) return
-        if (user.hasRole(UserType.PM) && projectRepository.existsByIdAndPmId(projectId, user.requiredId)) return
+        if (user.isProjectManager() && projectRepository.existsByIdAndPmId(projectId, user.requiredId)) return
         throw CustomException(ErrorCode.PERMISSION_DENIED)
     }
 
-    /** ADMIN, 해당 프로젝트 PM, 또는 에픽에 배정된 사용자 허용 — 에픽 조회, 태스크 생성 */
+    /** ADMIN, 해당 프로젝트 PM/PO, 또는 에픽에 배정된 사용자 허용 — 에픽 조회, 태스크 생성 */
     fun requireEpicAccess(
         user: User,
         epicId: Long,
     ) {
         if (user.hasRole(UserType.ADMIN)) return
-        if (user.hasRole(UserType.PM) && projectRepository.existsByEpicIdAndPmId(epicId, user.requiredId)) return
+        if (user.isProjectManager() && projectRepository.existsByEpicIdAndPmId(epicId, user.requiredId)) return
         if (epicRepository.existsByAssignmentsUserIdAndId(user.requiredId, epicId)) return
         throw CustomException(ErrorCode.PERMISSION_DENIED)
     }
@@ -71,17 +71,17 @@ class AuthorizationService(
         projectId: Long,
     ) {
         if (user.hasRole(UserType.ADMIN)) return
-        if (user.hasRole(UserType.PM) && projectRepository.existsByIdAndPmId(projectId, user.requiredId)) return
+        if (user.isProjectManager() && projectRepository.existsByIdAndPmId(projectId, user.requiredId)) return
         throw CustomException(ErrorCode.PERMISSION_DENIED)
     }
 
-    /** ADMIN, 해당 프로젝트 PM,TEAM_LEADER 허용 — 에픽 배정/해제 */
+    /** ADMIN, 해당 프로젝트 PM/PO, TEAM_LEADER 허용 — 에픽 배정/해제 */
     fun requireEpicAssign(
         user: User,
         epicId: Long,
     ) {
         if (user.hasRole(UserType.ADMIN)) return
-        if (user.hasRole(UserType.PM) && projectRepository.existsByEpicIdAndPmId(epicId, user.requiredId)) return
+        if (user.isProjectManager() && projectRepository.existsByEpicIdAndPmId(epicId, user.requiredId)) return
         if (user.hasRole(UserType.TEAM_LEADER)) return
         throw CustomException(ErrorCode.PERMISSION_DENIED)
     }
@@ -104,7 +104,7 @@ class AuthorizationService(
     ) {
         if (user.hasRole(UserType.ADMIN)) return
         val pmId = task.epic.project.pmId
-        if (user.hasRole(UserType.PM) && pmId != null && pmId == user.requiredId) return
+        if (user.isProjectManager() && pmId != null && pmId == user.requiredId) return
         throw CustomException(ErrorCode.PERMISSION_DENIED)
     }
 
@@ -129,7 +129,7 @@ class AuthorizationService(
     fun visibleProjectIds(user: User): List<Long>? {
         if (user.hasRole(UserType.ADMIN)) return null
         val pmProjectIds =
-            if (user.hasRole(UserType.PM)) {
+            if (user.isProjectManager()) {
                 projectRepository.findByPmId(user.requiredId).map { it.requiredId }
             } else {
                 emptyList()
@@ -138,11 +138,11 @@ class AuthorizationService(
         return (pmProjectIds + assignedProjectIds).distinct()
     }
 
-    /** 사용자가 볼 수 있는 에픽 ID. null=전체(Admin). PM+Worker 합집합 */
+    /** 사용자가 볼 수 있는 에픽 ID. null=전체(Admin). PM/PO+Worker 합집합 */
     fun visibleEpicIds(user: User): List<Long>? {
         if (user.hasRole(UserType.ADMIN)) return null
         val pmEpicIds =
-            if (user.hasRole(UserType.PM)) {
+            if (user.isProjectManager()) {
                 val projectIds = projectRepository.findByPmId(user.requiredId).map { it.requiredId }
                 epicRepository.findByProjectIdIn(projectIds).map { it.requiredId }
             } else {
@@ -152,12 +152,14 @@ class AuthorizationService(
         return (pmEpicIds + assignedEpicIds).distinct()
     }
 
-    /** Worker는 본인 태스크만. null=제한없음(Admin/PM) */
+    /** Worker는 본인 태스크만. null=제한없음(Admin/PM/PO) */
     fun restrictedAssigneeId(user: User): Long? {
         if (user.hasRole(UserType.ADMIN)) return null
-        if (user.hasRole(UserType.PM)) return null
+        if (user.isProjectManager()) return null
         return user.requiredId
     }
 
     fun User.hasRole(userType: UserType): Boolean = userRoles.any { it.role.name.equals(userType.roleName, ignoreCase = true) }
+
+    private fun User.isProjectManager(): Boolean = hasRole(UserType.PM) || hasRole(UserType.PO)
 }

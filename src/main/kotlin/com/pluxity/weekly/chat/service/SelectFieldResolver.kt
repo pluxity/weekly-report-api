@@ -103,15 +103,19 @@ class SelectFieldResolver(
 
     private fun resolveUserCandidates(
         field: String,
-        roleName: String? = null,
+        roleNames: List<String>? = null,
     ): SelectField {
         val users = userRepository.findAllBy(Sort.by("name"))
-        val candidates =
-            if (roleName != null) {
-                users.filter { user -> user.userRoles.any { it.role.name.uppercase() == roleName } }
+        val filtered =
+            if (roleNames != null) {
+                users.filter { user -> user.userRoles.any { it.role.name.uppercase() in roleNames } }
             } else {
                 users
-            }.map { Candidate(it.requiredId.toString(), it.name) }
+            }
+        val candidates =
+            filtered
+                .distinctBy { it.requiredId }
+                .map { Candidate(it.requiredId.toString(), it.name) }
         return SelectField(field = field, candidates = candidates)
     }
 
@@ -134,7 +138,7 @@ class SelectFieldResolver(
         when (action.target) {
             "project" -> {
                 if ("pmId" !in existingFields) {
-                    result.add(resolveUserCandidates("pmId", "PM"))
+                    result.add(resolveUserCandidates("pmId", listOf("PM", "PO")))
                 }
                 if ("status" !in existingFields) {
                     result.add(resolveStatusCandidates())
