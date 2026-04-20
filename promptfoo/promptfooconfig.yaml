@@ -1,0 +1,519 @@
+description: "weekly-report-api prompt regression tests"
+
+providers:
+  - id: openrouter:google/gemini-2.5-flash
+    config:
+      apiKey:
+
+prompts:
+  - id: intent
+    label: "intent-prompt"
+    raw: |
+      {{intent_prompt}}
+      {{history_block}}
+
+      {{userMessage}}
+
+  - id: system
+    label: "system-prompt"
+    raw: |
+      {{system_prompt}}
+
+      [INTENT]
+      {{intent}}
+      [/INTENT]
+
+      [CONTEXT]
+      {{context}}
+      [/CONTEXT]
+
+      [INPUT]{{userMessage}}[/INPUT]
+
+defaultTest:
+  options:
+    transformVars: file://transform-vars.js
+
+tests:
+  # ──────────────────────────────────────
+  # intent-prompt tests
+  # ──────────────────────────────────────
+
+  ## create
+  - description: "[intent] 프로젝트 생성"
+    vars:
+      userMessage: "프로젝트 만들어줘"
+    prompts: [intent]
+    assert:
+      - type: is-json
+      - type: javascript
+        value: "JSON.parse(output).actions.includes('create') && JSON.parse(output).target === 'project'"
+
+  - description: "[intent] 이름 포함 프로젝트 생성"
+    vars:
+      userMessage: "PMS 프로젝트 만들어줘"
+    prompts: [intent]
+    assert:
+      - type: is-json
+      - type: javascript
+        value: |
+          const o = JSON.parse(output);
+          return o.actions.includes('create') && o.target === 'project' && o.name === 'PMS';
+
+  - description: "[intent] 태스크 생성"
+    vars:
+      userMessage: "태스크 만들어줘"
+    prompts: [intent]
+    assert:
+      - type: is-json
+      - type: javascript
+        value: "JSON.parse(output).actions.includes('create') && JSON.parse(output).target === 'task'"
+
+  - description: "[intent] 에픽 생성"
+    vars:
+      userMessage: "에픽 만들어줘"
+    prompts: [intent]
+    assert:
+      - type: is-json
+      - type: javascript
+        value: "JSON.parse(output).actions.includes('create') && JSON.parse(output).target === 'epic'"
+
+  ## read
+  - description: "[intent] 태스크 조회"
+    vars:
+      userMessage: "내 태스크 보여줘"
+    prompts: [intent]
+    assert:
+      - type: is-json
+      - type: javascript
+        value: "JSON.parse(output).actions.includes('read') && JSON.parse(output).target === 'task'"
+
+  - description: "[intent] 리뷰 대기 조회"
+    vars:
+      userMessage: "리뷰할거 보여줘"
+    prompts: [intent]
+    assert:
+      - type: is-json
+      - type: javascript
+        value: "JSON.parse(output).actions.includes('read') && JSON.parse(output).target === 'review'"
+
+  ## review_request
+  - description: "[intent] 완료 → review_request"
+    vars:
+      userMessage: "DB 설계 완료"
+    prompts: [intent]
+    assert:
+      - type: is-json
+      - type: javascript
+        value: "JSON.parse(output).actions.includes('review_request') && JSON.parse(output).target === 'task'"
+
+  - description: "[intent] 검수 요청"
+    vars:
+      userMessage: "API 설계 검수 요청"
+    prompts: [intent]
+    assert:
+      - type: is-json
+      - type: javascript
+        value: "JSON.parse(output).actions.includes('review_request') && JSON.parse(output).target === 'task'"
+
+  ## update
+  - description: "[intent] 태스크 수정"
+    vars:
+      userMessage: "태스크 수정해줘"
+    prompts: [intent]
+    assert:
+      - type: is-json
+      - type: javascript
+        value: "JSON.parse(output).actions.includes('update') && JSON.parse(output).target === 'task'"
+
+  ## delete
+  - description: "[intent] 프로젝트 삭제"
+    vars:
+      userMessage: "알파 프로젝트 삭제해줘"
+    prompts: [intent]
+    assert:
+      - type: is-json
+      - type: javascript
+        value: "JSON.parse(output).actions.includes('delete') && JSON.parse(output).target === 'project'"
+
+  ## assign / unassign
+  - description: "[intent] 에픽 배정"
+    vars:
+      userMessage: "OO 에픽에 OO 할당해줘"
+    prompts: [intent]
+    assert:
+      - type: is-json
+      - type: javascript
+        value: "JSON.parse(output).actions.includes('assign') && JSON.parse(output).target === 'epic'"
+
+  - description: "[intent] 에픽 배정 해제"
+    vars:
+      userMessage: "OO 에픽에서 OO 빼줘"
+    prompts: [intent]
+    assert:
+      - type: is-json
+      - type: javascript
+        value: "JSON.parse(output).actions.includes('unassign') && JSON.parse(output).target === 'epic'"
+
+  ## review_request - 다른 트리거 워드
+  - description: "[intent] 끝냈어 → review_request"
+    vars:
+      userMessage: "DB 설계 끝냈어"
+    prompts: [intent]
+    assert:
+      - type: is-json
+      - type: javascript
+        value: "JSON.parse(output).actions.includes('review_request') && JSON.parse(output).target === 'task'"
+
+  - description: "[intent] 다 했어 → review_request"
+    vars:
+      userMessage: "DB 설계 다 했어"
+    prompts: [intent]
+    assert:
+      - type: is-json
+      - type: javascript
+        value: "JSON.parse(output).actions.includes('review_request') && JSON.parse(output).target === 'task'"
+
+  ## create with hint
+  - description: "[intent] 에픽에 태스크 추가 → create + hint"
+    vars:
+      userMessage: "백엔드 에픽에 API 설계 태스크 추가해줘"
+    prompts: [intent]
+    assert:
+      - type: is-json
+      - type: javascript
+        value: |
+          const o = JSON.parse(output);
+          return o.actions.includes('create') && o.target === 'task' && o.epic === '백엔드';
+
+  ## clarify
+  - description: "[intent] 모호한 입력 → clarify"
+    vars:
+      userMessage: "진행중"
+    prompts: [intent]
+    assert:
+      - type: is-json
+      - type: javascript
+        value: "JSON.parse(output).actions.includes('clarify')"
+
+  ## team
+  - description: "[intent] 팀 조회"
+    vars:
+      userMessage: "팀 보여줘"
+    prompts: [intent]
+    assert:
+      - type: is-json
+      - type: javascript
+        value: "JSON.parse(output).actions.includes('read') && JSON.parse(output).target === 'team'"
+
+  # ──────────────────────────────────────
+  # intent-prompt history tests
+  # ──────────────────────────────────────
+
+  ## 히스토리 참조 - 이전 create 결과의 id를 이어받아 update
+  - description: "[intent-history] 아까 만든거 수정 → update + id 참조"
+    vars:
+      userMessage: "아까 만든거 마감일을 금요일로"
+      history: "--- 히스토리 #1 | 질문: 로그인 태스크 만들어줘 | target: task | actions: [create] | 결과: create task id=13 ---"
+    prompts: [intent]
+    assert:
+      - type: is-json
+      - type: javascript
+        value: |
+          const o = JSON.parse(output);
+          return o.actions.includes('update') && o.target === 'task' && o.id === 13;
+
+  ## 히스토리 참조 - 이전 create 결과의 id를 이어받아 delete
+  - description: "[intent-history] 그거 삭제 → delete + id 참조"
+    vars:
+      userMessage: "그거 삭제해줘"
+      history: "--- 히스토리 #1 | 질문: 로그인 태스크 만들어줘 | target: task | actions: [create] | 결과: create task id=13 ---"
+    prompts: [intent]
+    assert:
+      - type: is-json
+      - type: javascript
+        value: |
+          const o = JSON.parse(output);
+          return o.actions.includes('delete') && o.target === 'task' && o.id === 13;
+
+  ## 히스토리 참조 - read 결과에서 target 이어받기
+  - description: "[intent-history] 그중에 진행중인 것만 → read + target 이어받기"
+    vars:
+      userMessage: "그중에 진행중인 것만"
+      history: "--- 히스토리 #1 | 질문: 내 태스크 보여줘 | target: task | actions: [read] | 결과: read task 5건 ---"
+    prompts: [intent]
+    assert:
+      - type: is-json
+      - type: javascript
+        value: |
+          const o = JSON.parse(output);
+          return o.actions.includes('read') && o.target === 'task';
+
+  ## 히스토리 참조 - 에픽 read 후 태스크 create
+  - description: "[intent-history] 거기에 태스크 추가 → create task + epic hint"
+    vars:
+      userMessage: "거기에 태스크 추가해줘"
+      history: "--- 히스토리 #1 | 질문: 백엔드 에픽 보여줘 | target: epic | actions: [read] | 결과: read epic 3건 ---"
+    prompts: [intent]
+    assert:
+      - type: is-json
+      - type: javascript
+        value: |
+          const o = JSON.parse(output);
+          return o.actions.includes('create') && o.target === 'task';
+
+  ## clarify 후속 응답 - 이전 clarify에서 target/actions 이어받기
+  - description: "[intent-history] clarify 후 프로젝트명 보충 → assign 이어받기"
+    vars:
+      userMessage: "SAFERS 프로젝트"
+      history: "--- 히스토리 #1 | 질문: 대시보드 에픽에 OO 할당해줘 | target: epic | actions: [assign] | 결과: clarify: '대시보드' 에픽이 여러 프로젝트에 있습니다 ---"
+    prompts: [intent]
+    assert:
+      - type: is-json
+      - type: javascript
+        value: |
+          const o = JSON.parse(output);
+          return o.actions.includes('assign') && o.target === 'epic' && o.project === 'SAFERS';
+
+  # ──────────────────────────────────────
+  # system-prompt tests (fixture: 스마트팩토리/모바일POS/사내포털)
+  # ──────────────────────────────────────
+
+  ## review_request - exact match (유일한 태스크)
+  - description: "[system] MQTT 브로커 설정 완료 → review_request id=1001"
+    vars:
+      userMessage: "MQTT 브로커 설정 완료"
+      intent: '{"actions":["review_request"],"target":"task"}'
+    prompts: [system]
+    assert:
+      - type: is-json
+      - type: javascript
+        value: |
+          const arr = JSON.parse(output);
+          const o = arr[0];
+          return o.action === 'review_request' && o.target === 'task' && o.id === 1001;
+
+  ## review_request - ambiguous (동명 태스크: 리포트 생성 3개 — 1012, 1087, 2015)
+  - description: "[system] 리포트 생성 완료 → missing_fields (동명)"
+    vars:
+      userMessage: "리포트 생성 완료"
+      intent: '{"actions":["review_request"],"target":"task"}'
+    prompts: [system]
+    assert:
+      - type: is-json
+      - type: javascript
+        value: |
+          const arr = JSON.parse(output);
+          const o = arr[0];
+          return o.action === 'review_request' && o.missing_fields && o.missing_fields.includes('id')
+            && o.candidates && o.candidates.length >= 2;
+
+  ## read
+  - description: "[system] 내 태스크 조회 → assignee_id=3"
+    vars:
+      userMessage: "내 태스크 보여줘"
+      intent: '{"actions":["read"],"target":"task"}'
+    prompts: [system]
+    assert:
+      - type: is-json
+      - type: javascript
+        value: |
+          const arr = JSON.parse(output);
+          const o = arr[0];
+          return o.action === 'read' && o.target === 'task' && o.filters && o.filters.assignee_id === 3;
+
+  ## read review
+  - description: "[system] 리뷰할거 → read review"
+    vars:
+      userMessage: "리뷰할거 보여줘"
+      intent: '{"actions":["read"],"target":"review"}'
+    prompts: [system]
+    assert:
+      - type: is-json
+      - type: javascript
+        value: |
+          const arr = JSON.parse(output);
+          const o = arr[0];
+          return o.action === 'read' && o.target === 'review';
+
+  ## create - FK auto-fill (결제 모듈은 유일)
+  - description: "[system] 결제 모듈에 태스크 추가 → epic_id=201"
+    vars:
+      userMessage: "결제 모듈에 PG사 연동 추가해줘"
+      intent: '{"actions":["create"],"target":"task","epic":"결제 모듈","name":"PG사 연동"}'
+    prompts: [system]
+    assert:
+      - type: is-json
+      - type: javascript
+        value: |
+          const arr = JSON.parse(output);
+          const o = arr[0];
+          return o.action === 'create' && o.target === 'task' && o.epic_id === 201 && o.name === 'PG사 연동';
+
+  ## update - exact match
+  - description: "[system] 카드 결제 연동 90% → update id=2001"
+    vars:
+      userMessage: "카드 결제 연동 90%"
+      intent: '{"actions":["update"],"target":"task"}'
+    prompts: [system]
+    assert:
+      - type: is-json
+      - type: javascript
+        value: |
+          const arr = JSON.parse(output);
+          const o = arr[0];
+          return o.action === 'update' && o.id === 2001 && o.progress === 90;
+
+  ## delete
+  - description: "[system] 바코드 생성 삭제 → delete id=2025"
+    vars:
+      userMessage: "바코드 생성 삭제해줘"
+      intent: '{"actions":["delete"],"target":"task"}'
+    prompts: [system]
+    assert:
+      - type: is-json
+      - type: javascript
+        value: |
+          const arr = JSON.parse(output);
+          const o = arr[0];
+          return o.action === 'delete' && o.target === 'task' && o.id === 2025;
+
+  ## update without target
+  - description: "[system] 태스크 수정해줘 → missing_fields"
+    vars:
+      userMessage: "태스크 수정해줘"
+      intent: '{"actions":["update"],"target":"task"}'
+    prompts: [system]
+    assert:
+      - type: is-json
+      - type: javascript
+        value: |
+          const arr = JSON.parse(output);
+          const o = arr[0];
+          return o.action === 'update' && o.missing_fields && o.missing_fields.includes('id');
+
+  ## assign
+  - description: "[system] 센서 연동 에픽에 김민지 할당 → assign"
+    vars:
+      userMessage: "센서 연동 에픽에 김민지 할당해줘"
+      intent: '{"actions":["assign"],"target":"epic"}'
+    prompts: [system]
+    assert:
+      - type: is-json
+      - type: javascript
+        value: |
+          const arr = JSON.parse(output);
+          const o = arr[0];
+          return o.action === 'assign' && o.target === 'epic' && o.id === 101 && o.user_ids && o.user_ids.includes(4);
+
+  ## create - 이름 없이 생성
+  - description: "[system] 에픽 만들어줘 → create, name 없음"
+    vars:
+      userMessage: "에픽 만들어줘"
+      intent: '{"actions":["create"],"target":"epic"}'
+    prompts: [system]
+    assert:
+      - type: is-json
+      - type: javascript
+        value: |
+          const arr = JSON.parse(output);
+          const o = arr[0];
+          return o.action === 'create' && o.target === 'epic' && !o.name;
+
+  ## create - 동명 에픽 FK (대시보드가 2개: 102, 202)
+  - description: "[system] 대시보드에 태스크 추가 → epic_id는 102 또는 202"
+    vars:
+      userMessage: "대시보드에 태스크 추가해줘"
+      intent: '{"actions":["create"],"target":"task","epic":"대시보드"}'
+    prompts: [system]
+    assert:
+      - type: is-json
+      - type: javascript
+        value: |
+          const arr = JSON.parse(output);
+          const o = arr[0];
+          return o.action === 'create' && o.target === 'task' && (!o.epic_id || o.epic_id === 102 || o.epic_id === 202);
+
+  ## update - 날짜 변환
+  - description: "[system] 데이터 파싱 모듈 마감일 4월 25일 → date"
+    vars:
+      userMessage: "데이터 파싱 모듈 마감일 4월 25일로 변경"
+      intent: '{"actions":["update"],"target":"task"}'
+    prompts: [system]
+    assert:
+      - type: is-json
+      - type: javascript
+        value: |
+          const arr = JSON.parse(output);
+          const o = arr[0];
+          return o.action === 'update' && o.id === 1002 && o.due_date === '2026-04-25';
+
+  ## update - 상태 매핑 (시작 → IN_PROGRESS + progress=10)
+  - description: "[system] 영수증 출력 시작 → IN_PROGRESS, progress=10"
+    vars:
+      userMessage: "영수증 출력 시작"
+      intent: '{"actions":["update"],"target":"task"}'
+    prompts: [system]
+    assert:
+      - type: is-json
+      - type: javascript
+        value: |
+          const arr = JSON.parse(output);
+          const o = arr[0];
+          return o.action === 'update' && o.id === 2002 && o.status === 'IN_PROGRESS' && o.progress === 10;
+
+  ## review_request - 대상 미지정
+  - description: "[system] 리뷰 요청해줘 → missing_fields"
+    vars:
+      userMessage: "리뷰 요청해줘"
+      intent: '{"actions":["review_request"],"target":"task"}'
+    prompts: [system]
+    assert:
+      - type: is-json
+      - type: javascript
+        value: |
+          const arr = JSON.parse(output);
+          const o = arr[0];
+          return o.action === 'review_request' && o.missing_fields && o.missing_fields.includes('id');
+
+  ## read - 필터 조합 (프로젝트 + 상태)
+  - description: "[system] 스마트팩토리 진행중인 태스크 → filters"
+    vars:
+      userMessage: "스마트팩토리 진행중인 태스크 보여줘"
+      intent: '{"actions":["read"],"target":"task"}'
+    prompts: [system]
+    assert:
+      - type: is-json
+      - type: javascript
+        value: |
+          const arr = JSON.parse(output);
+          const o = arr[0];
+          return o.action === 'read' && o.filters && o.filters.project_id === 1 && o.filters.status === 'IN_PROGRESS';
+
+  ## create - 프로젝트 지정 에픽 생성
+  - description: "[system] 모바일 POS에 배송 에픽 추가 → project_id=2"
+    vars:
+      userMessage: "모바일 POS에 배송 에픽 추가해줘"
+      intent: '{"actions":["create"],"target":"epic","project":"모바일 POS","name":"배송"}'
+    prompts: [system]
+    assert:
+      - type: is-json
+      - type: javascript
+        value: |
+          const arr = JSON.parse(output);
+          const o = arr[0];
+          return o.action === 'create' && o.target === 'epic' && o.project_id === 2 && o.name === '배송';
+
+  ## not found - CONTEXT에 없는 항목은 clarify
+  - description: "[system] CONTEXT에 없는 항목 → clarify"
+    vars:
+      userMessage: "잠자기 완료"
+      intent: '{"actions":["review_request"],"target":"task"}'
+    prompts: [system]
+    assert:
+      - type: is-json
+      - type: javascript
+        value: |
+          const arr = JSON.parse(output);
+          const o = arr[0];
+          return o.action === 'clarify' && !!o.message;
+
