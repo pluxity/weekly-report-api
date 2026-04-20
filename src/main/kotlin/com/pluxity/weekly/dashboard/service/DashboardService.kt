@@ -6,18 +6,16 @@ import com.pluxity.weekly.core.constant.ErrorCode
 import com.pluxity.weekly.core.exception.CustomException
 import com.pluxity.weekly.dashboard.dto.AdminDashboardResponse
 import com.pluxity.weekly.dashboard.dto.AdminProjectCard
-import com.pluxity.weekly.dashboard.dto.EpicTaskGroup
-import com.pluxity.weekly.dashboard.dto.EpicTaskRow
 import com.pluxity.weekly.dashboard.dto.MemberTaskBar
 import com.pluxity.weekly.dashboard.dto.MemberTaskSummary
 import com.pluxity.weekly.dashboard.dto.PersonDetailResponse
 import com.pluxity.weekly.dashboard.dto.PersonKpi
 import com.pluxity.weekly.dashboard.dto.PmDashboardResponse
+import com.pluxity.weekly.dashboard.dto.PmEpicItem
 import com.pluxity.weekly.dashboard.dto.PmProjectSummary
+import com.pluxity.weekly.dashboard.dto.PmTaskItem
 import com.pluxity.weekly.dashboard.dto.ProjectParticipation
 import com.pluxity.weekly.dashboard.dto.RecentTaskItem
-import com.pluxity.weekly.dashboard.dto.RoadmapItem
-import com.pluxity.weekly.dashboard.dto.RoadmapTaskBar
 import com.pluxity.weekly.dashboard.dto.TeamSummaryItem
 import com.pluxity.weekly.dashboard.dto.WorkerDashboardResponse
 import com.pluxity.weekly.dashboard.dto.WorkerEpicItem
@@ -120,29 +118,18 @@ class DashboardService(
                     memberCount = memberCount,
                     updatedAt = project.updatedAt,
                 ),
-            roadmapItems =
+            epics =
                 epics.map { epic ->
                     val epicTasks = tasksByEpicId[epic.requiredId] ?: emptyList()
-                    RoadmapItem(
+                    PmEpicItem(
                         epicId = epic.requiredId,
                         epicName = epic.name,
-                        startDate = epic.startDate,
-                        dueDate = epic.dueDate,
                         status = epic.status,
                         progress = if (epicTasks.isEmpty()) 0 else epicTasks.map { it.progress }.average().toInt(),
+                        startDate = epic.startDate,
+                        dueDate = epic.dueDate,
                         updatedAt = epic.updatedAt,
-                        tasks = epicTasks.map { it.toRoadmapTaskBar(now, requestDateMap) },
-                    )
-                },
-            epicTaskGroups =
-                epics.map { epic ->
-                    val epicTasks = tasksByEpicId[epic.requiredId] ?: emptyList()
-                    EpicTaskGroup(
-                        epicId = epic.requiredId,
-                        epicName = epic.name,
-                        status = epic.status,
-                        updatedAt = epic.updatedAt,
-                        tasks = epicTasks.map { it.toEpicTaskRow(now, requestDateMap) },
+                        tasks = epicTasks.map { it.toPmTaskItem(now, requestDateMap) },
                     )
                 },
         )
@@ -383,27 +370,11 @@ class DashboardService(
             requestDate = requestDateMap.getValue(this.requiredId),
         )
 
-    private fun Task.toRoadmapTaskBar(
+    private fun Task.toPmTaskItem(
         now: LocalDate,
         requestDateMap: Map<Long, LocalDateTime>,
-    ): RoadmapTaskBar =
-        RoadmapTaskBar(
-            taskId = this.requiredId,
-            taskName = this.name,
-            assigneeName = this.assignee?.name,
-            startDate = this.startDate,
-            dueDate = this.dueDate,
-            status = this.status,
-            progress = this.progress,
-            daysDelta = calculateDaysDelta(now),
-            requestDate = requestDateMap.getValue(this.requiredId),
-        )
-
-    private fun Task.toEpicTaskRow(
-        now: LocalDate,
-        requestDateMap: Map<Long, LocalDateTime>,
-    ): EpicTaskRow =
-        EpicTaskRow(
+    ): PmTaskItem =
+        PmTaskItem(
             taskId = this.requiredId,
             taskName = this.name,
             status = this.status,
