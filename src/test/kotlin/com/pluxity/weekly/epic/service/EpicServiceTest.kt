@@ -203,6 +203,70 @@ class EpicServiceTest :
             }
         }
 
+        Given("에픽 수정 시 userIds 교체") {
+            When("userIds로 [2,3]을 보내면 기존 [1,2]에서 1은 해제되고 3은 추가된다") {
+                val project = dummyProject(id = 1L)
+                val epic = dummyEpic(id = 10L, project = project, name = "배정교체 에픽")
+                val user1 = dummyUser(id = 1L, name = "유저1")
+                val user2 = dummyUser(id = 2L, name = "유저2")
+                val user3 = dummyUser(id = 3L, name = "유저3")
+                epic.assign(user1)
+                epic.assign(user2)
+
+                every { epicRepository.findByIdOrNull(10L) } returns epic
+                every { userRepository.findByIdOrNull(2L) } returns user2
+                every { userRepository.findByIdOrNull(3L) } returns user3
+                every { taskRepository.deleteByEpicIdAndAssigneeId(10L, 1L) } just runs
+                every { eventPublisher.publishEvent(any<TeamsNotificationEvent>()) } just runs
+
+                service.update(10L, dummyEpicUpdateRequest(userIds = listOf(2L, 3L)))
+
+                Then("user1은 해제되고 user3은 추가된다") {
+                    epic.assignments.map { it.user } shouldBe listOf(user2, user3)
+                    verify { taskRepository.deleteByEpicIdAndAssigneeId(10L, 1L) }
+                    verify { eventPublisher.publishEvent(match<TeamsNotificationEvent> { it.userId == 1L && it.message.contains("해제") }) }
+                    verify { eventPublisher.publishEvent(match<TeamsNotificationEvent> { it.userId == 3L && it.message.contains("배정") }) }
+                }
+            }
+
+            When("빈 배열을 보내면 전체 해제된다") {
+                val project = dummyProject(id = 1L)
+                val epic = dummyEpic(id = 11L, project = project, name = "전체해제 에픽")
+                val user1 = dummyUser(id = 10L, name = "유저A")
+                val user2 = dummyUser(id = 20L, name = "유저B")
+                epic.assign(user1)
+                epic.assign(user2)
+
+                every { epicRepository.findByIdOrNull(11L) } returns epic
+                every { taskRepository.deleteByEpicIdAndAssigneeId(11L, any()) } just runs
+                every { eventPublisher.publishEvent(any<TeamsNotificationEvent>()) } just runs
+
+                service.update(11L, dummyEpicUpdateRequest(userIds = emptyList()))
+
+                Then("배정이 모두 제거된다") {
+                    epic.assignments.size shouldBe 0
+                    verify { taskRepository.deleteByEpicIdAndAssigneeId(11L, 10L) }
+                    verify { taskRepository.deleteByEpicIdAndAssigneeId(11L, 20L) }
+                }
+            }
+
+            When("userIds가 null이면 배정이 변경되지 않는다") {
+                val project = dummyProject(id = 1L)
+                val epic = dummyEpic(id = 12L, project = project, name = "변경없음 에픽")
+                val user1 = dummyUser(id = 10L, name = "유저X")
+                epic.assign(user1)
+
+                every { epicRepository.findByIdOrNull(12L) } returns epic
+
+                service.update(12L, dummyEpicUpdateRequest(userIds = null))
+
+                Then("기존 배정이 유지된다") {
+                    epic.assignments.size shouldBe 1
+                    epic.assignments[0].user shouldBe user1
+                }
+            }
+        }
+
         // ── EpicAssignment ──
 
         Given("에픽 배정 목록 조회") {

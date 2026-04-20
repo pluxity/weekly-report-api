@@ -457,6 +457,85 @@ class TaskServiceTest :
             }
         }
 
+        Given("태스크 담당자 변경 권한") {
+            When("ADMIN이 담당자를 변경하면") {
+                val epic = dummyEpic(id = 1L)
+                val oldAssignee = dummyUser(id = 10L, name = "기존 담당자")
+                val newAssignee = dummyUser(id = 20L, name = "새 담당자")
+                val entity = dummyTask(id = 70L, epic = epic, name = "담당자 변경 태스크").apply {
+                    this.assignee = oldAssignee
+                }
+
+                every { taskRepository.findByIdOrNull(70L) } returns entity
+                every { authorizationService.requireAdminOrPm(any()) } just runs
+                every { epicRepository.existsByAssignmentsUserIdAndId(20L, 1L) } returns true
+                every { userRepository.findByIdOrNull(20L) } returns newAssignee
+
+                service.update(70L, dummyTaskUpdateRequest(assigneeId = 20L))
+
+                Then("담당자가 변경된다") {
+                    entity.assignee shouldBe newAssignee
+                }
+            }
+
+            When("일반 사용자가 담당자를 변경하려 하면") {
+                val epic = dummyEpic(id = 1L)
+                val entity = dummyTask(id = 71L, epic = epic).apply {
+                    this.assignee = adminUser
+                }
+
+                every { taskRepository.findByIdOrNull(71L) } returns entity
+                every { authorizationService.requireAdminOrPm(any()) } throws CustomException(ErrorCode.PERMISSION_DENIED)
+
+                val exception = shouldThrow<CustomException> {
+                    service.update(71L, dummyTaskUpdateRequest(assigneeId = 999L))
+                }
+
+                Then("PERMISSION_DENIED 예외가 발생한다") {
+                    exception.code shouldBe ErrorCode.PERMISSION_DENIED
+                }
+            }
+
+            When("새 담당자가 에픽에 미배정이면 자동 배정된다") {
+                val epic = dummyEpic(id = 1L)
+                val oldAssignee = dummyUser(id = 10L, name = "기존 담당자")
+                val newAssignee = dummyUser(id = 30L, name = "미배정 담당자")
+                val entity = dummyTask(id = 72L, epic = epic, name = "자동배정 태스크").apply {
+                    this.assignee = oldAssignee
+                }
+
+                every { taskRepository.findByIdOrNull(72L) } returns entity
+                every { authorizationService.requireAdminOrPm(any()) } just runs
+                every { epicRepository.existsByAssignmentsUserIdAndId(30L, 1L) } returns false
+                every { userRepository.findByIdOrNull(30L) } returns newAssignee
+
+                service.update(72L, dummyTaskUpdateRequest(assigneeId = 30L))
+
+                Then("에픽에 자동 배정되고 담당자가 변경된다") {
+                    epic.assignments.any { it.user == newAssignee } shouldBe true
+                    entity.assignee shouldBe newAssignee
+                    verify { eventPublisher.publishEvent(match<TeamsNotificationEvent> { it.userId == 30L }) }
+                }
+            }
+
+            When("동일한 담당자 ID를 보내면 권한 체크를 건너뛴다") {
+                val epic = dummyEpic(id = 1L)
+                val currentAssignee = dummyUser(id = 10L, name = "현재 담당자")
+                val entity = dummyTask(id = 73L, epic = epic, name = "동일 담당자").apply {
+                    this.assignee = currentAssignee
+                }
+
+                every { taskRepository.findByIdOrNull(73L) } returns entity
+
+                service.update(73L, dummyTaskUpdateRequest(assigneeId = 10L))
+
+                Then("requireAdminOrPm이 호출되지 않는다") {
+                    verify(exactly = 0) { authorizationService.requireAdminOrPm(any()) }
+                    entity.assignee shouldBe currentAssignee
+                }
+            }
+        }
+
         Given("일반 수정으로 IN_REVIEW / DONE 상태 전이 차단") {
             When("update 로 status 를 IN_REVIEW 로 변경하려 하면") {
                 val entity = dummyTask(id = 40L, status = TaskStatus.IN_PROGRESS)
