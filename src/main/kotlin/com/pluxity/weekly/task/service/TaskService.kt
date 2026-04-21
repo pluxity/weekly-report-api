@@ -63,12 +63,8 @@ class TaskService(
         val user = authorizationService.currentUser()
         authorizationService.requireEpicAccess(user, request.epicId)
         val epic = getEpicById(request.epicId)
-        if (epic.status == EpicStatus.DONE) {
-            throw CustomException(ErrorCode.INVALID_STATUS_TRANSITION, epic.status, "create task")
-        }
-        if (taskRepository.existsByEpicIdAndName(request.epicId, request.name)) {
-            throw CustomException(ErrorCode.DUPLICATE_TASK, request.epicId, request.name)
-        }
+        epic.ensureMutable("create task")
+        ensureUniqueTaskName(request.epicId, request.name)
         val newAssigneeId = request.assigneeId?.takeIf { it != user.requiredId }
         ensureAssigneeInEpic(user, newAssigneeId, epic)
         return taskRepository
@@ -97,9 +93,7 @@ class TaskService(
         task.ensureMutable()
         request.status?.let { task.changeStatus(it) }
         request.name?.takeIf { it != task.name }?.let { newName ->
-            if (taskRepository.existsByEpicIdAndName(task.epic.requiredId, newName)) {
-                throw CustomException(ErrorCode.DUPLICATE_TASK, task.epic.requiredId, newName)
-            }
+            ensureUniqueTaskName(task.epic.requiredId, newName)
         }
         val newAssigneeId = request.assigneeId?.takeIf { it != task.assignee?.requiredId }
         ensureAssigneeInEpic(user, newAssigneeId, task.epic)
@@ -249,6 +243,15 @@ class TaskService(
         val task = getTaskById(id)
         authorizationService.requireTaskOwner(user, task)
         taskRepository.delete(task)
+    }
+
+    private fun ensureUniqueTaskName(
+        epicId: Long,
+        name: String,
+    ) {
+        if (taskRepository.existsByEpicIdAndName(epicId, name)) {
+            throw CustomException(ErrorCode.DUPLICATE_TASK, epicId, name)
+        }
     }
 
     private fun ensureAssigneeInEpic(

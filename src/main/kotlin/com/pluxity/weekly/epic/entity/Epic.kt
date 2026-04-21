@@ -49,9 +49,9 @@ class Epic(
         validateDateRange(startDate, dueDate)
     }
 
-    fun ensureMutable() {
+    fun ensureMutable(action: String = "update") {
         if (status == EpicStatus.DONE) {
-            throw CustomException(ErrorCode.INVALID_STATUS_TRANSITION, status, "update")
+            throw CustomException(ErrorCode.INVALID_STATUS_TRANSITION, status, action)
         }
     }
 
