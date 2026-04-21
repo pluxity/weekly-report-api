@@ -28,13 +28,20 @@ class ClarifyStore(
         return clarifyId
     }
 
-    fun consume(
+    fun peek(
         userId: Long,
         clarifyId: String,
     ): LlmAction {
         val key = keyOf(userId, clarifyId)
-        val raw = redisTemplate.opsForValue().getAndDelete(key) ?: throw ChatSessionExpiredException()
+        val raw = redisTemplate.opsForValue().get(key) ?: throw ChatSessionExpiredException()
         return objectMapper.readValue(raw, LlmAction::class.java)
+    }
+
+    fun delete(
+        userId: Long,
+        clarifyId: String,
+    ) {
+        redisTemplate.delete(keyOf(userId, clarifyId))
     }
 
     private fun keyOf(
