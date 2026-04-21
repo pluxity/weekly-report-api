@@ -4,6 +4,7 @@ import com.pluxity.weekly.auth.user.entity.User
 import com.pluxity.weekly.core.constant.ErrorCode
 import com.pluxity.weekly.core.entity.IdentityIdEntity
 import com.pluxity.weekly.core.exception.CustomException
+import com.pluxity.weekly.core.validation.validateDateRange
 import com.pluxity.weekly.epic.entity.Epic
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
@@ -40,6 +41,10 @@ class Task(
     @JoinColumn(name = "assignee_id")
     var assignee: User? = null,
 ) : IdentityIdEntity() {
+    init {
+        validateDateRange(startDate, dueDate)
+    }
+
     fun changeStatus(newStatus: TaskStatus) {
         if (status == TaskStatus.DONE) {
             throw CustomException(ErrorCode.INVALID_STATUS_TRANSITION, status, "update")
@@ -89,5 +94,6 @@ class Task(
         startDate?.let { this.startDate = it }
         dueDate?.let { this.dueDate = it }
         assignee?.let { this.assignee = it }
+        validateDateRange(this.startDate, this.dueDate)
     }
 }

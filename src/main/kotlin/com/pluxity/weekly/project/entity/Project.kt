@@ -3,6 +3,7 @@ package com.pluxity.weekly.project.entity
 import com.pluxity.weekly.core.constant.ErrorCode
 import com.pluxity.weekly.core.entity.IdentityIdEntity
 import com.pluxity.weekly.core.exception.CustomException
+import com.pluxity.weekly.core.validation.validateDateRange
 import com.pluxity.weekly.epic.entity.Epic
 import jakarta.persistence.CascadeType
 import jakarta.persistence.Column
@@ -35,6 +36,10 @@ class Project(
     @OneToMany(mappedBy = "project", cascade = [CascadeType.REMOVE])
     val epics: MutableList<Epic> = mutableListOf()
 
+    init {
+        validateDateRange(startDate, dueDate)
+    }
+
     fun changeStatus(
         newStatus: ProjectStatus,
         allEpicsDone: Boolean,
@@ -63,5 +68,6 @@ class Project(
         startDate?.let { this.startDate = it }
         dueDate?.let { this.dueDate = it }
         pmId?.let { this.pmId = it }
+        validateDateRange(this.startDate, this.dueDate)
     }
 }

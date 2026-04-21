@@ -54,6 +54,7 @@ class ProjectService(
     fun create(request: ProjectRequest): Long {
         val user = authorizationService.currentUser()
         authorizationService.requireAdmin(user)
+        request.pmId?.let { ensurePmExists(it) }
         return projectRepository
             .save(
                 Project(
@@ -75,6 +76,7 @@ class ProjectService(
         val user = authorizationService.currentUser()
         authorizationService.requireProjectManager(user, id)
         val project = getById(id)
+        request.pmId?.let { ensurePmExists(it) }
 
         request.status?.let { newStatus ->
             val allEpicsDone =
@@ -107,6 +109,12 @@ class ProjectService(
     private fun getById(id: Long): Project =
         projectRepository.findByIdOrNull(id)
             ?: throw CustomException(ErrorCode.NOT_FOUND_PROJECT, id)
+
+    private fun ensurePmExists(pmId: Long) {
+        if (!userRepository.existsById(pmId)) {
+            throw CustomException(ErrorCode.NOT_FOUND_USER, pmId)
+        }
+    }
 
     private fun resolvePmNames(pmIds: List<Long>): Map<Long, String> =
         if (pmIds.isEmpty()) {

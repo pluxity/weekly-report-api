@@ -69,6 +69,12 @@ class TaskService(
         if (taskRepository.existsByEpicIdAndName(request.epicId, request.name)) {
             throw CustomException(ErrorCode.DUPLICATE_TASK, request.epicId, request.name)
         }
+        val newAssigneeId = request.assigneeId?.takeIf { it != user.requiredId }
+        if (newAssigneeId != null) {
+            authorizationService.requireAdminOrPm(user)
+            ensureAssigneeInEpic(newAssigneeId, epic)
+        }
+        val assignee = request.assigneeId?.let { getUserById(it) } ?: user
         return taskRepository
             .save(
                 Task(
@@ -79,7 +85,7 @@ class TaskService(
                     progress = request.progress,
                     startDate = request.startDate,
                     dueDate = request.dueDate,
-                    assignee = request.assigneeId?.let { getUserById(it) } ?: user,
+                    assignee = assignee,
                 ),
             ).requiredId
     }

@@ -4,6 +4,7 @@ import com.pluxity.weekly.auth.user.entity.User
 import com.pluxity.weekly.core.constant.ErrorCode
 import com.pluxity.weekly.core.entity.IdentityIdEntity
 import com.pluxity.weekly.core.exception.CustomException
+import com.pluxity.weekly.core.validation.validateDateRange
 import com.pluxity.weekly.project.entity.Project
 import com.pluxity.weekly.task.entity.Task
 import jakarta.persistence.CascadeType
@@ -44,6 +45,10 @@ class Epic(
     @OneToMany(mappedBy = "epic", cascade = [CascadeType.REMOVE])
     val tasks: MutableList<Task> = mutableListOf()
 
+    init {
+        validateDateRange(startDate, dueDate)
+    }
+
     fun assign(user: User) {
         if (assignments.none { it.user == user }) {
             assignments.add(EpicAssignment(epic = this, user = user))
@@ -80,5 +85,6 @@ class Epic(
         description?.let { this.description = it }
         startDate?.let { this.startDate = it }
         dueDate?.let { this.dueDate = it }
+        validateDateRange(this.startDate, this.dueDate)
     }
 }

@@ -34,6 +34,7 @@ enum class ErrorCode(
     NOT_FOUND_TASK(HttpStatus.NOT_FOUND, "ID가 %s인 태스크를 찾을 수 없습니다."),
     DUPLICATE_TASK(HttpStatus.BAD_REQUEST, "에픽 '%s'에 이미 '%s' 태스크가 존재합니다."),
     INVALID_STATUS_TRANSITION(HttpStatus.BAD_REQUEST, "상태 %s에서는 %s 동작을 수행할 수 없습니다."),
+    INVALID_DATE_RANGE(HttpStatus.BAD_REQUEST, "시작일(%s)이 마감일(%s)보다 늦을 수 없습니다."),
     EPIC_NOT_ALL_DONE(HttpStatus.BAD_REQUEST, "프로젝트를 완료하려면 모든 하위 에픽을 먼저 완료해야 합니다."),
     TASK_NOT_ALL_DONE(HttpStatus.BAD_REQUEST, "에픽을 완료하려면 모든 하위 태스크를 먼저 완료해야 합니다."),
 
