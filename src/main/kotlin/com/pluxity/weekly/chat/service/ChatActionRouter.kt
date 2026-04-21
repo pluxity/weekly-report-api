@@ -9,7 +9,10 @@ import com.pluxity.weekly.chat.exception.ChatSelectRequiredException
 import com.pluxity.weekly.epic.service.EpicService
 import com.pluxity.weekly.project.service.ProjectService
 import com.pluxity.weekly.task.service.TaskService
+import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.stereotype.Component
+
+private val log = KotlinLogging.logger {}
 
 @Component
 class ChatActionRouter(
@@ -85,12 +88,16 @@ class ChatActionRouter(
         val missingFields = action.missingFields
         val candidates = action.candidates
 
-        if (!candidates.isNullOrEmpty() && missingFields?.size == 1) {
+        if (!candidates.isNullOrEmpty() && !missingFields.isNullOrEmpty()) {
+            if (missingFields.size > 1) {
+                log.warn { "LLM이 복수 missingFields 반환: $missingFields — [0]만 사용" }
+            }
             val field = missingFields[0]
             val resolved = selectFieldResolver.resolveCandidates(field, action.target, candidates)
             if (resolved.isNotEmpty()) {
                 val userId = authorizationService.currentUser().requiredId
-                val clarifyId = clarifyStore.save(userId, action)
+                val normalized = action.copy(missingFields = listOf(field))
+                val clarifyId = clarifyStore.save(userId, normalized)
                 throw ChatSelectRequiredException(
                     message = message,
                     clarifyId = clarifyId,

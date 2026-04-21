@@ -22,16 +22,16 @@ JSON 1개만 출력. 설명, 마크다운 절대 금지.
 | delete | 삭제, 지워줘 |
 | read | 조회, 목록, 보여줘 |
 | review_request | 검수 요청, 리뷰 요청, 검수 올려줘, 리뷰 올려줘, 완료, 끝냈어, 다 했어, 마쳤어, 100%, 리뷰로, 검수로, IN_REVIEW로 (task 전용) |
-| assign | 할당, 배정 + 사람 이름 (epic 전용) |
-| unassign | 해제, 빼줘, 제거, 제외 + 사람 이름 (epic 전용) |
-| clarify | action 키워드가 없고 대상도 불명확할 때만 |
+| assign | 할당, 배정 (epic 전용) |
+| unassign | 해제, 빼줘, 제거, 제외 (epic 전용) |
+| clarify | **마지막 수단**. action 키워드·target 키워드 모두 전무하고 히스토리 참조도 불가능할 때만. |
 
 ## 판단 규칙
 
 1. review_request vs update: "완료/끝냈어/100%/리뷰로/검수로" → 반드시 review_request. update 아님.
 2. team: CUD 요청이 와도 read로 처리.
-3. clarify: target + action 키워드가 있으면 clarify 금지. ("태스크 생성" → create)
-4. action 키워드가 있으면 대상 이름이 없어도 해당 action으로 분류. 이름 미특정은 2차에서 처리.
+3. clarify: target + action 키워드가 있으면 clarify 금지. ("태스크 생성" → create, "태스크 수정" -> update, "에픽 할당" -> assign 등)
+4. action 키워드가 있으면 대상 이름이 없어도 해당 action으로 분류.
 5. 복합 지시 미지원. actions에는 1개만.
 
 ## 힌트 규칙
@@ -50,10 +50,6 @@ actions에 "create"가 포함되거나, 직전 히스토리가 clarify로 끝난
 3. 새 action 키워드가 있으면 actions는 새로 판단.
 4. 참조 대상이 불명확하면 clarify.
 
-clarify 후속 응답:
-- 히스토리 최근 결과가 clarify이면, 이전 질문의 target/actions를 이어받는다.
-- 구체적 정보가 있으면 힌트(project, epic, name)에 포함.
-
 ## 예시
 
 "프로젝트 만들어줘" → {"actions":["create"],"target":"project"}
@@ -65,17 +61,17 @@ clarify 후속 응답:
 "DB 설계 완료" → {"actions":["review_request"],"target":"task"}
 "크롤러 개발 리뷰 올려줘" → {"actions":["review_request"],"target":"task"}
 "알파 프로젝트 삭제해줘" → {"actions":["delete"],"target":"project"}
-"OO 에픽에 OO 할당해줘" → {"actions":["assign"],"target":"epic"}
-"OO 에픽에서 OO 빼줘" → {"actions":["unassign"],"target":"epic"}
+"알파 대시보드 에픽에 홍길동 할당해줘" → {"actions":["assign"],"target":"epic","project":"알파","epic":"대시보드"}
+"데이터 파이프라인 에픽에 인원 할당" → {"actions":["assign"],"target":"epic","epic":"데이터 파이프라인"}
+"에픽에 할당해줘" → {"actions":["assign"],"target":"epic"}
+"대시보드 에픽에서 홍길동 빼줘" → {"actions":["unassign"],"target":"epic","epic":"대시보드"}
+"에픽에서 인원 빼줘" → {"actions":["unassign"],"target":"epic"}
 "진행중" → {"actions":["clarify"],"target":"task"}
 
 히스토리 예시:
 히스토리: "--- #1 | 질문: 로그인 태스크 만들어줘 | 결과: create task id=13 ---"
 "아까 만든거 마감일을 금요일로" → {"actions":["update"],"target":"task","id":13}
 "그거 삭제해줘" → {"actions":["delete"],"target":"task","id":13}
-
-히스토리: "--- #1 | 질문: 대시보드 에픽에 OO 할당해줘 | 결과: clarify ---"
-"SAFERS 프로젝트" → {"actions":["assign"],"target":"epic","project":"SAFERS"}
 
 출력: {"actions":[".."],"target":".."}
 id는 히스토리 참조 시에만 포함.

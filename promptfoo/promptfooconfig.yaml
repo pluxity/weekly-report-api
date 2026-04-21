@@ -138,7 +138,7 @@ tests:
   ## assign / unassign
   - description: "[intent] 에픽 배정"
     vars:
-      userMessage: "OO 에픽에 OO 할당해줘"
+      userMessage: "대시보드 에픽에 홍길동 할당해줘"
     prompts: [intent]
     assert:
       - type: is-json
@@ -147,7 +147,7 @@ tests:
 
   - description: "[intent] 에픽 배정 해제"
     vars:
-      userMessage: "OO 에픽에서 OO 빼줘"
+      userMessage: "대시보드 에픽에서 홍길동 빼줘"
     prompts: [intent]
     assert:
       - type: is-json
@@ -260,19 +260,6 @@ tests:
         value: |
           const o = JSON.parse(output);
           return o.actions.includes('create') && o.target === 'task';
-
-  ## clarify 후속 응답 - 이전 clarify에서 target/actions 이어받기
-  - description: "[intent-history] clarify 후 프로젝트명 보충 → assign 이어받기"
-    vars:
-      userMessage: "SAFERS 프로젝트"
-      history: "--- 히스토리 #1 | 질문: 대시보드 에픽에 OO 할당해줘 | target: epic | actions: [assign] | 결과: clarify: '대시보드' 에픽이 여러 프로젝트에 있습니다 ---"
-    prompts: [intent]
-    assert:
-      - type: is-json
-      - type: javascript
-        value: |
-          const o = JSON.parse(output);
-          return o.actions.includes('assign') && o.target === 'epic' && o.project === 'SAFERS';
 
   # ──────────────────────────────────────
   # system-prompt tests (fixture: 스마트팩토리/모바일POS/사내포털)
@@ -516,4 +503,21 @@ tests:
           const arr = JSON.parse(output);
           const o = arr[0];
           return o.action === 'clarify' && !!o.message;
+
+  ## assign - 동명 에픽 + user 미지정 (복수 미확정 → missing_fields는 id 1개만)
+  - description: "[system] 복수 미확정 → missing_fields는 id 1개만"
+    vars:
+      userMessage: "대시보드 에픽에 할당해줘"
+      intent: '{"actions":["assign"],"target":"epic"}'
+    prompts: [system]
+    assert:
+      - type: is-json
+      - type: javascript
+        value: |
+          const arr = JSON.parse(output);
+          const o = arr[0];
+          return o.action === 'assign' && o.target === 'epic' &&
+            o.missing_fields && o.missing_fields.length === 1 &&
+            o.missing_fields[0] === 'id' &&
+            o.candidates && o.candidates.length >= 2;
 
