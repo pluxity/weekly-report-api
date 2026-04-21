@@ -309,6 +309,7 @@ class TaskServiceTest :
                     )
 
                 every { taskRepository.findWithEpicAndProjectById(1L) } returns entity
+                every { taskRepository.existsByEpicIdAndName(1L, "수정된 태스크") } returns false
 
                 service.update(1L, request)
 
@@ -329,6 +330,38 @@ class TaskServiceTest :
 
                 Then("NOT_FOUND 예외가 발생한다") {
                     exception.code shouldBe ErrorCode.NOT_FOUND_TASK
+                }
+            }
+
+            When("같은 epic의 다른 태스크 이름으로 수정하면") {
+                val epic = dummyEpic(id = 1L)
+                val entity = dummyTask(id = 50L, epic = epic, name = "원본")
+
+                every { taskRepository.findWithEpicAndProjectById(50L) } returns entity
+                every { taskRepository.existsByEpicIdAndName(1L, "중복") } returns true
+
+                val exception =
+                    shouldThrow<CustomException> {
+                        service.update(50L, dummyTaskUpdateRequest(name = "중복"))
+                    }
+
+                Then("DUPLICATE_TASK 예외가 발생한다") {
+                    exception.code shouldBe ErrorCode.DUPLICATE_TASK
+                }
+            }
+
+            When("본인 이름과 동일한 이름으로 수정하면") {
+                val epic = dummyEpic(id = 1L)
+                val entity = dummyTask(id = 51L, epic = epic, name = "변경없음")
+
+                every { taskRepository.findWithEpicAndProjectById(51L) } returns entity
+
+                service.update(51L, dummyTaskUpdateRequest(name = "변경없음"))
+
+                Then("중복 체크 쿼리가 호출되지 않는다") {
+                    verify(exactly = 0) {
+                        taskRepository.existsByEpicIdAndName(any(), any())
+                    }
                 }
             }
         }
@@ -689,6 +722,7 @@ class TaskServiceTest :
             When("현재 상태가 DONE 인 태스크를 update 로 수정하려 하면") {
                 val entity = dummyTask(id = 42L, status = TaskStatus.DONE, name = "완료된 태스크")
                 every { taskRepository.findWithEpicAndProjectById(42L) } returns entity
+                every { taskRepository.existsByEpicIdAndName(any(), any()) } returns false
 
                 val exception =
                     shouldThrow<CustomException> {

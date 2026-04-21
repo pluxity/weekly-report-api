@@ -71,7 +71,6 @@ class TaskService(
         }
         val newAssigneeId = request.assigneeId?.takeIf { it != user.requiredId }
         ensureAssigneeInEpic(user, newAssigneeId, epic)
-        val assignee = newAssigneeId?.let { getUserById(it) } ?: user
         return taskRepository
             .save(
                 Task(
@@ -82,7 +81,7 @@ class TaskService(
                     progress = request.progress,
                     startDate = request.startDate,
                     dueDate = request.dueDate,
-                    assignee = assignee,
+                    assignee = newAssigneeId?.let { getUserById(it) } ?: user,
                 ),
             ).requiredId
     }
@@ -96,6 +95,11 @@ class TaskService(
         val task = getTaskById(id)
         authorizationService.requireTaskOwner(user, task)
         request.status?.let { task.changeStatus(it) }
+        request.name?.takeIf { it != task.name }?.let { newName ->
+            if (taskRepository.existsByEpicIdAndName(task.epic.requiredId, newName)) {
+                throw CustomException(ErrorCode.DUPLICATE_TASK, task.epic.requiredId, newName)
+            }
+        }
         val newAssigneeId = request.assigneeId?.takeIf { it != task.assignee?.requiredId }
         ensureAssigneeInEpic(user, newAssigneeId, task.epic)
         task.update(
