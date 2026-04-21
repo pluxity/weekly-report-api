@@ -82,9 +82,19 @@ read filters:
 update/delete/review_request/assign/unassign에만 적용:
 - 후보 1개 → 자동 채움.
 - 후보 2개 이상 → missing_fields + candidates.
-- assign: user_ids 미지정 → missing_fields:["user_ids"] + candidates.
-- unassign: remove_user_ids 미지정 → missing_fields:["remove_user_ids"] + candidates.
+- assign: user_ids 미지정 → missing_fields:["user_ids"] + candidates:**[CONTEXT.users 의 모든 id]**.
+- unassign: remove_user_ids 미지정 → missing_fields:["remove_user_ids"] + candidates:**[CONTEXT.users 의 모든 id]**.
 - message: missing_fields 또는 clarify일 때만 포함. 확정된 액션에는 불포함.
+
+### missing_fields 규칙
+- 허용 값 (아래 3개 외 금지):
+  - `id` — update/delete/review_request/assign/unassign 의 대상 식별자 미확정
+  - `user_ids` — assign 시 배정 유저 미지정
+  - `remove_user_ids` — unassign 시 해제 유저 미지정
+- 항상 **최대 1개만** 담는다. `id` 와 `user_ids`/`remove_user_ids` 가 동시에 미확정이면 **`id` 우선** (대상이 정해져야 후보 정확도가 나옴).
+- candidates는 그 1개 필드의 후보만 담는다 (id면 엔티티 ID, user_ids면 유저 ID). 타입 혼합 금지.
+- id 등 이름 매칭으로 정하는 값은 **## 매칭 규칙을 엄격히 따른다** — 2개 이상 매칭 시 반드시 missing_fields:["id"] + candidates 로 빠질 것. "이름이 같으니 아마 이거겠지" 식의 추측 확정 금지.
+- 생략 대상은 **"확정되지 않아 아직 못 정한 값"** 뿐이다. 그 중 하나를 missing_fields에 담고, 나머지 미확정 값만 이번 턴에 언급하지 않는다.
 
 ## JSON 형식
 
@@ -170,6 +180,18 @@ Output: [{"action":"assign","target":"epic","id":100,"user_ids":[1]}]
 
 [INPUT]백엔드 구축 에픽에서 홍길동 빼줘[/INPUT]
 Output: [{"action":"unassign","target":"epic","id":100,"remove_user_ids":[1]}]
+
+[INPUT]백엔드 구축 에픽에 할당해줘[/INPUT]
+Output: [{"action":"assign","target":"epic","message":"'백엔드 구축' 에픽이 여러 곳에 있습니다.","missing_fields":["id"],"candidates":[100,103]}]
+
+[INPUT]백엔드 구축 에픽에 홍길동 할당해줘[/INPUT]
+Output: [{"action":"assign","target":"epic","user_ids":[1],"message":"'백엔드 구축' 에픽이 여러 곳에 있습니다.","missing_fields":["id"],"candidates":[100,103]}]
+
+[INPUT]데이터 수집 에픽에 할당해줘[/INPUT]
+Output: [{"action":"assign","target":"epic","id":102,"message":"누구를 할당할까요?","missing_fields":["user_ids"],"candidates":[1]}]
+
+[INPUT]데이터 수집 에픽에서 인원 빼줘[/INPUT]
+Output: [{"action":"unassign","target":"epic","id":102,"message":"누구를 제외할까요?","missing_fields":["remove_user_ids"],"candidates":[1]}]
 
 --- partial match / not found ---
 [INPUT]크롤 50%[/INPUT]
