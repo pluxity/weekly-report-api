@@ -1,11 +1,14 @@
 package com.pluxity.weekly.chat.service
 
+import com.pluxity.weekly.auth.authorization.AuthorizationService
+import com.pluxity.weekly.auth.user.entity.User
 import com.pluxity.weekly.chat.dto.Candidate
 import com.pluxity.weekly.chat.dto.ChatReadResponse
 import com.pluxity.weekly.chat.dto.LlmAction
 import com.pluxity.weekly.chat.dto.SelectField
 import com.pluxity.weekly.chat.dto.TaskChatDto
 import com.pluxity.weekly.chat.exception.ChatClarifyException
+import com.pluxity.weekly.chat.exception.ChatSelectRequiredException
 import com.pluxity.weekly.epic.service.EpicService
 import com.pluxity.weekly.project.service.ProjectService
 import com.pluxity.weekly.task.service.TaskService
@@ -24,6 +27,8 @@ class ChatActionRouterTest :
         val chatExecutor: ChatExecutor = mockk()
         val chatDtoMapper: ChatDtoMapper = mockk()
         val selectFieldResolver: SelectFieldResolver = mockk()
+        val clarifyStore: ClarifyStore = mockk()
+        val authorizationService: AuthorizationService = mockk()
         val taskService: TaskService = mockk()
         val epicService: EpicService = mockk()
         val projectService: ProjectService = mockk()
@@ -34,6 +39,8 @@ class ChatActionRouterTest :
                 chatExecutor,
                 chatDtoMapper,
                 selectFieldResolver,
+                clarifyStore,
+                authorizationService,
                 taskService,
                 epicService,
                 projectService,
@@ -138,7 +145,7 @@ class ChatActionRouterTest :
                 }
             }
 
-            When("id 가 없으면") {
+            When("id 가 없고 candidates 가 있으면") {
                 val action =
                     LlmAction(
                         action = "update",
@@ -148,14 +155,36 @@ class ChatActionRouterTest :
                         candidates = listOf(1L, 2L),
                         missingFields = listOf("id"),
                     )
-                every {
-                    selectFieldResolver.resolveCandidateNames("id", "task", listOf(1L, 2L))
-                } returns listOf("태스크A", "태스크B")
+                val resolvedCandidates =
+                    listOf(Candidate("1", "태스크A"), Candidate("2", "태스크B"))
+                val user = mockk<User> { every { requiredId } returns 42L }
+                every { selectFieldResolver.resolveCandidates("id", "task", listOf(1L, 2L)) } returns resolvedCandidates
+                every { authorizationService.currentUser() } returns user
+                every { clarifyStore.save(42L, action) } returns "turn-id-xyz"
 
-                Then("candidates 이름을 담은 clarify 가 발생한다") {
+                Then("ChatSelectRequiredException 이 clarifyId/field/candidates 와 함께 발생한다") {
+                    val ex = shouldThrow<ChatSelectRequiredException> { router.route(action) }
+                    ex.message shouldBe "어느 태스크를 수정할까요?"
+                    ex.clarifyId shouldBe "turn-id-xyz"
+                    ex.field shouldBe "id"
+                    ex.candidates shouldBe resolvedCandidates
+                    verify { clarifyStore.save(42L, action) }
+                }
+            }
+
+            When("id 가 없고 candidates 가 없으면") {
+                val action =
+                    LlmAction(
+                        action = "update",
+                        target = "task",
+                        id = null,
+                        message = "어느 태스크를 수정할까요?",
+                        missingFields = listOf("id"),
+                    )
+
+                Then("ChatClarifyException 이 발생한다") {
                     val ex = shouldThrow<ChatClarifyException> { router.route(action) }
                     ex.message shouldBe "어느 태스크를 수정할까요?"
-                    ex.candidates shouldBe listOf("태스크A", "태스크B")
                 }
             }
         }
