@@ -80,42 +80,7 @@ class ChatService(
         // LlmAction → ChatActionResponse 변환
         val responses = actions.map { chatActionRouter.route(it) }
 
-        saveHistory(userId, message, intent.target, intent.actions, buildActionSummary(responses))
+        chatHistoryStore.recordChatTurn(userId, message, intent.target, intent.actions, responses)
         return responses
     }
-
-    private fun saveHistory(
-        userId: String,
-        message: String,
-        target: String,
-        actions: List<String>,
-        summary: String,
-    ) {
-        val turnNumber = chatHistoryStore.incrementTurn(userId)
-        chatHistoryStore.save(
-            userId,
-            "system",
-            "--- 히스토리 #$turnNumber | 질문: $message | target: $target | actions: $actions | 결과: $summary ---",
-        )
-    }
-
-    private fun buildActionSummary(responses: List<ChatActionResponse>): String =
-        responses.joinToString(", ") { r ->
-            when (r.action) {
-                "read" -> {
-                    val count =
-                        r.readResult?.let {
-                            it.tasks?.size
-                                ?: it.projects?.size
-                                ?: it.epics?.size
-                                ?: it.teams?.size
-                                ?: it.pendingReviews?.size
-                                ?: 0
-                        } ?: 0
-                    "read ${r.target} ${count}건"
-                }
-                "create", "update", "delete", "review_request", "assign", "unassign" -> "${r.action} ${r.target} id=${r.id ?: "pending"}"
-                else -> "${r.action} ${r.target}"
-            }
-        }
 }
