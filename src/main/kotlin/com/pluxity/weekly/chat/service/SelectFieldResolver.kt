@@ -34,11 +34,11 @@ class SelectFieldResolver(
         return result
     }
 
-    fun resolveCandidateNames(
+    fun resolveCandidates(
         field: String,
         target: String?,
         candidateIds: List<Long>,
-    ): List<String> = dispatch(field, target, candidateIds)?.candidates?.map { it.name } ?: emptyList()
+    ): List<Candidate> = dispatch(field, target, candidateIds)?.candidates ?: emptyList()
 
     private fun dispatch(
         field: String,

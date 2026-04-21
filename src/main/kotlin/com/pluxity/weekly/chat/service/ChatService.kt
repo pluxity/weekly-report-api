@@ -73,22 +73,15 @@ class ChatService(
         log.info { "context:\n${objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(objectMapper.readTree(context))}" }
 
         // 2차: LlmAction 생성
-        val actionMessages = promptBuilder.buildActionMessages(message, intent, context, history)
+        val actionMessages = promptBuilder.buildActionMessages(message, intent, context)
         val actions = llmService.generate(actionMessages).take(1)
         log.info { "LLM 응답 액션:\n${objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(actions)}" }
 
         // LlmAction → ChatActionResponse 변환
-        try {
-            val responses = actions.map { chatActionRouter.route(it) }
+        val responses = actions.map { chatActionRouter.route(it) }
 
-            saveHistory(userId, message, intent.target, intent.actions, buildActionSummary(responses))
-            return responses
-        } catch (e: CustomException) {
-            if (e.code == ErrorCode.LLM_AMBIGUOUS_REQUEST) {
-                saveHistory(userId, message, intent.target, intent.actions, "clarify: ${e.message}")
-            }
-            throw e
-        }
+        saveHistory(userId, message, intent.target, intent.actions, buildActionSummary(responses))
+        return responses
     }
 
     private fun saveHistory(

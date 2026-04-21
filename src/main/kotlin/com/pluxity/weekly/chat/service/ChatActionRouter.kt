@@ -1,9 +1,11 @@
 package com.pluxity.weekly.chat.service
 
+import com.pluxity.weekly.auth.authorization.AuthorizationService
 import com.pluxity.weekly.chat.dto.ChatActionResponse
 import com.pluxity.weekly.chat.dto.ChatDto
 import com.pluxity.weekly.chat.dto.LlmAction
 import com.pluxity.weekly.chat.exception.ChatClarifyException
+import com.pluxity.weekly.chat.exception.ChatSelectRequiredException
 import com.pluxity.weekly.epic.service.EpicService
 import com.pluxity.weekly.project.service.ProjectService
 import com.pluxity.weekly.task.service.TaskService
@@ -15,6 +17,8 @@ class ChatActionRouter(
     private val chatExecutor: ChatExecutor,
     private val chatDtoMapper: ChatDtoMapper,
     private val selectFieldResolver: SelectFieldResolver,
+    private val clarifyStore: ClarifyStore,
+    private val authorizationService: AuthorizationService,
     private val taskService: TaskService,
     private val epicService: EpicService,
     private val projectService: ProjectService,
@@ -51,7 +55,7 @@ class ChatActionRouter(
                 ) ||
                 (action.action == "assign" && action.userIds.isNullOrEmpty()) ||
                 (action.action == "unassign" && action.removeUserIds.isNullOrEmpty()) ->
-                throw buildClarifyException(action)
+                throwSelectOrClarify(action)
             action.action == "update" -> {
                 val selectFields = selectFieldResolver.resolve(action)
                 val existing = loadExistingDto(target, action.id)
@@ -76,27 +80,26 @@ class ChatActionRouter(
         }
     }
 
-    private fun buildClarifyException(action: LlmAction): ChatClarifyException {
-        val base = action.message ?: "대상을 특정할 수 없습니다."
-        val candidates = action.candidates
+    private fun throwSelectOrClarify(action: LlmAction): Nothing {
+        val message = action.message ?: "대상을 특정할 수 없습니다."
         val missingFields = action.missingFields
+        val candidates = action.candidates
 
-        if (candidates.isNullOrEmpty() || missingFields.isNullOrEmpty()) {
-            return ChatClarifyException(message = base)
+        if (!candidates.isNullOrEmpty() && missingFields?.size == 1) {
+            val field = missingFields[0]
+            val resolved = selectFieldResolver.resolveCandidates(field, action.target, candidates)
+            if (resolved.isNotEmpty()) {
+                val userId = authorizationService.currentUser().requiredId
+                val clarifyId = clarifyStore.save(userId, action)
+                throw ChatSelectRequiredException(
+                    message = message,
+                    clarifyId = clarifyId,
+                    field = field,
+                    candidates = resolved,
+                )
+            }
         }
-
-        val names =
-            missingFields
-                .firstNotNullOfOrNull { field ->
-                    selectFieldResolver
-                        .resolveCandidateNames(field, action.target, candidates)
-                        .takeIf { it.isNotEmpty() }
-                }.orEmpty()
-
-        return ChatClarifyException(
-            message = base,
-            candidates = names.ifEmpty { null },
-        )
+        throw ChatClarifyException(message)
     }
 
     private fun loadExistingDto(
