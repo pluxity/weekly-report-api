@@ -70,10 +70,7 @@ class TaskService(
             throw CustomException(ErrorCode.DUPLICATE_TASK, request.epicId, request.name)
         }
         val newAssigneeId = request.assigneeId?.takeIf { it != user.requiredId }
-        if (newAssigneeId != null) {
-            authorizationService.requireAdminOrPm(user)
-            ensureAssigneeInEpic(newAssigneeId, epic)
-        }
+        ensureAssigneeInEpic(user, newAssigneeId, epic)
         val assignee = newAssigneeId?.let { getUserById(it) } ?: user
         return taskRepository
             .save(
@@ -100,10 +97,7 @@ class TaskService(
         authorizationService.requireTaskOwner(user, task)
         request.status?.let { task.changeStatus(it) }
         val newAssigneeId = request.assigneeId?.takeIf { it != task.assignee?.requiredId }
-        if (newAssigneeId != null) {
-            authorizationService.requireAdminOrPm(user)
-            ensureAssigneeInEpic(newAssigneeId, task.epic)
-        }
+        ensureAssigneeInEpic(user, newAssigneeId, task.epic)
         task.update(
             name = request.name,
             description = request.description,
@@ -253,9 +247,12 @@ class TaskService(
     }
 
     private fun ensureAssigneeInEpic(
-        assigneeId: Long,
+        actor: User,
+        assigneeId: Long?,
         epic: Epic,
     ) {
+        if (assigneeId == null) return
+        authorizationService.requireAdminOrPm(actor)
         if (!epicRepository.existsByAssignmentsUserIdAndId(assigneeId, epic.requiredId)) {
             val assignee = getUserById(assigneeId)
             epic.assign(assignee)
