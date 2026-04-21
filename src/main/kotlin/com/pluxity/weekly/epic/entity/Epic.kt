@@ -78,9 +78,6 @@ class Epic(
         startDate: LocalDate? = null,
         dueDate: LocalDate? = null,
     ) {
-        if (status == EpicStatus.DONE) {
-            throw CustomException(ErrorCode.INVALID_STATUS_TRANSITION, status, "update")
-        }
         name?.let { this.name = it }
         description?.let { this.description = it }
         startDate?.let { this.startDate = it }

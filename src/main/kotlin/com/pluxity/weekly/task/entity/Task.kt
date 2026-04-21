@@ -85,9 +85,6 @@ class Task(
         dueDate: LocalDate? = null,
         assignee: User? = null,
     ) {
-        if (status == TaskStatus.DONE) {
-            throw CustomException(ErrorCode.INVALID_STATUS_TRANSITION, status, "update")
-        }
         name?.let { this.name = it }
         description?.let { this.description = it }
         progress?.let { this.progress = it }

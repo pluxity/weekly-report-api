@@ -94,6 +94,9 @@ class TaskService(
         val user = authorizationService.currentUser()
         val task = getTaskById(id)
         authorizationService.requireTaskOwner(user, task)
+        if (task.status == TaskStatus.DONE) {
+            throw CustomException(ErrorCode.INVALID_STATUS_TRANSITION, task.status, "update")
+        }
         request.status?.let { task.changeStatus(it) }
         request.name?.takeIf { it != task.name }?.let { newName ->
             if (taskRepository.existsByEpicIdAndName(task.epic.requiredId, newName)) {
