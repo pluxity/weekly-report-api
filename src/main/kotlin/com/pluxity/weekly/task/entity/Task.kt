@@ -45,6 +45,12 @@ class Task(
         validateDateRange(startDate, dueDate)
     }
 
+    fun ensureMutable() {
+        if (status == TaskStatus.DONE) {
+            throw CustomException(ErrorCode.INVALID_STATUS_TRANSITION, status, "update")
+        }
+    }
+
     fun changeStatus(newStatus: TaskStatus) {
         if (status == TaskStatus.DONE) {
             throw CustomException(ErrorCode.INVALID_STATUS_TRANSITION, status, "update")

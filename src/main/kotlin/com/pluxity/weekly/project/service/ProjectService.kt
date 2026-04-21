@@ -76,9 +76,7 @@ class ProjectService(
         val user = authorizationService.currentUser()
         authorizationService.requireProjectManager(user, id)
         val project = getById(id)
-        if (project.status == ProjectStatus.DONE) {
-            throw CustomException(ErrorCode.INVALID_STATUS_TRANSITION, project.status, "update")
-        }
+        project.ensureMutable()
         request.pmId?.let { ensurePmExists(it) }
 
         request.status?.let { newStatus ->

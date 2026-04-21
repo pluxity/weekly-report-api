@@ -79,9 +79,7 @@ class EpicService(
         val user = authorizationService.currentUser()
         val epic = getEpicById(id)
         authorizationService.requireEpicManage(user, epic.project.requiredId)
-        if (epic.status == EpicStatus.DONE) {
-            throw CustomException(ErrorCode.INVALID_STATUS_TRANSITION, epic.status, "update")
-        }
+        epic.ensureMutable()
 
         request.status?.let { newStatus ->
             val allTasksDone =

@@ -49,6 +49,12 @@ class Epic(
         validateDateRange(startDate, dueDate)
     }
 
+    fun ensureMutable() {
+        if (status == EpicStatus.DONE) {
+            throw CustomException(ErrorCode.INVALID_STATUS_TRANSITION, status, "update")
+        }
+    }
+
     fun assign(user: User) {
         if (assignments.none { it.user == user }) {
             assignments.add(EpicAssignment(epic = this, user = user))

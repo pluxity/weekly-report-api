@@ -40,6 +40,12 @@ class Project(
         validateDateRange(startDate, dueDate)
     }
 
+    fun ensureMutable() {
+        if (status == ProjectStatus.DONE) {
+            throw CustomException(ErrorCode.INVALID_STATUS_TRANSITION, status, "update")
+        }
+    }
+
     fun changeStatus(
         newStatus: ProjectStatus,
         allEpicsDone: Boolean,
