@@ -66,8 +66,7 @@ class EpicService(
                 ),
             )
         request.userIds?.forEach { userId ->
-            val assignee = getUserById(userId)
-            epic.assign(assignee)
+            assignAndNotify(epic, getUserById(userId))
         }
         return epic.requiredId
     }
@@ -104,23 +103,12 @@ class EpicService(
 
             epic.assignments
                 .filter { it.user !in requestedUsers }
-                .forEach { assignment ->
-                    val removedUserId = assignment.user.requiredId
-                    epic.unassign(assignment.user)
-                    taskRepository.deleteByEpicIdAndAssigneeId(epic.requiredId, removedUserId)
-                    eventPublisher.publishEvent(
-                        TeamsNotificationEvent(removedUserId, "${epic.name} 에픽에서 해제되었습니다"),
-                    )
-                }
+                .map { it.user }
+                .forEach { unassignAndNotify(epic, it) }
 
             requestedUsers
                 .filter { user -> epic.assignments.none { it.user == user } }
-                .forEach { newUser ->
-                    epic.assign(newUser)
-                    eventPublisher.publishEvent(
-                        TeamsNotificationEvent(newUser.requiredId, "${epic.name} 에픽에 배정되었습니다"),
-                    )
-                }
+                .forEach { assignAndNotify(epic, it) }
         }
     }
 
@@ -148,10 +136,7 @@ class EpicService(
         if (epic.assignments.any { it.user == assignee }) {
             throw CustomException(ErrorCode.DUPLICATE_EPIC_ASSIGNMENT, userId, epicId)
         }
-        epic.assign(assignee)
-        eventPublisher.publishEvent(
-            TeamsNotificationEvent(userId, "${epic.name} 에픽에 배정되었습니다"),
-        )
+        assignAndNotify(epic, assignee)
     }
 
     @Transactional
@@ -166,10 +151,27 @@ class EpicService(
         if (epic.assignments.none { it.user == assignee }) {
             throw CustomException(ErrorCode.NOT_FOUND_EPIC_ASSIGNMENT, epicId, userId)
         }
-        epic.unassign(assignee)
-        taskRepository.deleteByEpicIdAndAssigneeId(epicId, userId)
+        unassignAndNotify(epic, assignee)
+    }
+
+    private fun assignAndNotify(
+        epic: Epic,
+        assignee: User,
+    ) {
+        epic.assign(assignee)
         eventPublisher.publishEvent(
-            TeamsNotificationEvent(userId, "${epic.name} 에픽에서 해제되었습니다"),
+            TeamsNotificationEvent(assignee.requiredId, "${epic.name} 에픽에 배정되었습니다"),
+        )
+    }
+
+    private fun unassignAndNotify(
+        epic: Epic,
+        assignee: User,
+    ) {
+        epic.unassign(assignee)
+        taskRepository.deleteByEpicIdAndAssigneeId(epic.requiredId, assignee.requiredId)
+        eventPublisher.publishEvent(
+            TeamsNotificationEvent(assignee.requiredId, "${epic.name} 에픽에서 해제되었습니다"),
         )
     }
 

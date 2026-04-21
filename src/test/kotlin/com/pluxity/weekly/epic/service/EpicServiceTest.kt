@@ -139,6 +139,33 @@ class EpicServiceTest :
                 }
             }
 
+            When("userIds와 함께 생성하면 각 사용자에게 배정 알림이 발행된다") {
+                val project = dummyProject(id = 1L)
+                val request =
+                    dummyEpicRequest(
+                        projectId = 1L,
+                        name = "알림 에픽",
+                        userIds = listOf(11L, 22L),
+                    )
+                val savedEpic = dummyEpic(id = 7L, project = project, name = "알림 에픽")
+                val u1 = dummyUser(id = 11L, name = "유저1")
+                val u2 = dummyUser(id = 22L, name = "유저2")
+
+                every { projectRepository.findByIdOrNull(1L) } returns project
+                every { epicRepository.save(any<Epic>()) } returns savedEpic
+                every { userRepository.findByIdOrNull(11L) } returns u1
+                every { userRepository.findByIdOrNull(22L) } returns u2
+                every { eventPublisher.publishEvent(any<TeamsNotificationEvent>()) } just runs
+
+                service.create(request)
+
+                Then("두 사용자 모두 epic에 배정되고 알림이 발행된다") {
+                    savedEpic.assignments.map { it.user } shouldBe listOf(u1, u2)
+                    verify { eventPublisher.publishEvent(match<TeamsNotificationEvent> { it.userId == 11L && it.message.contains("배정") }) }
+                    verify { eventPublisher.publishEvent(match<TeamsNotificationEvent> { it.userId == 22L && it.message.contains("배정") }) }
+                }
+            }
+
             When("startDate가 dueDate보다 늦게 생성하면") {
                 val project = dummyProject(id = 1L)
                 val request =
