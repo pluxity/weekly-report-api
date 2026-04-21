@@ -74,7 +74,7 @@ class TaskService(
             authorizationService.requireAdminOrPm(user)
             ensureAssigneeInEpic(newAssigneeId, epic)
         }
-        val assignee = request.assigneeId?.let { getUserById(it) } ?: user
+        val assignee = newAssigneeId?.let { getUserById(it) } ?: user
         return taskRepository
             .save(
                 Task(

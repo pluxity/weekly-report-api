@@ -209,21 +209,20 @@ class TaskServiceTest :
             When("assigneeId가 현재 로그인 사용자와 같으면 권한 체크/자동배정을 건너뛴다") {
                 val epic = dummyEpic(id = 6L)
                 val request = dummyTaskRequest(epicId = 6L, name = "본인 지정", assigneeId = 1L)
-                val saved =
-                    dummyTask(id = 101L, epic = epic, name = "본인 지정").apply {
-                        this.assignee = adminUser
-                    }
+                val savedSlot = slot<Task>()
+                val saved = dummyTask(id = 101L, epic = epic, name = "본인 지정")
 
                 every { epicRepository.findByIdOrNull(6L) } returns epic
                 every { taskRepository.existsByEpicIdAndName(6L, request.name) } returns false
-                every { userRepository.findByIdOrNull(1L) } returns adminUser
-                every { taskRepository.save(any<Task>()) } returns saved
+                every { taskRepository.save(capture(savedSlot)) } returns saved
 
                 service.create(request)
 
-                Then("requireAdminOrPm 호출되지 않고 epic에 자동 배정도 되지 않는다") {
+                Then("권한 체크/자동배정 없이 currentUser가 assignee로 설정된다") {
                     verify(exactly = 0) { authorizationService.requireAdminOrPm(any()) }
                     verify(exactly = 0) { epicRepository.existsByAssignmentsUserIdAndId(1L, 6L) }
+                    verify(exactly = 0) { userRepository.findByIdOrNull(1L) }
+                    savedSlot.captured.assignee shouldBe adminUser
                 }
             }
         }
