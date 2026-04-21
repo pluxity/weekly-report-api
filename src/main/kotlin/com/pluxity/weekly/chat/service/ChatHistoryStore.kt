@@ -1,5 +1,6 @@
 package com.pluxity.weekly.chat.service
 
+import com.pluxity.weekly.chat.dto.ChatActionResponse
 import com.pluxity.weekly.chat.llm.dto.Message
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.data.redis.core.StringRedisTemplate
@@ -51,6 +52,60 @@ class ChatHistoryStore(
             emptyList()
         }
     }
+
+    fun recordChatTurn(
+        userId: String,
+        message: String,
+        target: String,
+        actions: List<String>,
+        responses: List<ChatActionResponse>,
+    ) {
+        val summary = buildActionSummary(responses)
+        val turnNumber = incrementTurn(userId)
+        save(
+            userId,
+            "system",
+            "--- 히스토리 #$turnNumber | 질문: $message | target: $target | actions: $actions | 결과: $summary ---",
+        )
+    }
+
+    fun recordResolvedTurn(
+        userId: String,
+        target: String?,
+        action: String,
+        response: ChatActionResponse,
+    ) {
+        val summary = buildResolveSummary(response)
+        val turnNumber = incrementTurn(userId)
+        save(
+            userId,
+            "system",
+            "--- 히스토리 #$turnNumber | resolved | target: ${target ?: "-"} | actions: [$action] | 결과: $summary ---",
+        )
+    }
+
+    private fun buildResolveSummary(response: ChatActionResponse): String =
+        "${response.action} ${response.target} id=${response.id ?: "pending"}"
+
+    private fun buildActionSummary(responses: List<ChatActionResponse>): String =
+        responses.joinToString(", ") { r ->
+            when (r.action) {
+                "read" -> {
+                    val count =
+                        r.readResult?.let {
+                            it.tasks?.size
+                                ?: it.projects?.size
+                                ?: it.epics?.size
+                                ?: it.teams?.size
+                                ?: it.pendingReviews?.size
+                                ?: 0
+                        } ?: 0
+                    "read ${r.target} ${count}건"
+                }
+                "create", "update", "delete", "review_request", "assign", "unassign" -> "${r.action} ${r.target} id=${r.id ?: "pending"}"
+                else -> "${r.action} ${r.target}"
+            }
+        }
 
     private fun parseMessage(json: String): Message? =
         try {

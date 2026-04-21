@@ -25,7 +25,12 @@ class ChatResolveService(
         val stored = clarifyStore.consume(userId, request.clarifyId)
         val mergedAction = mergeField(stored, request)
         val response = chatActionRouter.route(mergedAction)
-        saveSuccessHistory(userId.toString(), mergedAction, response)
+        chatHistoryStore.recordResolvedTurn(
+            userId = userId.toString(),
+            target = mergedAction.target,
+            action = mergedAction.action,
+            response = response,
+        )
         return response
     }
 
@@ -35,8 +40,9 @@ class ChatResolveService(
     ): LlmAction {
         val map: MutableMap<String, Any?> = objectMapper.convertValue(stored)
         map[request.field] = resolveFieldValue(request)
-        map[LlmAction::missingFields.name] = null
-        map[LlmAction::candidates.name] = null
+        map.remove("missing_fields")
+        map.remove("candidates")
+        map.remove("message")
         val mergedJson = objectMapper.writeValueAsString(map)
         return objectMapper.readValue(mergedJson, LlmAction::class.java)
     }
@@ -44,19 +50,5 @@ class ChatResolveService(
     private fun resolveFieldValue(request: ChatResolveRequest): Any? {
         val values = request.values ?: return null
         return if (request.field in LIST_FIELDS) values else values.singleOrNull()
-    }
-
-    private fun saveSuccessHistory(
-        userId: String,
-        action: LlmAction,
-        response: ChatActionResponse,
-    ) {
-        val turnNumber = chatHistoryStore.incrementTurn(userId)
-        val summary = "${response.action} ${response.target} id=${response.id ?: "pending"}"
-        chatHistoryStore.save(
-            userId,
-            "system",
-            "--- 히스토리 #$turnNumber | resolved | target: ${action.target ?: "-"} | actions: [${action.action}] | 결과: $summary ---",
-        )
     }
 }
