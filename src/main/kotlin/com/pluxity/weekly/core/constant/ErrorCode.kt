@@ -40,7 +40,9 @@ enum class ErrorCode(
     // ── Chat / LLM ──
     LLM_SERVICE_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "LLM 서비스에 연결할 수 없습니다."),
     LLM_INVALID_RESPONSE(HttpStatus.INTERNAL_SERVER_ERROR, "LLM 응답을 파싱할 수 없습니다."),
-    LLM_AMBIGUOUS_REQUEST(HttpStatus.BAD_REQUEST, "%s"),
+    CHAT_SELECT_REQUIRED(HttpStatus.BAD_REQUEST, "%s"),
+    CHAT_CLARIFY(HttpStatus.BAD_REQUEST, "%s"),
+    CHAT_SESSION_EXPIRED(HttpStatus.BAD_REQUEST, "clarify 세션이 만료되었거나 존재하지 않습니다."),
     CHAT_ALREADY_PROCESSING(HttpStatus.TOO_MANY_REQUESTS, "이전 요청을 처리 중입니다. 잠시 후 다시 시도해주세요."),
 
     // ── Common (DB / Request) ──
