@@ -1,6 +1,6 @@
 package com.pluxity.weekly.core.exception
 
-import com.pluxity.weekly.chat.exception.ChatClarifyException
+import com.pluxity.weekly.chat.exception.ChatSelectRequiredException
 import com.pluxity.weekly.core.constant.ErrorCode
 import com.pluxity.weekly.core.response.ClarifyErrorResponseBody
 import com.pluxity.weekly.core.response.ErrorResponseBody
@@ -40,8 +40,8 @@ class CustomExceptionHandler {
                 ),
             ).also { log.error(e) { "Unhandled Exception" } }
 
-    @ExceptionHandler(ChatClarifyException::class)
-    fun handleChatClarifyException(e: ChatClarifyException): ResponseEntity<ClarifyErrorResponseBody> =
+    @ExceptionHandler(ChatSelectRequiredException::class)
+    fun handleChatSelectRequiredException(e: ChatSelectRequiredException): ResponseEntity<ClarifyErrorResponseBody> =
         ResponseEntity
             .status(e.code.getHttpStatus())
             .body(
@@ -54,9 +54,13 @@ class CustomExceptionHandler {
                             .value()
                             .toString(),
                     error = e.code.getCodeName(),
+                    clarifyId = e.clarifyId,
+                    field = e.field,
                     candidates = e.candidates,
                 ),
-            ).also { log.info { "ChatClarifyException: ${e.message}, candidates=${e.candidates}" } }
+            ).also {
+                log.info { "ChatSelectRequiredException: clarifyId=${e.clarifyId}, field=${e.field}, candidates=${e.candidates.size}건" }
+            }
 
     @ExceptionHandler(CustomException::class)
     fun handleCustomException(e: CustomException): ResponseEntity<ErrorResponseBody> =
