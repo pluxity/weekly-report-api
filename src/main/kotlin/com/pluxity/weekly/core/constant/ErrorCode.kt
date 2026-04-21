@@ -43,6 +43,7 @@ enum class ErrorCode(
     CHAT_SELECT_REQUIRED(HttpStatus.BAD_REQUEST, "%s"),
     CHAT_CLARIFY(HttpStatus.BAD_REQUEST, "%s"),
     CHAT_SESSION_EXPIRED(HttpStatus.BAD_REQUEST, "clarify 세션이 만료되었거나 존재하지 않습니다."),
+    CHAT_RESOLVE_INVALID(HttpStatus.BAD_REQUEST, "%s"),
     CHAT_ALREADY_PROCESSING(HttpStatus.TOO_MANY_REQUESTS, "이전 요청을 처리 중입니다. 잠시 후 다시 시도해주세요."),
 
     // ── Common (DB / Request) ──
