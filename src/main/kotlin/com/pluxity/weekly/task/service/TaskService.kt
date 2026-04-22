@@ -66,7 +66,7 @@ class TaskService(
         epic.ensureMutable("create task")
         ensureUniqueTaskName(request.epicId, request.name)
         val newAssigneeId = request.assigneeId?.takeIf { it != user.requiredId }
-        ensureAssigneeInEpic(user, newAssigneeId, epic)
+        autoAssignIfMissing(user, newAssigneeId, epic)
         return taskRepository
             .save(
                 Task(
@@ -96,7 +96,7 @@ class TaskService(
             ensureUniqueTaskName(task.epic.requiredId, newName)
         }
         val newAssigneeId = request.assigneeId?.takeIf { it != task.assignee?.requiredId }
-        ensureAssigneeInEpic(user, newAssigneeId, task.epic)
+        autoAssignIfMissing(user, newAssigneeId, task.epic)
         task.update(
             name = request.name,
             description = request.description,
@@ -254,7 +254,7 @@ class TaskService(
         }
     }
 
-    private fun ensureAssigneeInEpic(
+    private fun autoAssignIfMissing(
         actor: User,
         assigneeId: Long?,
         epic: Epic,
