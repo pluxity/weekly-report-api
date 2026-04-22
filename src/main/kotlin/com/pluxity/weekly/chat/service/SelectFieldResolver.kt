@@ -1,5 +1,6 @@
 package com.pluxity.weekly.chat.service
 
+import com.pluxity.weekly.auth.authorization.UserType
 import com.pluxity.weekly.auth.user.repository.UserRepository
 import com.pluxity.weekly.chat.dto.Candidate
 import com.pluxity.weekly.chat.dto.LlmAction
@@ -23,10 +24,9 @@ class SelectFieldResolver(
 ) {
     fun resolve(action: LlmAction): List<SelectField> {
         val missingFields = action.missingFields ?: emptyList()
-        val candidateIds = action.candidates ?: emptyList()
         val result =
             missingFields
-                .mapNotNull { dispatch(it, action.target, candidateIds) }
+                .mapNotNull { dispatch(it, action) }
                 .toMutableList()
 
         addSelectFields(action, result)
@@ -36,26 +36,24 @@ class SelectFieldResolver(
 
     fun resolveCandidates(
         field: String,
-        target: String?,
-        candidateIds: List<Long>,
-    ): List<Candidate> = dispatch(field, target, candidateIds)?.candidates ?: emptyList()
+        action: LlmAction,
+    ): List<Candidate> = dispatch(field, action)?.candidates ?: emptyList()
 
     private fun dispatch(
         field: String,
-        target: String?,
-        candidateIds: List<Long>,
-    ): SelectField? =
-        when (field) {
+        action: LlmAction,
+    ): SelectField? {
+        val target = action.target
+        val candidateIds = action.candidates ?: emptyList()
+        return when (field) {
             "id" -> resolveIdCandidates(target, candidateIds)
             "project_id" -> resolveProjectCandidates(candidateIds)
             "epic_id" -> resolveEpicCandidates(candidateIds)
             "user_ids" -> resolveUserCandidates("userIds")
-            "remove_user_ids" -> resolveUserCandidates("removeUserIds")
-            // user_ids / remove_user_ids: 프롬프트는 candidates(전체 사용자 ID)를 담아 보내지만
-            // 후보가 많아 드롭다운 UX 가 부적합해 의도적으로 선택지를 만들지 않는다.
-            // (unassign 의 경우 "해당 에픽 배정자"로 좁히면 적합하므로 추후 분기 추가 여지)
+            "remove_user_ids" -> resolveRemoveUserCandidates(action)
             else -> null
         }
+    }
 
     private fun resolveIdCandidates(
         target: String?,
@@ -103,6 +101,19 @@ class SelectFieldResolver(
         return SelectField(field = "epicId", candidates = candidates)
     }
 
+    private fun resolveRemoveUserCandidates(action: LlmAction): SelectField? {
+        if (action.target != "epic" || action.id == null) return null
+        val assigneeIds = epicService.findAssignments(action.id).map { it.userId }
+        if (assigneeIds.isEmpty()) return null
+        val candidates =
+            userRepository
+                .findAllById(assigneeIds)
+                .distinctBy { it.requiredId }
+                .map { Candidate(it.requiredId.toString(), it.name) }
+        if (candidates.isEmpty()) return null
+        return SelectField(field = "removeUserIds", candidates = candidates)
+    }
+
     private fun resolveUserCandidates(
         field: String,
         roleNames: List<String>? = null,
@@ -112,7 +123,7 @@ class SelectFieldResolver(
             if (roleNames != null) {
                 users.filter { user -> user.userRoles.any { it.role.name.uppercase() in roleNames } }
             } else {
-                users
+                users.filterNot { user -> user.userRoles.any { it.role.name.equals(UserType.ADMIN.name, ignoreCase = true) } }
             }
         val candidates =
             filtered

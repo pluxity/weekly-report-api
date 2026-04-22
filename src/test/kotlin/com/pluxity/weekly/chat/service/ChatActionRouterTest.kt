@@ -158,7 +158,7 @@ class ChatActionRouterTest :
                 val resolvedCandidates =
                     listOf(Candidate("1", "태스크A"), Candidate("2", "태스크B"))
                 val user = mockk<User> { every { requiredId } returns 42L }
-                every { selectFieldResolver.resolveCandidates("id", "task", listOf(1L, 2L)) } returns resolvedCandidates
+                every { selectFieldResolver.resolveCandidates("id", action) } returns resolvedCandidates
                 every { authorizationService.currentUser() } returns user
                 every { clarifyStore.save(42L, action) } returns "turn-id-xyz"
 
