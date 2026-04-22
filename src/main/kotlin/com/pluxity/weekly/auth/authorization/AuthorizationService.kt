@@ -2,6 +2,8 @@ package com.pluxity.weekly.auth.authorization
 
 import com.pluxity.weekly.auth.user.entity.User
 import com.pluxity.weekly.auth.user.service.UserService
+import com.pluxity.weekly.chat.dto.ChatActionType
+import com.pluxity.weekly.chat.dto.ChatTarget
 import com.pluxity.weekly.core.constant.ErrorCode
 import com.pluxity.weekly.core.exception.CustomException
 import com.pluxity.weekly.epic.repository.EpicRepository
@@ -112,15 +114,16 @@ class AuthorizationService(
     /** target + action 조합의 사전 권한 체크 — Chat context 빌드 전 호출 */
     fun checkChatPermission(
         user: User,
-        target: String,
-        actions: List<String>,
+        target: ChatTarget,
+        actions: List<ChatActionType>,
     ) {
-        val hasMutation = actions.any { it in listOf("create", "update", "delete", "assign", "unassign") }
+        val hasMutation = actions.any { it.isMutating }
         if (!hasMutation) return
 
         when (target) {
-            "project" -> if ("create" in actions) requireAdmin(user) else requireAdminOrPm(user)
-            "epic" -> requireAdminOrPm(user)
+            ChatTarget.PROJECT -> if (ChatActionType.CREATE in actions) requireAdmin(user) else requireAdminOrPm(user)
+            ChatTarget.EPIC -> requireAdminOrPm(user)
+            else -> Unit
         }
     }
 

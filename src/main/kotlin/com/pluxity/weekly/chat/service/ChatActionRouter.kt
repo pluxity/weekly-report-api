@@ -4,6 +4,7 @@ import com.pluxity.weekly.auth.authorization.AuthorizationService
 import com.pluxity.weekly.chat.dto.ChatActionResponse
 import com.pluxity.weekly.chat.dto.ChatActionType
 import com.pluxity.weekly.chat.dto.ChatDto
+import com.pluxity.weekly.chat.dto.ChatTarget
 import com.pluxity.weekly.chat.dto.LlmAction
 import com.pluxity.weekly.chat.dto.hasValueFor
 import com.pluxity.weekly.chat.exception.ChatClarifyException
@@ -30,14 +31,14 @@ class ChatActionRouter(
 ) {
     fun route(action: LlmAction): ChatActionResponse {
         val type = ChatActionType.from(action.action)
-        val target = action.target ?: "task"
+        val target = ChatTarget.fromOrNull(action.target) ?: ChatTarget.TASK
         validate(action, type, target)
 
         return when (type) {
             ChatActionType.READ ->
                 ChatActionResponse(
                     action = type.key,
-                    target = target,
+                    target = target.key,
                     readResult = chatReadHandler.handle(action),
                 )
             ChatActionType.CREATE, ChatActionType.UPDATE ->
@@ -49,7 +50,7 @@ class ChatActionRouter(
             ->
                 ChatActionResponse(
                     action = type.key,
-                    target = target,
+                    target = target.key,
                     id = chatExecutor.execute(action),
                 )
             ChatActionType.CLARIFY -> error("CLARIFY는 validate에서 이미 처리됨")
@@ -59,12 +60,12 @@ class ChatActionRouter(
     private fun validate(
         action: LlmAction,
         type: ChatActionType,
-        target: String,
+        target: ChatTarget,
     ) {
         if (type == ChatActionType.CLARIFY) {
             throw ChatClarifyException(action.message ?: "좀 더 구체적으로 말씀해주세요.")
         }
-        if (target == "team" && type != ChatActionType.READ) {
+        if (target == ChatTarget.TEAM && type != ChatActionType.READ) {
             throw ChatClarifyException("팀 관리는 웹페이지에서 이용해주세요.")
         }
         if (type.validatesMissingFields && !action.missingFields.isNullOrEmpty()) {
@@ -104,7 +105,7 @@ class ChatActionRouter(
     private fun buildDtoResponse(
         action: LlmAction,
         type: ChatActionType,
-        target: String,
+        target: ChatTarget,
     ): ChatActionResponse {
         val selectFields = selectFieldResolver.resolve(action)
         val changes = chatDtoMapper.toDto(action)
@@ -117,7 +118,7 @@ class ChatActionRouter(
             }
         return ChatActionResponse(
             action = type.key,
-            target = target,
+            target = target.key,
             id = if (type == ChatActionType.UPDATE) action.id else null,
             dto = dto,
             selectFields = selectFields.ifEmpty { null },
@@ -125,13 +126,13 @@ class ChatActionRouter(
     }
 
     private fun loadExistingDto(
-        target: String,
+        target: ChatTarget,
         id: Long,
     ): ChatDto? =
         when (target) {
-            "task" -> chatDtoMapper.fromTaskResponse(taskService.findById(id))
-            "epic" -> chatDtoMapper.fromEpicResponse(epicService.findById(id))
-            "project" -> chatDtoMapper.fromProjectResponse(projectService.findById(id))
-            else -> null
+            ChatTarget.TASK -> chatDtoMapper.fromTaskResponse(taskService.findById(id))
+            ChatTarget.EPIC -> chatDtoMapper.fromEpicResponse(epicService.findById(id))
+            ChatTarget.PROJECT -> chatDtoMapper.fromProjectResponse(projectService.findById(id))
+            ChatTarget.TEAM, ChatTarget.REVIEW -> null
         }
 }

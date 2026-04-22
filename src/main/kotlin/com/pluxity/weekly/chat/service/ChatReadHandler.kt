@@ -1,6 +1,7 @@
 package com.pluxity.weekly.chat.service
 
 import com.pluxity.weekly.chat.dto.ChatReadResponse
+import com.pluxity.weekly.chat.dto.ChatTarget
 import com.pluxity.weekly.chat.dto.EpicSearchFilter
 import com.pluxity.weekly.chat.dto.LlmAction
 import com.pluxity.weekly.chat.dto.LlmActionFilters
@@ -24,32 +25,28 @@ class ChatReadHandler(
     private val teamService: TeamService,
 ) {
     fun handle(action: LlmAction): ChatReadResponse {
-        val target = action.target ?: "task"
+        val target = ChatTarget.fromOrNull(action.target) ?: ChatTarget.TASK
         val filters = action.filters
         return when (target) {
-            "task" ->
+            ChatTarget.TASK ->
                 ChatReadResponse(
                     tasks = taskService.search(buildTaskFilter(filters, action.id)),
                 )
-            "project" ->
+            ChatTarget.PROJECT ->
                 ChatReadResponse(
                     projects = projectService.search(buildProjectFilter(filters, action.id)),
                 )
-            "epic" ->
+            ChatTarget.EPIC ->
                 ChatReadResponse(
                     epics = epicService.search(buildEpicFilter(filters, action.id)),
                 )
-            "team" ->
+            ChatTarget.TEAM ->
                 ChatReadResponse(
                     teams = teamService.search(buildTeamFilter(filters)),
                 )
-            "review" ->
+            ChatTarget.REVIEW ->
                 ChatReadResponse(
                     pendingReviews = taskService.findPendingReviews(),
-                )
-            else ->
-                ChatReadResponse(
-                    tasks = taskService.search(buildTaskFilter(filters, action.id)),
                 )
         }
     }

@@ -1,6 +1,7 @@
 package com.pluxity.weekly.chat.service
 
 import com.pluxity.weekly.chat.dto.ChatActionResponse
+import com.pluxity.weekly.chat.dto.ChatActionType
 import com.pluxity.weekly.chat.llm.dto.Message
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.data.redis.core.StringRedisTemplate
@@ -89,8 +90,9 @@ class ChatHistoryStore(
 
     private fun buildActionSummary(responses: List<ChatActionResponse>): String =
         responses.joinToString(", ") { r ->
-            when (r.action) {
-                "read" -> {
+            val type = ChatActionType.fromOrNull(r.action)
+            when {
+                type == ChatActionType.READ -> {
                     val count =
                         r.readResult?.let {
                             it.tasks?.size
@@ -102,7 +104,7 @@ class ChatHistoryStore(
                         } ?: 0
                     "read ${r.target} ${count}건"
                 }
-                "create", "update", "delete", "review_request", "assign", "unassign" -> "${r.action} ${r.target} id=${r.id ?: "pending"}"
+                type?.isMutating == true -> "${r.action} ${r.target} id=${r.id ?: "pending"}"
                 else -> "${r.action} ${r.target}"
             }
         }

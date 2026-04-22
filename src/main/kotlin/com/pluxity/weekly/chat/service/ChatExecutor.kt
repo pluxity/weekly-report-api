@@ -1,5 +1,7 @@
 package com.pluxity.weekly.chat.service
 
+import com.pluxity.weekly.chat.dto.ChatActionType
+import com.pluxity.weekly.chat.dto.ChatTarget
 import com.pluxity.weekly.chat.dto.LlmAction
 import com.pluxity.weekly.epic.service.EpicService
 import com.pluxity.weekly.project.service.ProjectService
@@ -17,23 +19,23 @@ class ChatExecutor(
     private val taskService: TaskService,
 ) {
     fun execute(action: LlmAction): Long? =
-        when (action.action) {
-            "delete" -> executeDelete(action)
-            "review_request" -> executeReviewRequest(action)
-            "assign" -> executeAssign(action)
-            "unassign" -> executeUnassign(action)
+        when (ChatActionType.fromOrNull(action.action)) {
+            ChatActionType.DELETE -> executeDelete(action)
+            ChatActionType.REVIEW_REQUEST -> executeReviewRequest(action)
+            ChatActionType.ASSIGN -> executeAssign(action)
+            ChatActionType.UNASSIGN -> executeUnassign(action)
             else -> null
         }
 
     private fun executeReviewRequest(action: LlmAction): Long? {
-        if (action.target != "task") return null
+        if (ChatTarget.fromOrNull(action.target) != ChatTarget.TASK) return null
         val id = action.id ?: return null
         taskService.requestReview(id)
         return id
     }
 
     private fun executeAssign(action: LlmAction): Long? {
-        if (action.target != "epic") return null
+        if (ChatTarget.fromOrNull(action.target) != ChatTarget.EPIC) return null
         val id = action.id ?: return null
         action.userIds?.forEach { userId ->
             epicService.assign(id, userId)
@@ -42,7 +44,7 @@ class ChatExecutor(
     }
 
     private fun executeUnassign(action: LlmAction): Long? {
-        if (action.target != "epic") return null
+        if (ChatTarget.fromOrNull(action.target) != ChatTarget.EPIC) return null
         val id = action.id ?: return null
         action.removeUserIds?.forEach { userId ->
             epicService.unassign(id, userId)
@@ -52,10 +54,11 @@ class ChatExecutor(
 
     private fun executeDelete(action: LlmAction): Long? {
         val id = action.id ?: return null
-        when (action.target) {
-            "project" -> projectService.delete(id)
-            "epic" -> epicService.delete(id)
-            "task" -> taskService.delete(id)
+        when (ChatTarget.fromOrNull(action.target)) {
+            ChatTarget.PROJECT -> projectService.delete(id)
+            ChatTarget.EPIC -> epicService.delete(id)
+            ChatTarget.TASK -> taskService.delete(id)
+            ChatTarget.TEAM, ChatTarget.REVIEW, null -> Unit
         }
         return id
     }

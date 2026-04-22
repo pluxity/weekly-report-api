@@ -1,6 +1,8 @@
 package com.pluxity.weekly.chat.service
 
+import com.pluxity.weekly.chat.dto.ChatActionType
 import com.pluxity.weekly.chat.dto.ChatDto
+import com.pluxity.weekly.chat.dto.ChatTarget
 import com.pluxity.weekly.chat.dto.EpicChatDto
 import com.pluxity.weekly.chat.dto.LlmAction
 import com.pluxity.weekly.chat.dto.ProjectChatDto
@@ -13,13 +15,14 @@ import org.springframework.stereotype.Component
 @Component
 class ChatDtoMapper {
     fun toDto(action: LlmAction): ChatDto? {
-        if (action.action == "clarify" || action.action == "read") return null
+        val type = ChatActionType.fromOrNull(action.action)
+        if (type == null || type == ChatActionType.CLARIFY || type == ChatActionType.READ) return null
 
-        return when (action.target) {
-            "project" -> toProjectDto(action)
-            "epic" -> toEpicDto(action)
-            "task" -> toTaskDto(action)
-            else -> null
+        return when (ChatTarget.fromOrNull(action.target)) {
+            ChatTarget.PROJECT -> toProjectDto(action)
+            ChatTarget.EPIC -> toEpicDto(action)
+            ChatTarget.TASK -> toTaskDto(action)
+            ChatTarget.TEAM, ChatTarget.REVIEW, null -> null
         }
     }
 

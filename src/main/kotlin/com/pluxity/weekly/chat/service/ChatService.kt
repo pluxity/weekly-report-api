@@ -3,6 +3,8 @@ package com.pluxity.weekly.chat.service
 import com.pluxity.weekly.auth.authorization.AuthorizationService
 import com.pluxity.weekly.chat.context.ContextBuilder
 import com.pluxity.weekly.chat.dto.ChatActionResponse
+import com.pluxity.weekly.chat.dto.ChatActionType
+import com.pluxity.weekly.chat.dto.ChatTarget
 import com.pluxity.weekly.chat.llm.LlmService
 import com.pluxity.weekly.core.constant.ErrorCode
 import com.pluxity.weekly.core.exception.CustomException
@@ -69,7 +71,9 @@ class ChatService(
         log.info { "1차 의도 추출 - action: ${intent.actions}, target: ${intent.target}, id: ${intent.id}, response: $intent" }
 
         // target별+action별+권한별 context 조회
-        val context = contextBuilder.build(intent.target, intent.actions)
+        val targetType = ChatTarget.fromOrNull(intent.target) ?: ChatTarget.TASK
+        val actionTypes = intent.actions.mapNotNull { ChatActionType.fromOrNull(it) }
+        val context = contextBuilder.build(targetType, actionTypes)
         log.info { "context:\n${objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(objectMapper.readTree(context))}" }
 
         // 2차: LlmAction 생성
