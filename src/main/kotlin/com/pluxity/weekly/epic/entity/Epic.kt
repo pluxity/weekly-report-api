@@ -84,10 +84,13 @@ class Epic(
         startDate: LocalDate? = null,
         dueDate: LocalDate? = null,
     ) {
+        val nextStartDate = startDate ?: this.startDate
+        val nextDueDate = dueDate ?: this.dueDate
+        validateDateRange(nextStartDate, nextDueDate)
+
         name?.let { this.name = it }
         description?.let { this.description = it }
-        startDate?.let { this.startDate = it }
-        dueDate?.let { this.dueDate = it }
-        validateDateRange(this.startDate, this.dueDate)
+        this.startDate = nextStartDate
+        this.dueDate = nextDueDate
     }
 }

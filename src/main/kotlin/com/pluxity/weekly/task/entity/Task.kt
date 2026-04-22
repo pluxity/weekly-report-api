@@ -91,12 +91,15 @@ class Task(
         dueDate: LocalDate? = null,
         assignee: User? = null,
     ) {
+        val nextStartDate = startDate ?: this.startDate
+        val nextDueDate = dueDate ?: this.dueDate
+        validateDateRange(nextStartDate, nextDueDate)
+
         name?.let { this.name = it }
         description?.let { this.description = it }
         progress?.let { this.progress = it }
-        startDate?.let { this.startDate = it }
-        dueDate?.let { this.dueDate = it }
+        this.startDate = nextStartDate
+        this.dueDate = nextDueDate
         assignee?.let { this.assignee = it }
-        validateDateRange(this.startDate, this.dueDate)
     }
 }
