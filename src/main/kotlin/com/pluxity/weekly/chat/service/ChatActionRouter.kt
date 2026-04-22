@@ -93,7 +93,7 @@ class ChatActionRouter(
                 log.warn { "LLM이 복수 missingFields 반환: $missingFields — [0]만 사용" }
             }
             val field = missingFields[0]
-            val resolved = selectFieldResolver.resolveCandidates(field, action.target, candidates)
+            val resolved = selectFieldResolver.resolveCandidates(field, action)
             if (resolved.isNotEmpty()) {
                 val userId = authorizationService.currentUser().requiredId
                 val normalized = action.copy(missingFields = listOf(field))
