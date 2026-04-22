@@ -122,12 +122,46 @@ class ProjectServiceTest :
                     )
                 val saved = dummyProject(id = 1L, name = "신규 프로젝트", pmId = 5L)
 
+                every { userRepository.existsById(5L) } returns true
                 every { projectRepository.save(any<Project>()) } returns saved
 
                 val result = service.create(request)
 
                 Then("생성된 프로젝트의 ID가 반환된다") {
                     result shouldBe 1L
+                }
+            }
+
+            When("존재하지 않는 pmId로 생성하면") {
+                val request = dummyProjectRequest(name = "pm없음", pmId = 999L)
+
+                every { userRepository.existsById(999L) } returns false
+
+                val exception =
+                    shouldThrow<CustomException> {
+                        service.create(request)
+                    }
+
+                Then("NOT_FOUND_USER 예외가 발생한다") {
+                    exception.code shouldBe ErrorCode.NOT_FOUND_USER
+                }
+            }
+
+            When("startDate가 dueDate보다 늦게 생성하면") {
+                val request =
+                    dummyProjectRequest(
+                        name = "날짜 역전",
+                        startDate = LocalDate.of(2026, 6, 1),
+                        dueDate = LocalDate.of(2026, 5, 1),
+                    )
+
+                val exception =
+                    shouldThrow<CustomException> {
+                        service.create(request)
+                    }
+
+                Then("INVALID_DATE_RANGE 예외가 발생한다") {
+                    exception.code shouldBe ErrorCode.INVALID_DATE_RANGE
                 }
             }
         }
@@ -143,6 +177,7 @@ class ProjectServiceTest :
                     )
 
                 every { projectRepository.findByIdOrNull(1L) } returns entity
+                every { userRepository.existsById(10L) } returns true
 
                 service.update(1L, request)
 
@@ -163,6 +198,45 @@ class ProjectServiceTest :
 
                 Then("NOT_FOUND 예외가 발생한다") {
                     exception.code shouldBe ErrorCode.NOT_FOUND_PROJECT
+                }
+            }
+
+            When("존재하지 않는 pmId로 수정하면") {
+                val entity = dummyProject(id = 1L, name = "기존")
+                every { projectRepository.findByIdOrNull(1L) } returns entity
+                every { userRepository.existsById(888L) } returns false
+
+                val exception =
+                    shouldThrow<CustomException> {
+                        service.update(1L, dummyProjectUpdateRequest(pmId = 888L))
+                    }
+
+                Then("NOT_FOUND_USER 예외가 발생한다") {
+                    exception.code shouldBe ErrorCode.NOT_FOUND_USER
+                }
+            }
+
+            When("기존 dueDate보다 늦은 startDate로 수정하면") {
+                val entity =
+                    dummyProject(
+                        id = 80L,
+                        name = "기존",
+                        startDate = LocalDate.of(2026, 1, 1),
+                        dueDate = LocalDate.of(2026, 3, 1),
+                    )
+
+                every { projectRepository.findByIdOrNull(80L) } returns entity
+
+                val exception =
+                    shouldThrow<CustomException> {
+                        service.update(
+                            80L,
+                            dummyProjectUpdateRequest(startDate = LocalDate.of(2026, 4, 1)),
+                        )
+                    }
+
+                Then("INVALID_DATE_RANGE 예외가 발생한다") {
+                    exception.code shouldBe ErrorCode.INVALID_DATE_RANGE
                 }
             }
         }

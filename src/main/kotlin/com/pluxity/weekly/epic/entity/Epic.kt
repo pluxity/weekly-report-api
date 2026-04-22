@@ -4,6 +4,7 @@ import com.pluxity.weekly.auth.user.entity.User
 import com.pluxity.weekly.core.constant.ErrorCode
 import com.pluxity.weekly.core.entity.IdentityIdEntity
 import com.pluxity.weekly.core.exception.CustomException
+import com.pluxity.weekly.core.validation.validateDateRange
 import com.pluxity.weekly.project.entity.Project
 import com.pluxity.weekly.task.entity.Task
 import jakarta.persistence.CascadeType
@@ -44,6 +45,16 @@ class Epic(
     @OneToMany(mappedBy = "epic", cascade = [CascadeType.REMOVE])
     val tasks: MutableList<Task> = mutableListOf()
 
+    init {
+        validateDateRange(startDate, dueDate)
+    }
+
+    fun ensureMutable(action: String = "update") {
+        if (status == EpicStatus.DONE) {
+            throw CustomException(ErrorCode.INVALID_STATUS_TRANSITION, status, action)
+        }
+    }
+
     fun assign(user: User) {
         if (assignments.none { it.user == user }) {
             assignments.add(EpicAssignment(epic = this, user = user))
@@ -73,12 +84,13 @@ class Epic(
         startDate: LocalDate? = null,
         dueDate: LocalDate? = null,
     ) {
-        if (status == EpicStatus.DONE) {
-            throw CustomException(ErrorCode.INVALID_STATUS_TRANSITION, status, "update")
-        }
+        val nextStartDate = startDate ?: this.startDate
+        val nextDueDate = dueDate ?: this.dueDate
+        validateDateRange(nextStartDate, nextDueDate)
+
         name?.let { this.name = it }
         description?.let { this.description = it }
-        startDate?.let { this.startDate = it }
-        dueDate?.let { this.dueDate = it }
+        this.startDate = nextStartDate
+        this.dueDate = nextDueDate
     }
 }

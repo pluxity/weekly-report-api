@@ -4,6 +4,7 @@ import com.pluxity.weekly.auth.user.entity.User
 import com.pluxity.weekly.core.constant.ErrorCode
 import com.pluxity.weekly.core.entity.IdentityIdEntity
 import com.pluxity.weekly.core.exception.CustomException
+import com.pluxity.weekly.core.validation.validateDateRange
 import com.pluxity.weekly.epic.entity.Epic
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
@@ -40,6 +41,16 @@ class Task(
     @JoinColumn(name = "assignee_id")
     var assignee: User? = null,
 ) : IdentityIdEntity() {
+    init {
+        validateDateRange(startDate, dueDate)
+    }
+
+    fun ensureMutable() {
+        if (status == TaskStatus.DONE) {
+            throw CustomException(ErrorCode.INVALID_STATUS_TRANSITION, status, "update")
+        }
+    }
+
     fun changeStatus(newStatus: TaskStatus) {
         if (status == TaskStatus.DONE) {
             throw CustomException(ErrorCode.INVALID_STATUS_TRANSITION, status, "update")
@@ -80,14 +91,15 @@ class Task(
         dueDate: LocalDate? = null,
         assignee: User? = null,
     ) {
-        if (status == TaskStatus.DONE) {
-            throw CustomException(ErrorCode.INVALID_STATUS_TRANSITION, status, "update")
-        }
+        val nextStartDate = startDate ?: this.startDate
+        val nextDueDate = dueDate ?: this.dueDate
+        validateDateRange(nextStartDate, nextDueDate)
+
         name?.let { this.name = it }
         description?.let { this.description = it }
         progress?.let { this.progress = it }
-        startDate?.let { this.startDate = it }
-        dueDate?.let { this.dueDate = it }
+        this.startDate = nextStartDate
+        this.dueDate = nextDueDate
         assignee?.let { this.assignee = it }
     }
 }

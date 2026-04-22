@@ -138,6 +138,55 @@ class EpicServiceTest :
                     result shouldBe 1L
                 }
             }
+
+            When("userIds와 함께 생성하면 각 사용자에게 배정 알림이 발행된다") {
+                val project = dummyProject(id = 1L)
+                val request =
+                    dummyEpicRequest(
+                        projectId = 1L,
+                        name = "알림 에픽",
+                        userIds = listOf(11L, 22L),
+                    )
+                val savedEpic = dummyEpic(id = 7L, project = project, name = "알림 에픽")
+                val u1 = dummyUser(id = 11L, name = "유저1")
+                val u2 = dummyUser(id = 22L, name = "유저2")
+
+                every { projectRepository.findByIdOrNull(1L) } returns project
+                every { epicRepository.save(any<Epic>()) } returns savedEpic
+                every { userRepository.findByIdOrNull(11L) } returns u1
+                every { userRepository.findByIdOrNull(22L) } returns u2
+                every { eventPublisher.publishEvent(any<TeamsNotificationEvent>()) } just runs
+
+                service.create(request)
+
+                Then("두 사용자 모두 epic에 배정되고 알림이 발행된다") {
+                    savedEpic.assignments.map { it.user } shouldBe listOf(u1, u2)
+                    verify { eventPublisher.publishEvent(match<TeamsNotificationEvent> { it.userId == 11L && it.message.contains("배정") }) }
+                    verify { eventPublisher.publishEvent(match<TeamsNotificationEvent> { it.userId == 22L && it.message.contains("배정") }) }
+                }
+            }
+
+            When("startDate가 dueDate보다 늦게 생성하면") {
+                val project = dummyProject(id = 1L)
+                val request =
+                    dummyEpicRequest(
+                        projectId = 1L,
+                        name = "날짜 역전",
+                        startDate = LocalDate.of(2026, 6, 1),
+                        dueDate = LocalDate.of(2026, 5, 1),
+                    )
+
+                every { projectRepository.findByIdOrNull(1L) } returns project
+
+                val exception =
+                    shouldThrow<CustomException> {
+                        service.create(request)
+                    }
+
+                Then("INVALID_DATE_RANGE 예외가 발생한다") {
+                    exception.code shouldBe ErrorCode.INVALID_DATE_RANGE
+                }
+            }
         }
 
         Given("에픽 수정") {
@@ -170,6 +219,31 @@ class EpicServiceTest :
 
                 Then("NOT_FOUND 예외가 발생한다") {
                     exception.code shouldBe ErrorCode.NOT_FOUND_EPIC
+                }
+            }
+
+            When("기존 dueDate보다 늦은 startDate로 수정하면") {
+                val project = dummyProject(id = 1L)
+                val entity =
+                    dummyEpic(
+                        id = 80L,
+                        project = project,
+                        startDate = LocalDate.of(2026, 1, 1),
+                        dueDate = LocalDate.of(2026, 3, 1),
+                    )
+
+                every { epicRepository.findByIdOrNull(80L) } returns entity
+
+                val exception =
+                    shouldThrow<CustomException> {
+                        service.update(
+                            80L,
+                            dummyEpicUpdateRequest(startDate = LocalDate.of(2026, 4, 1)),
+                        )
+                    }
+
+                Then("INVALID_DATE_RANGE 예외가 발생한다") {
+                    exception.code shouldBe ErrorCode.INVALID_DATE_RANGE
                 }
             }
         }

@@ -163,6 +163,122 @@ class TaskServiceTest :
             }
         }
 
+        Given("태스크 생성 시 assignee epic 배정 검증") {
+            When("ADMIN/PM이 다른 사용자를 assignee로 지정하면 epic에 자동 배정된다") {
+                val epic = dummyEpic(id = 5L)
+                val newAssignee = dummyUser(id = 30L, name = "신규 담당자")
+                val request = dummyTaskRequest(epicId = 5L, name = "자동배정 create", assigneeId = 30L)
+                val saved =
+                    dummyTask(id = 100L, epic = epic, name = "자동배정 create").apply {
+                        this.assignee = newAssignee
+                    }
+
+                every { epicRepository.findByIdOrNull(5L) } returns epic
+                every { taskRepository.existsByEpicIdAndName(5L, request.name) } returns false
+                every { authorizationService.requireAdminOrPm(any()) } just runs
+                every { epicRepository.existsByAssignmentsUserIdAndId(30L, 5L) } returns false
+                every { userRepository.findByIdOrNull(30L) } returns newAssignee
+                every { taskRepository.save(any<Task>()) } returns saved
+
+                service.create(request)
+
+                Then("epic에 자동 배정되고 알림이 발행된다") {
+                    epic.assignments.any { it.user == newAssignee } shouldBe true
+                    verify { eventPublisher.publishEvent(match<TeamsNotificationEvent> { it.userId == 30L }) }
+                }
+            }
+
+            When("일반 사용자가 다른 사용자를 assignee로 지정하면 권한 거부") {
+                val epic = dummyEpic(id = 9L)
+                val request = dummyTaskRequest(epicId = 9L, name = "권한없음 create", assigneeId = 50L)
+
+                every { epicRepository.findByIdOrNull(9L) } returns epic
+                every { taskRepository.existsByEpicIdAndName(9L, request.name) } returns false
+                every { authorizationService.requireAdminOrPm(any()) } throws CustomException(ErrorCode.PERMISSION_DENIED)
+
+                val exception =
+                    shouldThrow<CustomException> {
+                        service.create(request)
+                    }
+
+                Then("PERMISSION_DENIED 예외가 발생한다") {
+                    exception.code shouldBe ErrorCode.PERMISSION_DENIED
+                }
+            }
+
+            When("assigneeId가 현재 로그인 사용자와 같으면 권한 체크/자동배정을 건너뛴다") {
+                val epic = dummyEpic(id = 6L)
+                val request = dummyTaskRequest(epicId = 6L, name = "본인 지정", assigneeId = 1L)
+                val savedSlot = slot<Task>()
+                val saved = dummyTask(id = 101L, epic = epic, name = "본인 지정")
+
+                every { epicRepository.findByIdOrNull(6L) } returns epic
+                every { taskRepository.existsByEpicIdAndName(6L, request.name) } returns false
+                every { taskRepository.save(capture(savedSlot)) } returns saved
+
+                service.create(request)
+
+                Then("권한 체크/자동배정 없이 currentUser가 assignee로 설정된다") {
+                    verify(exactly = 0) { authorizationService.requireAdminOrPm(any()) }
+                    verify(exactly = 0) { epicRepository.existsByAssignmentsUserIdAndId(1L, 6L) }
+                    verify(exactly = 0) { userRepository.findByIdOrNull(1L) }
+                    savedSlot.captured.assignee shouldBe adminUser
+                }
+            }
+        }
+
+        Given("태스크 생성 시 날짜 검증") {
+            When("startDate가 dueDate보다 늦게 생성하면") {
+                val epic = dummyEpic(id = 7L)
+                val request =
+                    dummyTaskRequest(
+                        epicId = 7L,
+                        name = "날짜 역전",
+                        startDate = LocalDate.of(2026, 6, 1),
+                        dueDate = LocalDate.of(2026, 5, 1),
+                    )
+
+                every { epicRepository.findByIdOrNull(7L) } returns epic
+                every { taskRepository.existsByEpicIdAndName(7L, request.name) } returns false
+
+                val exception =
+                    shouldThrow<CustomException> {
+                        service.create(request)
+                    }
+
+                Then("INVALID_DATE_RANGE 예외가 발생한다") {
+                    exception.code shouldBe ErrorCode.INVALID_DATE_RANGE
+                }
+            }
+        }
+
+        Given("태스크 수정 시 날짜 검증") {
+            When("기존 dueDate보다 늦은 startDate로 수정하면") {
+                val epic = dummyEpic(id = 8L)
+                val entity =
+                    dummyTask(
+                        id = 80L,
+                        epic = epic,
+                        startDate = LocalDate.of(2026, 1, 1),
+                        dueDate = LocalDate.of(2026, 3, 1),
+                    )
+
+                every { taskRepository.findWithEpicAndProjectById(80L) } returns entity
+
+                val exception =
+                    shouldThrow<CustomException> {
+                        service.update(
+                            80L,
+                            dummyTaskUpdateRequest(startDate = LocalDate.of(2026, 4, 1)),
+                        )
+                    }
+
+                Then("INVALID_DATE_RANGE 예외가 발생한다") {
+                    exception.code shouldBe ErrorCode.INVALID_DATE_RANGE
+                }
+            }
+        }
+
         Given("DONE 에픽에 태스크 생성 차단") {
             When("DONE 상태 에픽에 태스크를 생성하려 하면") {
                 val doneEpic = dummyEpic(id = 99L, status = com.pluxity.weekly.epic.entity.EpicStatus.DONE)
@@ -193,6 +309,7 @@ class TaskServiceTest :
                     )
 
                 every { taskRepository.findWithEpicAndProjectById(1L) } returns entity
+                every { taskRepository.existsByEpicIdAndName(1L, "수정된 태스크") } returns false
 
                 service.update(1L, request)
 
@@ -213,6 +330,38 @@ class TaskServiceTest :
 
                 Then("NOT_FOUND 예외가 발생한다") {
                     exception.code shouldBe ErrorCode.NOT_FOUND_TASK
+                }
+            }
+
+            When("같은 epic의 다른 태스크 이름으로 수정하면") {
+                val epic = dummyEpic(id = 1L)
+                val entity = dummyTask(id = 50L, epic = epic, name = "원본")
+
+                every { taskRepository.findWithEpicAndProjectById(50L) } returns entity
+                every { taskRepository.existsByEpicIdAndName(1L, "중복") } returns true
+
+                val exception =
+                    shouldThrow<CustomException> {
+                        service.update(50L, dummyTaskUpdateRequest(name = "중복"))
+                    }
+
+                Then("DUPLICATE_TASK 예외가 발생한다") {
+                    exception.code shouldBe ErrorCode.DUPLICATE_TASK
+                }
+            }
+
+            When("본인 이름과 동일한 이름으로 수정하면") {
+                val epic = dummyEpic(id = 1L)
+                val entity = dummyTask(id = 51L, epic = epic, name = "변경없음")
+
+                every { taskRepository.findWithEpicAndProjectById(51L) } returns entity
+
+                service.update(51L, dummyTaskUpdateRequest(name = "변경없음"))
+
+                Then("중복 체크 쿼리가 호출되지 않는다") {
+                    verify(exactly = 0) {
+                        taskRepository.existsByEpicIdAndName(any(), any())
+                    }
                 }
             }
         }
@@ -573,6 +722,7 @@ class TaskServiceTest :
             When("현재 상태가 DONE 인 태스크를 update 로 수정하려 하면") {
                 val entity = dummyTask(id = 42L, status = TaskStatus.DONE, name = "완료된 태스크")
                 every { taskRepository.findWithEpicAndProjectById(42L) } returns entity
+                every { taskRepository.existsByEpicIdAndName(any(), any()) } returns false
 
                 val exception =
                     shouldThrow<CustomException> {

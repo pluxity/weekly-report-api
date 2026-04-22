@@ -3,6 +3,7 @@ package com.pluxity.weekly.project.entity
 import com.pluxity.weekly.core.constant.ErrorCode
 import com.pluxity.weekly.core.entity.IdentityIdEntity
 import com.pluxity.weekly.core.exception.CustomException
+import com.pluxity.weekly.core.validation.validateDateRange
 import com.pluxity.weekly.epic.entity.Epic
 import jakarta.persistence.CascadeType
 import jakarta.persistence.Column
@@ -35,6 +36,16 @@ class Project(
     @OneToMany(mappedBy = "project", cascade = [CascadeType.REMOVE])
     val epics: MutableList<Epic> = mutableListOf()
 
+    init {
+        validateDateRange(startDate, dueDate)
+    }
+
+    fun ensureMutable() {
+        if (status == ProjectStatus.DONE) {
+            throw CustomException(ErrorCode.INVALID_STATUS_TRANSITION, status, "update")
+        }
+    }
+
     fun changeStatus(
         newStatus: ProjectStatus,
         allEpicsDone: Boolean,
@@ -55,13 +66,14 @@ class Project(
         dueDate: LocalDate? = null,
         pmId: Long? = null,
     ) {
-        if (status == ProjectStatus.DONE) {
-            throw CustomException(ErrorCode.INVALID_STATUS_TRANSITION, status, "update")
-        }
+        val nextStartDate = startDate ?: this.startDate
+        val nextDueDate = dueDate ?: this.dueDate
+        validateDateRange(nextStartDate, nextDueDate)
+
         name?.let { this.name = it }
         description?.let { this.description = it }
-        startDate?.let { this.startDate = it }
-        dueDate?.let { this.dueDate = it }
+        this.startDate = nextStartDate
+        this.dueDate = nextDueDate
         pmId?.let { this.pmId = it }
     }
 }

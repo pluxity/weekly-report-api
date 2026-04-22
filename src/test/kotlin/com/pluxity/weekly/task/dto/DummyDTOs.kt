@@ -11,6 +11,7 @@ fun dummyTaskRequest(
     progress: Int = 0,
     startDate: LocalDate? = null,
     dueDate: LocalDate? = null,
+    assigneeId: Long? = null,
 ) = TaskRequest(
     epicId = epicId,
     name = name,
@@ -19,6 +20,7 @@ fun dummyTaskRequest(
     progress = progress,
     startDate = startDate,
     dueDate = dueDate,
+    assigneeId = assigneeId,
 )
 
 fun dummyTaskUpdateRequest(
