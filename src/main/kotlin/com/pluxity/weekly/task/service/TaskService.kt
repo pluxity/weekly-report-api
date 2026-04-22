@@ -62,6 +62,9 @@ class TaskService(
     fun create(request: TaskRequest): Long {
         val user = authorizationService.currentUser()
         authorizationService.requireEpicAccess(user, request.epicId)
+        if (request.status != TaskStatus.TODO) {
+            throw CustomException(ErrorCode.INVALID_INITIAL_STATUS, request.status)
+        }
         val epic = getEpicById(request.epicId)
         epic.ensureMutable("create task")
         ensureUniqueTaskName(request.epicId, request.name)

@@ -54,6 +54,9 @@ class ProjectService(
     fun create(request: ProjectRequest): Long {
         val user = authorizationService.currentUser()
         authorizationService.requireAdmin(user)
+        if (request.status == ProjectStatus.DONE) {
+            throw CustomException(ErrorCode.INVALID_INITIAL_STATUS, request.status)
+        }
         request.pmId?.let { ensurePmExists(it) }
         return projectRepository
             .save(
