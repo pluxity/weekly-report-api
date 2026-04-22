@@ -19,8 +19,9 @@ enum class ChatActionType(
     ;
 
     companion object {
+        fun fromOrNull(key: String?): ChatActionType? = entries.firstOrNull { it.key == key }
+
         fun from(key: String?): ChatActionType =
-            entries.firstOrNull { it.key == key }
-                ?: throw ChatClarifyException(message = "지원하지 않는 요청입니다.")
+            fromOrNull(key) ?: throw ChatClarifyException(message = "지원하지 않는 요청입니다.")
     }
 }

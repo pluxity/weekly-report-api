@@ -3,6 +3,8 @@ package com.pluxity.weekly.chat.context
 import com.pluxity.weekly.auth.authorization.AuthorizationService
 import com.pluxity.weekly.auth.user.entity.User
 import com.pluxity.weekly.auth.user.repository.UserRepository
+import com.pluxity.weekly.chat.dto.ChatActionType
+import com.pluxity.weekly.chat.dto.ChatTarget
 import com.pluxity.weekly.chat.dto.EpicSearchFilter
 import com.pluxity.weekly.chat.dto.ProjectSearchFilter
 import com.pluxity.weekly.chat.dto.TaskSearchFilter
@@ -44,8 +46,8 @@ class ContextBuilder(
     private val objectMapper: ObjectMapper,
 ) {
     fun build(
-        target: String,
-        actions: List<String>,
+        target: ChatTarget,
+        actions: List<ChatActionType>,
     ): String {
         val user = authorizationService.currentUser()
 
@@ -55,15 +57,15 @@ class ContextBuilder(
         val todayDayOfWeek = LocalDate.now().dayOfWeek.getDisplayName(TextStyle.FULL, Locale.KOREAN)
         val userRef = UserRef(id = user.requiredId, name = user.name)
 
-        val hasCreateOnly = "create" in actions && "update" !in actions
-        val excludeDone = "update" in actions || "delete" in actions
+        val hasCreateOnly = ChatActionType.CREATE in actions && ChatActionType.UPDATE !in actions
+        val excludeDone = ChatActionType.UPDATE in actions || ChatActionType.DELETE in actions
 
         val context: ChatContext =
             when (target) {
-                "project" -> buildProjectContext(today, todayDayOfWeek, userRef, excludeDone)
-                "epic" -> buildEpicContext(today, todayDayOfWeek, userRef, excludeDone)
-                "team" -> buildTeamContext(today, todayDayOfWeek, userRef)
-                else -> buildTaskContext(today, todayDayOfWeek, userRef, hasCreateOnly, excludeDone)
+                ChatTarget.PROJECT -> buildProjectContext(today, todayDayOfWeek, userRef, excludeDone)
+                ChatTarget.EPIC -> buildEpicContext(today, todayDayOfWeek, userRef, excludeDone)
+                ChatTarget.TEAM -> buildTeamContext(today, todayDayOfWeek, userRef)
+                ChatTarget.TASK, ChatTarget.REVIEW -> buildTaskContext(today, todayDayOfWeek, userRef, hasCreateOnly, excludeDone)
             }
 
         return objectMapper.writeValueAsString(context)

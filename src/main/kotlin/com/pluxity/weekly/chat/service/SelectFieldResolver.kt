@@ -3,6 +3,8 @@ package com.pluxity.weekly.chat.service
 import com.pluxity.weekly.auth.authorization.UserType
 import com.pluxity.weekly.auth.user.repository.UserRepository
 import com.pluxity.weekly.chat.dto.Candidate
+import com.pluxity.weekly.chat.dto.ChatActionType
+import com.pluxity.weekly.chat.dto.ChatTarget
 import com.pluxity.weekly.chat.dto.LlmAction
 import com.pluxity.weekly.chat.dto.SelectField
 import com.pluxity.weekly.epic.repository.EpicRepository
@@ -43,7 +45,7 @@ class SelectFieldResolver(
         field: String,
         action: LlmAction,
     ): SelectField? {
-        val target = action.target
+        val target = ChatTarget.fromOrNull(action.target)
         val candidateIds = action.candidates ?: emptyList()
         return when (field) {
             "id" -> resolveIdCandidates(target, candidateIds)
@@ -56,23 +58,23 @@ class SelectFieldResolver(
     }
 
     private fun resolveIdCandidates(
-        target: String?,
+        target: ChatTarget?,
         candidateIds: List<Long>,
     ): SelectField? {
         if (candidateIds.isEmpty()) return null
         val candidates =
             when (target) {
-                "task" ->
+                ChatTarget.TASK ->
                     taskRepository.findAllWithEpicAndProjectByIdIn(candidateIds).map { task ->
                         Candidate(task.requiredId.toString(), "${task.name} (${task.epic.project.name}/${task.epic.name})")
                     }
-                "epic" ->
+                ChatTarget.EPIC ->
                     epicRepository.findAllWithProjectByIdIn(candidateIds).map { epic ->
                         Candidate(epic.requiredId.toString(), "${epic.name} (${epic.project.name})")
                     }
-                "project" ->
+                ChatTarget.PROJECT ->
                     projectRepository.findAllById(candidateIds).map { Candidate(it.requiredId.toString(), it.name) }
-                else -> return null
+                ChatTarget.TEAM, ChatTarget.REVIEW, null -> return null
             }
         return SelectField(field = "id", candidates = candidates)
     }
@@ -102,7 +104,7 @@ class SelectFieldResolver(
     }
 
     private fun resolveRemoveUserCandidates(action: LlmAction): SelectField? {
-        if (action.target != "epic" || action.id == null) return null
+        if (ChatTarget.fromOrNull(action.target) != ChatTarget.EPIC || action.id == null) return null
         val assigneeIds = epicService.findAssignments(action.id).map { it.userId }
         if (assigneeIds.isEmpty()) return null
         val candidates =
@@ -144,12 +146,13 @@ class SelectFieldResolver(
         action: LlmAction,
         result: MutableList<SelectField>,
     ) {
-        if (action.action !in listOf("create", "update")) return
+        val type = ChatActionType.fromOrNull(action.action)
+        if (type != ChatActionType.CREATE && type != ChatActionType.UPDATE) return
 
         val existingFields = result.map { it.field }.toSet()
 
-        when (action.target) {
-            "project" -> {
+        when (ChatTarget.fromOrNull(action.target)) {
+            ChatTarget.PROJECT -> {
                 if ("pmId" !in existingFields) {
                     result.add(resolveUserCandidates("pmId", listOf("PM", "PO")))
                 }
@@ -157,7 +160,7 @@ class SelectFieldResolver(
                     result.add(resolveStatusCandidates())
                 }
             }
-            "epic" -> {
+            ChatTarget.EPIC -> {
                 if ("projectId" !in existingFields) {
                     result.add(resolveProjectCandidates(emptyList()) ?: return)
                 }
@@ -168,11 +171,12 @@ class SelectFieldResolver(
                     result.add(resolveStatusCandidates())
                 }
             }
-            "task" -> {
+            ChatTarget.TASK -> {
                 if ("epicId" !in existingFields) {
                     result.add(resolveEpicCandidates(emptyList()) ?: return)
                 }
             }
+            ChatTarget.TEAM, ChatTarget.REVIEW, null -> Unit
         }
     }
 }

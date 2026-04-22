@@ -1,8 +1,10 @@
 package com.pluxity.weekly.teams.converter
 
 import com.pluxity.weekly.chat.dto.ChatActionResponse
+import com.pluxity.weekly.chat.dto.ChatActionType
 import com.pluxity.weekly.chat.dto.ChatDto
 import com.pluxity.weekly.chat.dto.ChatReadResponse
+import com.pluxity.weekly.chat.dto.ChatTarget
 import com.pluxity.weekly.chat.dto.EpicChatDto
 import com.pluxity.weekly.chat.dto.ProjectChatDto
 import com.pluxity.weekly.chat.dto.SelectField
@@ -58,10 +60,10 @@ class AdaptiveCardConverter {
 
     private fun formatExecutionResult(response: ChatActionResponse): String {
         val actionLabel =
-            when (response.action) {
-                "create" -> "생성"
-                "update" -> "수정"
-                "delete" -> "삭제"
+            when (ChatActionType.fromOrNull(response.action)) {
+                ChatActionType.CREATE -> "생성"
+                ChatActionType.UPDATE -> "수정"
+                ChatActionType.DELETE -> "삭제"
                 else -> response.action
             }
         val targetLabel = targetLabel(response.target)
@@ -192,7 +194,7 @@ class AdaptiveCardConverter {
     private fun buildFormCard(response: ChatActionResponse): Map<String, Any> {
         val dto = response.dto!!
         val inputs = buildInputs(dto, response.selectFields.orEmpty())
-        val actionLabel = if (response.action == "create") "생성" else "수정"
+        val actionLabel = if (ChatActionType.fromOrNull(response.action) == ChatActionType.CREATE) "생성" else "수정"
 
         return mapOf(
             "type" to "AdaptiveCard",
@@ -317,12 +319,13 @@ class AdaptiveCardConverter {
         )
 
     private fun targetLabel(target: String): String =
-        when (target) {
-            "project" -> "프로젝트"
-            "epic" -> "에픽"
-            "task" -> "태스크"
-            "team" -> "팀"
-            else -> target
+        when (ChatTarget.fromOrNull(target)) {
+            ChatTarget.PROJECT -> "프로젝트"
+            ChatTarget.EPIC -> "에픽"
+            ChatTarget.TASK -> "태스크"
+            ChatTarget.TEAM -> "팀"
+            ChatTarget.REVIEW -> "리뷰"
+            null -> target
         }
 
     private fun TaskResponse.toFact(): Map<String, String> = mapOf("title" to name, "value" to "$status ($progress%)")
