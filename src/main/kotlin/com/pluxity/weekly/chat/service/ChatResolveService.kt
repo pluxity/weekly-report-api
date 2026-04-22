@@ -79,8 +79,7 @@ class ChatResolveService(
         map.remove("missing_fields")
         map.remove("candidates")
         map.remove("message")
-        val mergedJson = objectMapper.writeValueAsString(map)
-        return objectMapper.readValue(mergedJson, LlmAction::class.java)
+        return objectMapper.convertValue(map)
     }
 
     private fun resolveFieldValue(request: ChatResolveRequest): Any? {
