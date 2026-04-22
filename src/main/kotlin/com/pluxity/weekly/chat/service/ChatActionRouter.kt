@@ -86,17 +86,20 @@ class ChatActionRouter(
     private fun throwSelectOrClarify(action: LlmAction): Nothing {
         val message = action.message ?: "대상을 특정할 수 없습니다."
         val missingFields = action.missingFields
-        val candidates = action.candidates
+        if ((missingFields?.size ?: 0) > 1) {
+            log.warn { "LLM이 복수 missingFields 반환: $missingFields — [0]만 사용" }
+        }
 
-        if (!candidates.isNullOrEmpty() && !missingFields.isNullOrEmpty()) {
-            if (missingFields.size > 1) {
-                log.warn { "LLM이 복수 missingFields 반환: $missingFields — [0]만 사용" }
-            }
-            val field = missingFields[0]
+        val field = missingFields?.firstOrNull() ?: nextMissingField(action)
+        if (field != null) {
             val resolved = selectFieldResolver.resolveCandidates(field, action)
             if (resolved.isNotEmpty()) {
                 val userId = authorizationService.currentUser().requiredId
-                val normalized = action.copy(missingFields = listOf(field))
+                val normalized =
+                    action.copy(
+                        missingFields = listOf(field),
+                        candidates = resolved.mapNotNull { it.id.toLongOrNull() },
+                    )
                 val clarifyId = clarifyStore.save(userId, normalized)
                 throw ChatSelectRequiredException(
                     message = message,
@@ -108,6 +111,13 @@ class ChatActionRouter(
         }
         throw ChatClarifyException(message)
     }
+
+    private fun nextMissingField(action: LlmAction): String? =
+        when (action.action) {
+            "assign" if action.userIds.isNullOrEmpty() -> "user_ids"
+            "unassign" if action.removeUserIds.isNullOrEmpty() -> "remove_user_ids"
+            else -> null
+        }
 
     private fun loadExistingDto(
         target: String,

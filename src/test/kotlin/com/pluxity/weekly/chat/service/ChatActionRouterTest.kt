@@ -181,6 +181,7 @@ class ChatActionRouterTest :
                         message = "어느 태스크를 수정할까요?",
                         missingFields = listOf("id"),
                     )
+                every { selectFieldResolver.resolveCandidates("id", action) } returns emptyList()
 
                 Then("ChatClarifyException 이 발생한다") {
                     val ex = shouldThrow<ChatClarifyException> { router.route(action) }
@@ -222,6 +223,7 @@ class ChatActionRouterTest :
                         missingFields = listOf("id"),
                         message = "대상을 확인해주세요.",
                     )
+                every { selectFieldResolver.resolveCandidates("id", action) } returns emptyList()
 
                 Then("회귀 방지 clarify 가 발생한다") {
                     shouldThrow<ChatClarifyException> { router.route(action) }
@@ -243,7 +245,7 @@ class ChatActionRouterTest :
                 }
             }
 
-            When("missingFields 가 남아있어 userIds 가 누락된 상태이면") {
+            When("missingFields 로 user_ids 가 지정돼 있으면") {
                 val action =
                     LlmAction(
                         action = "assign",
@@ -252,27 +254,61 @@ class ChatActionRouterTest :
                         missingFields = listOf("user_ids"),
                         message = "누구를 배정할까요?",
                     )
+                val resolvedCandidates = listOf(Candidate("10", "홍길동"), Candidate("20", "김영희"))
+                val normalized = action.copy(missingFields = listOf("user_ids"), candidates = listOf(10L, 20L))
+                val user = mockk<User> { every { requiredId } returns 42L }
+                every { selectFieldResolver.resolveCandidates("user_ids", action) } returns resolvedCandidates
+                every { authorizationService.currentUser() } returns user
+                every { clarifyStore.save(42L, normalized) } returns "turn-id-xyz"
 
-                Then("silent no-op 을 방지하는 clarify 가 발생한다") {
-                    shouldThrow<ChatClarifyException> { router.route(action) }
+                Then("user_ids 후보가 담긴 ChatSelectRequiredException 이 발생한다") {
+                    val ex = shouldThrow<ChatSelectRequiredException> { router.route(action) }
+                    ex.field shouldBe "user_ids"
+                    ex.candidates shouldBe resolvedCandidates
+                    ex.clarifyId shouldBe "turn-id-xyz"
                     verify(exactly = 0) { chatExecutor.execute(any()) }
                 }
             }
 
             When("missingFields 없이 userIds 만 누락된 상태이면") {
                 val action = LlmAction(action = "assign", target = "epic", id = 3L)
+                val resolvedCandidates = listOf(Candidate("10", "홍길동"))
+                val normalized = action.copy(missingFields = listOf("user_ids"), candidates = listOf(10L))
+                val user = mockk<User> { every { requiredId } returns 42L }
+                every { selectFieldResolver.resolveCandidates("user_ids", action) } returns resolvedCandidates
+                every { authorizationService.currentUser() } returns user
+                every { clarifyStore.save(42L, normalized) } returns "turn-id-xyz"
 
-                Then("defense-in-depth clarify 가 발생한다") {
-                    shouldThrow<ChatClarifyException> { router.route(action) }
+                Then("nextMissingField 가 user_ids 를 감지해 clarify 로 이어진다") {
+                    val ex = shouldThrow<ChatSelectRequiredException> { router.route(action) }
+                    ex.field shouldBe "user_ids"
                     verify(exactly = 0) { chatExecutor.execute(any()) }
                 }
             }
 
             When("missingFields 없이 userIds 가 빈 리스트이면") {
                 val action = LlmAction(action = "assign", target = "epic", id = 3L, userIds = emptyList())
+                val resolvedCandidates = listOf(Candidate("10", "홍길동"))
+                val normalized = action.copy(missingFields = listOf("user_ids"), candidates = listOf(10L))
+                val user = mockk<User> { every { requiredId } returns 42L }
+                every { selectFieldResolver.resolveCandidates("user_ids", action) } returns resolvedCandidates
+                every { authorizationService.currentUser() } returns user
+                every { clarifyStore.save(42L, normalized) } returns "turn-id-xyz"
 
-                Then("clarify 가 발생한다") {
-                    shouldThrow<ChatClarifyException> { router.route(action) }
+                Then("빈 리스트도 누락으로 간주해 clarify 가 발생한다") {
+                    val ex = shouldThrow<ChatSelectRequiredException> { router.route(action) }
+                    ex.field shouldBe "user_ids"
+                    verify(exactly = 0) { chatExecutor.execute(any()) }
+                }
+            }
+
+            When("userIds 누락인데 후보도 없으면") {
+                val action = LlmAction(action = "assign", target = "epic", id = 3L, message = "배정할 유저를 찾을 수 없습니다.")
+                every { selectFieldResolver.resolveCandidates("user_ids", action) } returns emptyList()
+
+                Then("ChatClarifyException 으로 폴백한다") {
+                    val ex = shouldThrow<ChatClarifyException> { router.route(action) }
+                    ex.message shouldBe "배정할 유저를 찾을 수 없습니다."
                     verify(exactly = 0) { chatExecutor.execute(any()) }
                 }
             }
@@ -294,9 +330,17 @@ class ChatActionRouterTest :
 
             When("missingFields 없이 removeUserIds 만 누락된 상태이면") {
                 val action = LlmAction(action = "unassign", target = "epic", id = 3L)
+                val resolvedCandidates = listOf(Candidate("10", "홍길동"))
+                val normalized = action.copy(missingFields = listOf("remove_user_ids"), candidates = listOf(10L))
+                val user = mockk<User> { every { requiredId } returns 42L }
+                every { selectFieldResolver.resolveCandidates("remove_user_ids", action) } returns resolvedCandidates
+                every { authorizationService.currentUser() } returns user
+                every { clarifyStore.save(42L, normalized) } returns "turn-id-xyz"
 
-                Then("defense-in-depth clarify 가 발생한다") {
-                    shouldThrow<ChatClarifyException> { router.route(action) }
+                Then("nextMissingField 가 remove_user_ids 를 감지해 clarify 로 이어진다") {
+                    val ex = shouldThrow<ChatSelectRequiredException> { router.route(action) }
+                    ex.field shouldBe "remove_user_ids"
+                    ex.candidates shouldBe resolvedCandidates
                     verify(exactly = 0) { chatExecutor.execute(any()) }
                 }
             }
