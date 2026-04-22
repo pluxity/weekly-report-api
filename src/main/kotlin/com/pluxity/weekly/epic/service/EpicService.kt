@@ -133,6 +133,7 @@ class EpicService(
         val user = authorizationService.currentUser()
         authorizationService.requireEpicAssign(user, epicId)
         val epic = getEpicById(epicId)
+        epic.ensureMutable("assign")
         val assignee = getUserById(userId)
         if (epic.assignments.any { it.user == assignee }) {
             throw CustomException(ErrorCode.DUPLICATE_EPIC_ASSIGNMENT, userId, epicId)
@@ -148,6 +149,7 @@ class EpicService(
         val user = authorizationService.currentUser()
         authorizationService.requireEpicAssign(user, epicId)
         val epic = getEpicById(epicId)
+        epic.ensureMutable("unassign")
         val assignee = getUserById(userId)
         if (epic.assignments.none { it.user == assignee }) {
             throw CustomException(ErrorCode.NOT_FOUND_EPIC_ASSIGNMENT, epicId, userId)
