@@ -86,6 +86,18 @@ class ChatActionRouterTest :
             }
         }
 
+        Given("지원하지 않는 action") {
+            When("enum 에 정의되지 않은 key 가 들어오면") {
+                val action = LlmAction(action = "foo", target = "task")
+
+                Then("ChatClarifyException 이 발생하고 executor 는 호출되지 않는다") {
+                    val ex = shouldThrow<ChatClarifyException> { router.route(action) }
+                    ex.message shouldBe "지원하지 않는 요청입니다."
+                    verify(exactly = 0) { chatExecutor.execute(any()) }
+                }
+            }
+        }
+
         Given("create 액션") {
             When("missingFields 없이 태스크 생성 요청이 들어오면") {
                 val action = LlmAction(action = "create", target = "task", name = "새 태스크")
@@ -208,6 +220,7 @@ class ChatActionRouterTest :
 
             When("id 가 없으면") {
                 val action = LlmAction(action = "delete", target = "task", id = null, message = "대상을 특정할 수 없습니다.")
+                every { selectFieldResolver.resolveCandidates("id", action) } returns emptyList()
 
                 Then("clarify 가 발생한다") {
                     shouldThrow<ChatClarifyException> { router.route(action) }

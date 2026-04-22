@@ -38,3 +38,13 @@ data class LlmAction(
     val missingFields: List<String>? = null,
     val candidates: List<Long>? = null,
 )
+
+fun LlmAction.hasValueFor(field: String): Boolean =
+    when (field) {
+        "id" -> id != null
+        "project_id" -> projectId != null
+        "epic_id" -> epicId != null
+        "user_ids" -> !userIds.isNullOrEmpty()
+        "remove_user_ids" -> !removeUserIds.isNullOrEmpty()
+        else -> false
+    }
