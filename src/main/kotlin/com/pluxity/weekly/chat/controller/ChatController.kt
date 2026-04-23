@@ -60,7 +60,7 @@ class ChatController(
                 content = [
                     Content(
                         mediaType = "application/json",
-                        schema = Schema( ClarifyErrorResponseBody::class),
+                        schema = Schema(ClarifyErrorResponseBody::class),
                     ),
                 ],
             ),
