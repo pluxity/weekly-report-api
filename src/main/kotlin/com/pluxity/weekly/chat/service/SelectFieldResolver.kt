@@ -8,6 +8,7 @@ import com.pluxity.weekly.chat.dto.ChatTarget
 import com.pluxity.weekly.chat.dto.LlmAction
 import com.pluxity.weekly.chat.dto.SelectField
 import com.pluxity.weekly.epic.repository.EpicRepository
+import com.pluxity.weekly.epic.service.EpicAssignmentService
 import com.pluxity.weekly.epic.service.EpicService
 import com.pluxity.weekly.project.repository.ProjectRepository
 import com.pluxity.weekly.project.service.ProjectService
@@ -23,6 +24,7 @@ class SelectFieldResolver(
     private val userRepository: UserRepository,
     private val projectService: ProjectService,
     private val epicService: EpicService,
+    private val epicAssignmentService: EpicAssignmentService,
 ) {
     fun resolve(action: LlmAction): List<SelectField> {
         val missingFields = action.missingFields ?: emptyList()
@@ -105,7 +107,7 @@ class SelectFieldResolver(
 
     private fun resolveRemoveUserCandidates(action: LlmAction): SelectField? {
         if (ChatTarget.fromOrNull(action.target) != ChatTarget.EPIC || action.id == null) return null
-        val assigneeIds = epicService.findAssignments(action.id).map { it.userId }
+        val assigneeIds = epicAssignmentService.findByEpic(action.id).map { it.userId }
         if (assigneeIds.isEmpty()) return null
         val candidates =
             userRepository
