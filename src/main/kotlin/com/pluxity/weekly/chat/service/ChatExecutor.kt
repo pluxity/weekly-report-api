@@ -5,6 +5,7 @@ import com.pluxity.weekly.chat.dto.ChatTarget
 import com.pluxity.weekly.chat.dto.LlmAction
 import com.pluxity.weekly.epic.service.EpicService
 import com.pluxity.weekly.project.service.ProjectService
+import com.pluxity.weekly.task.service.TaskReviewService
 import com.pluxity.weekly.task.service.TaskService
 import org.springframework.stereotype.Component
 
@@ -17,6 +18,7 @@ class ChatExecutor(
     private val projectService: ProjectService,
     private val epicService: EpicService,
     private val taskService: TaskService,
+    private val taskReviewService: TaskReviewService,
 ) {
     fun execute(action: LlmAction): Long? =
         when (ChatActionType.fromOrNull(action.action)) {
@@ -30,7 +32,7 @@ class ChatExecutor(
     private fun executeReviewRequest(action: LlmAction): Long? {
         if (ChatTarget.fromOrNull(action.target) != ChatTarget.TASK) return null
         val id = action.id ?: return null
-        taskService.requestReview(id)
+        taskReviewService.requestReview(id)
         return id
     }
 
