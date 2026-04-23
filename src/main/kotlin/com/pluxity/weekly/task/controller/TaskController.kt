@@ -9,6 +9,7 @@ import com.pluxity.weekly.task.dto.TaskRejectRequest
 import com.pluxity.weekly.task.dto.TaskRequest
 import com.pluxity.weekly.task.dto.TaskResponse
 import com.pluxity.weekly.task.dto.TaskUpdateRequest
+import com.pluxity.weekly.task.service.TaskReviewService
 import com.pluxity.weekly.task.service.TaskService
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.media.Content
@@ -32,6 +33,7 @@ import org.springframework.web.bind.annotation.RestController
 @Tag(name = "Task Controller", description = "태스크 관리 API")
 class TaskController(
     private val service: TaskService,
+    private val reviewService: TaskReviewService,
 ) {
     @Operation(summary = "태스크 전체 조회", description = "태스크 전체 목록을 조회합니다")
     @ApiResponses(
@@ -115,7 +117,7 @@ class TaskController(
     fun requestReview(
         @PathVariable id: Long,
     ): ResponseEntity<Void> {
-        service.requestReview(id)
+        reviewService.requestReview(id)
         return ResponseEntity.noContent().build()
     }
 
@@ -134,7 +136,7 @@ class TaskController(
     fun approve(
         @PathVariable id: Long,
     ): ResponseEntity<Void> {
-        service.approve(id)
+        reviewService.approve(id)
         return ResponseEntity.noContent().build()
     }
 
@@ -154,7 +156,7 @@ class TaskController(
         @PathVariable id: Long,
         @RequestBody @Valid request: TaskRejectRequest,
     ): ResponseEntity<Void> {
-        service.reject(id, request.reason)
+        reviewService.reject(id, request.reason)
         return ResponseEntity.noContent().build()
     }
 
@@ -174,7 +176,7 @@ class TaskController(
     )
     @GetMapping("/pending-reviews")
     fun findPendingReviews(): ResponseEntity<DataResponseBody<List<PendingReviewResponse>>> =
-        ResponseEntity.ok(DataResponseBody(service.findPendingReviews()))
+        ResponseEntity.ok(DataResponseBody(reviewService.findPendingReviews()))
 
     @Operation(summary = "태스크 승인 로그 조회", description = "태스크의 전체 리뷰/승인/반려 이력을 시간순으로 조회합니다")
     @ApiResponses(
@@ -185,7 +187,8 @@ class TaskController(
     @GetMapping("/{id}/approval-logs")
     fun findApprovalLogs(
         @PathVariable id: Long,
-    ): ResponseEntity<DataResponseBody<List<TaskApprovalLogResponse>>> = ResponseEntity.ok(DataResponseBody(service.findApprovalLogs(id)))
+    ): ResponseEntity<DataResponseBody<List<TaskApprovalLogResponse>>> =
+        ResponseEntity.ok(DataResponseBody(reviewService.findApprovalLogs(id)))
 
     @Operation(summary = "태스크 삭제", description = "태스크를 삭제합니다")
     @ApiResponses(

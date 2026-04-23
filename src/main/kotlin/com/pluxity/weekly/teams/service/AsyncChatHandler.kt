@@ -6,7 +6,7 @@ import com.pluxity.weekly.epic.dto.EpicRequest
 import com.pluxity.weekly.epic.service.EpicService
 import com.pluxity.weekly.project.dto.ProjectRequest
 import com.pluxity.weekly.project.service.ProjectService
-import com.pluxity.weekly.task.service.TaskService
+import com.pluxity.weekly.task.service.TaskReviewService
 import com.pluxity.weekly.teams.converter.AdaptiveCardConverter
 import com.pluxity.weekly.teams.dto.Activity
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -23,7 +23,7 @@ class AsyncChatHandler(
     private val messageSender: TeamsMessageSender,
     private val projectService: ProjectService,
     private val epicService: EpicService,
-    private val taskService: TaskService,
+    private val taskReviewService: TaskReviewService,
 ) {
     @Async
     fun handleMessage(activity: Activity) {
@@ -122,7 +122,7 @@ class AsyncChatHandler(
                         if (taskId == null) {
                             cardConverter.textMessage("태스크 ID 를 읽을 수 없습니다.")
                         } else {
-                            taskService.approve(taskId)
+                            taskReviewService.approve(taskId)
                             cardConverter.textMessage("태스크 승인이 완료되었습니다. (ID: $taskId)")
                         }
                     }
@@ -132,7 +132,7 @@ class AsyncChatHandler(
                             cardConverter.textMessage("태스크 ID 를 읽을 수 없습니다.")
                         } else {
                             val reason = (formData["reason"] as? String)?.takeIf { it.isNotBlank() }
-                            taskService.reject(taskId, reason)
+                            taskReviewService.reject(taskId, reason)
                             val suffix = reason?.let { " 사유: $it" } ?: ""
                             cardConverter.textMessage("태스크 반려가 완료되었습니다. (ID: $taskId)$suffix")
                         }
