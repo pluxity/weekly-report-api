@@ -5,6 +5,7 @@ import com.pluxity.weekly.auth.authentication.dto.SignUpRequest
 import com.pluxity.weekly.auth.authentication.entity.RefreshToken
 import com.pluxity.weekly.auth.authentication.repository.RefreshTokenRepository
 import com.pluxity.weekly.auth.authentication.security.JwtProvider
+import com.pluxity.weekly.auth.properties.CookieProperties
 import com.pluxity.weekly.auth.properties.JwtProperties
 import com.pluxity.weekly.auth.user.entity.User
 import com.pluxity.weekly.auth.user.repository.UserRepository
@@ -29,6 +30,7 @@ class AuthenticationService(
     private val authenticationManager: AuthenticationManager,
     private val passwordEncoder: PasswordEncoder,
     private val jwtProperties: JwtProperties,
+    private val cookieProperties: CookieProperties,
 ) {
     @Transactional
     fun signUp(signUpRequest: SignUpRequest): Long {
@@ -159,9 +161,9 @@ class AuthenticationService(
         val cookie =
             ResponseCookie
                 .from(name, value)
-                .secure(false)
+                .secure(cookieProperties.secure)
                 .httpOnly(true)
-                .sameSite("Lax")
+                .sameSite(cookieProperties.sameSite)
                 .maxAge(expiry)
                 .path(path.takeIf { it.isNotBlank() } ?: "/")
                 .build()
@@ -194,7 +196,8 @@ class AuthenticationService(
         val cookie =
             ResponseCookie
                 .from("expiry", expiryTimeMillis.toString())
-                .secure(false)
+                .secure(cookieProperties.secure)
+                .sameSite(cookieProperties.sameSite)
                 .path(path)
                 .build()
                 .toString()
