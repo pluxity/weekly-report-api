@@ -5,15 +5,16 @@ import com.pluxity.weekly.auth.user.entity.RoleType
 import com.pluxity.weekly.auth.user.repository.UserRepository
 import com.pluxity.weekly.core.constant.ErrorCode
 import com.pluxity.weekly.core.exception.CustomException
+import com.pluxity.weekly.epic.entity.Epic
 import com.pluxity.weekly.epic.entity.dummyEpic
 import com.pluxity.weekly.epic.repository.EpicRepository
+import com.pluxity.weekly.epic.service.EpicAssignmentService
 import com.pluxity.weekly.task.dto.dummyTaskRequest
 import com.pluxity.weekly.task.dto.dummyTaskUpdateRequest
 import com.pluxity.weekly.task.entity.Task
 import com.pluxity.weekly.task.entity.TaskStatus
 import com.pluxity.weekly.task.entity.dummyTask
 import com.pluxity.weekly.task.repository.TaskRepository
-import com.pluxity.weekly.teams.event.TeamsNotificationEvent
 import com.pluxity.weekly.test.entity.dummyRole
 import com.pluxity.weekly.test.entity.dummyUser
 import io.kotest.assertions.throwables.shouldThrow
@@ -25,7 +26,6 @@ import io.mockk.mockk
 import io.mockk.runs
 import io.mockk.slot
 import io.mockk.verify
-import org.springframework.context.ApplicationEventPublisher
 import org.springframework.data.repository.findByIdOrNull
 import java.time.LocalDate
 
@@ -36,14 +36,14 @@ class TaskServiceTest :
         val epicRepository: EpicRepository = mockk()
         val userRepository: UserRepository = mockk()
         val authorizationService: AuthorizationService = mockk()
-        val eventPublisher: ApplicationEventPublisher = mockk(relaxed = true)
+        val assignmentService: EpicAssignmentService = mockk(relaxed = true)
         val service =
             TaskService(
                 taskRepository,
                 epicRepository,
                 userRepository,
                 authorizationService,
-                eventPublisher,
+                assignmentService,
             )
 
         val adminUser =
@@ -149,38 +149,34 @@ class TaskServiceTest :
             }
         }
 
-        Given("태스크 생성 시 assignee epic 배정 검증") {
-            When("ADMIN/PM이 다른 사용자를 assignee로 지정하면 epic에 자동 배정된다") {
+        Given("태스크 생성 시 assignmentService 위임") {
+            When("다른 사용자를 assignee로 지정하면 ensureAssigned 에 위임된다") {
                 val epic = dummyEpic(id = 5L)
                 val newAssignee = dummyUser(id = 30L, name = "신규 담당자")
-                val request = dummyTaskRequest(epicId = 5L, name = "자동배정 create", assigneeId = 30L)
-                val saved =
-                    dummyTask(id = 100L, epic = epic, name = "자동배정 create").apply {
-                        this.assignee = newAssignee
-                    }
+                val request = dummyTaskRequest(epicId = 5L, name = "위임 create", assigneeId = 30L)
+                val saved = dummyTask(id = 100L, epic = epic, name = "위임 create").apply { assignee = newAssignee }
 
                 every { epicRepository.findByIdOrNull(5L) } returns epic
                 every { taskRepository.existsByEpicIdAndName(5L, request.name) } returns false
-                every { authorizationService.requireAdminOrPm(any()) } just runs
-                every { epicRepository.existsByAssignmentsUserIdAndId(30L, 5L) } returns false
                 every { userRepository.findByIdOrNull(30L) } returns newAssignee
                 every { taskRepository.save(any<Task>()) } returns saved
 
                 service.create(request)
 
-                Then("epic에 자동 배정되고 알림이 발행된다") {
-                    epic.assignments.any { it.user == newAssignee } shouldBe true
-                    verify { eventPublisher.publishEvent(match<TeamsNotificationEvent> { it.userId == 30L }) }
+                Then("assignmentService.ensureAssigned 가 올바른 인자로 호출된다") {
+                    verify { assignmentService.ensureAssigned(adminUser, 30L, epic) }
                 }
             }
 
-            When("일반 사용자가 다른 사용자를 assignee로 지정하면 권한 거부") {
+            When("ensureAssigned 가 권한 예외를 던지면 전파된다") {
                 val epic = dummyEpic(id = 9L)
                 val request = dummyTaskRequest(epicId = 9L, name = "권한없음 create", assigneeId = 50L)
 
                 every { epicRepository.findByIdOrNull(9L) } returns epic
                 every { taskRepository.existsByEpicIdAndName(9L, request.name) } returns false
-                every { authorizationService.requireAdminOrPm(any()) } throws CustomException(ErrorCode.PERMISSION_DENIED)
+                every {
+                    assignmentService.ensureAssigned(any(), any(), any<Epic>())
+                } throws CustomException(ErrorCode.PERMISSION_DENIED)
 
                 val exception =
                     shouldThrow<CustomException> {
@@ -192,7 +188,7 @@ class TaskServiceTest :
                 }
             }
 
-            When("assigneeId가 현재 로그인 사용자와 같으면 권한 체크/자동배정을 건너뛴다") {
+            When("assigneeId가 현재 로그인 사용자와 같으면 null 로 위임된다") {
                 val epic = dummyEpic(id = 6L)
                 val request = dummyTaskRequest(epicId = 6L, name = "본인 지정", assigneeId = 1L)
                 val savedSlot = slot<Task>()
@@ -204,9 +200,8 @@ class TaskServiceTest :
 
                 service.create(request)
 
-                Then("권한 체크/자동배정 없이 currentUser가 assignee로 설정된다") {
-                    verify(exactly = 0) { authorizationService.requireAdminOrPm(any()) }
-                    verify(exactly = 0) { epicRepository.existsByAssignmentsUserIdAndId(1L, 6L) }
+                Then("ensureAssigned 가 null 로 호출되고 currentUser 가 assignee 로 설정된다") {
+                    verify { assignmentService.ensureAssigned(adminUser, null, epic) }
                     verify(exactly = 0) { userRepository.findByIdOrNull(1L) }
                     savedSlot.captured.assignee shouldBe adminUser
                 }
@@ -380,8 +375,8 @@ class TaskServiceTest :
             }
         }
 
-        Given("태스크 담당자 변경 권한") {
-            When("ADMIN이 담당자를 변경하면") {
+        Given("태스크 수정 시 assignmentService 위임") {
+            When("담당자가 변경되면 ensureAssigned 가 호출된다") {
                 val epic = dummyEpic(id = 1L)
                 val oldAssignee = dummyUser(id = 10L, name = "기존 담당자")
                 val newAssignee = dummyUser(id = 20L, name = "새 담당자")
@@ -391,18 +386,17 @@ class TaskServiceTest :
                     }
 
                 every { taskRepository.findWithEpicAndProjectById(70L) } returns entity
-                every { authorizationService.requireAdminOrPm(any()) } just runs
-                every { epicRepository.existsByAssignmentsUserIdAndId(20L, 1L) } returns true
                 every { userRepository.findByIdOrNull(20L) } returns newAssignee
 
                 service.update(70L, dummyTaskUpdateRequest(assigneeId = 20L))
 
-                Then("담당자가 변경된다") {
+                Then("ensureAssigned 가 새 assignee id 로 호출되고 엔티티에 반영된다") {
+                    verify { assignmentService.ensureAssigned(adminUser, 20L, epic) }
                     entity.assignee shouldBe newAssignee
                 }
             }
 
-            When("일반 사용자가 담당자를 변경하려 하면") {
+            When("ensureAssigned 가 권한 예외를 던지면 전파된다") {
                 val epic = dummyEpic(id = 1L)
                 val entity =
                     dummyTask(id = 71L, epic = epic).apply {
@@ -410,7 +404,9 @@ class TaskServiceTest :
                     }
 
                 every { taskRepository.findWithEpicAndProjectById(71L) } returns entity
-                every { authorizationService.requireAdminOrPm(any()) } throws CustomException(ErrorCode.PERMISSION_DENIED)
+                every {
+                    assignmentService.ensureAssigned(any(), any(), any<Epic>())
+                } throws CustomException(ErrorCode.PERMISSION_DENIED)
 
                 val exception =
                     shouldThrow<CustomException> {
@@ -422,30 +418,7 @@ class TaskServiceTest :
                 }
             }
 
-            When("새 담당자가 에픽에 미배정이면 자동 배정된다") {
-                val epic = dummyEpic(id = 1L)
-                val oldAssignee = dummyUser(id = 10L, name = "기존 담당자")
-                val newAssignee = dummyUser(id = 30L, name = "미배정 담당자")
-                val entity =
-                    dummyTask(id = 72L, epic = epic, name = "자동배정 태스크").apply {
-                        this.assignee = oldAssignee
-                    }
-
-                every { taskRepository.findWithEpicAndProjectById(72L) } returns entity
-                every { authorizationService.requireAdminOrPm(any()) } just runs
-                every { epicRepository.existsByAssignmentsUserIdAndId(30L, 1L) } returns false
-                every { userRepository.findByIdOrNull(30L) } returns newAssignee
-
-                service.update(72L, dummyTaskUpdateRequest(assigneeId = 30L))
-
-                Then("에픽에 자동 배정되고 담당자가 변경된다") {
-                    epic.assignments.any { it.user == newAssignee } shouldBe true
-                    entity.assignee shouldBe newAssignee
-                    verify { eventPublisher.publishEvent(match<TeamsNotificationEvent> { it.userId == 30L }) }
-                }
-            }
-
-            When("동일한 담당자 ID를 보내면 권한 체크를 건너뛴다") {
+            When("동일한 담당자 ID를 보내면 ensureAssigned 에 null 이 전달된다") {
                 val epic = dummyEpic(id = 1L)
                 val currentAssignee = dummyUser(id = 10L, name = "현재 담당자")
                 val entity =
@@ -457,8 +430,8 @@ class TaskServiceTest :
 
                 service.update(73L, dummyTaskUpdateRequest(assigneeId = 10L))
 
-                Then("requireAdminOrPm이 호출되지 않는다") {
-                    verify(exactly = 0) { authorizationService.requireAdminOrPm(any()) }
+                Then("null 로 위임되고 assignee 가 유지된다") {
+                    verify { assignmentService.ensureAssigned(adminUser, null, epic) }
                     entity.assignee shouldBe currentAssignee
                 }
             }

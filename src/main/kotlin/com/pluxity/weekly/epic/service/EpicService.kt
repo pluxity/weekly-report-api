@@ -1,12 +1,9 @@
 package com.pluxity.weekly.epic.service
 
 import com.pluxity.weekly.auth.authorization.AuthorizationService
-import com.pluxity.weekly.auth.user.entity.User
-import com.pluxity.weekly.auth.user.repository.UserRepository
 import com.pluxity.weekly.chat.dto.EpicSearchFilter
 import com.pluxity.weekly.core.constant.ErrorCode
 import com.pluxity.weekly.core.exception.CustomException
-import com.pluxity.weekly.epic.dto.EpicAssignmentResponse
 import com.pluxity.weekly.epic.dto.EpicRequest
 import com.pluxity.weekly.epic.dto.EpicResponse
 import com.pluxity.weekly.epic.dto.EpicUpdateRequest
@@ -19,8 +16,6 @@ import com.pluxity.weekly.project.entity.ProjectStatus
 import com.pluxity.weekly.project.repository.ProjectRepository
 import com.pluxity.weekly.task.entity.TaskStatus
 import com.pluxity.weekly.task.repository.TaskRepository
-import com.pluxity.weekly.teams.event.TeamsNotificationEvent
-import org.springframework.context.ApplicationEventPublisher
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -31,9 +26,8 @@ class EpicService(
     private val epicRepository: EpicRepository,
     private val projectRepository: ProjectRepository,
     private val taskRepository: TaskRepository,
-    private val userRepository: UserRepository,
     private val authorizationService: AuthorizationService,
-    private val eventPublisher: ApplicationEventPublisher,
+    private val assignmentService: EpicAssignmentService,
 ) {
     fun findAll(): List<EpicResponse> = search(EpicSearchFilter())
 
@@ -68,9 +62,7 @@ class EpicService(
                     dueDate = request.dueDate,
                 ),
             )
-        request.userIds?.forEach { userId ->
-            assignAndNotify(epic, getUserById(userId))
-        }
+        request.userIds?.let { assignmentService.sync(epic, it) }
         return epic.requiredId
     }
 
@@ -102,18 +94,7 @@ class EpicService(
             startDate = request.startDate,
             dueDate = request.dueDate,
         )
-        request.userIds?.let { userIds ->
-            val requestedUsers = userRepository.findAllById(userIds)
-
-            epic.assignments
-                .filter { it.user !in requestedUsers }
-                .map { it.user }
-                .forEach { unassignAndNotify(epic, it) }
-
-            requestedUsers
-                .filter { user -> epic.assignments.none { it.user == user } }
-                .forEach { assignAndNotify(epic, it) }
-        }
+        request.userIds?.let { assignmentService.sync(epic, it) }
     }
 
     @Transactional
@@ -124,63 +105,6 @@ class EpicService(
         epicRepository.delete(epic)
     }
 
-    // ── EpicAssignment ──
-
-    fun findAssignments(epicId: Long): List<EpicAssignmentResponse> = getEpicById(epicId).assignments.map { it.toResponse() }
-
-    @Transactional
-    fun assign(
-        epicId: Long,
-        userId: Long,
-    ) {
-        val user = authorizationService.currentUser()
-        authorizationService.requireEpicAssign(user, epicId)
-        val epic = getEpicById(epicId)
-        epic.ensureMutable("assign")
-        val assignee = getUserById(userId)
-        if (epic.assignments.any { it.user == assignee }) {
-            throw CustomException(ErrorCode.DUPLICATE_EPIC_ASSIGNMENT, userId, epicId)
-        }
-        assignAndNotify(epic, assignee)
-    }
-
-    @Transactional
-    fun unassign(
-        epicId: Long,
-        userId: Long,
-    ) {
-        val user = authorizationService.currentUser()
-        authorizationService.requireEpicAssign(user, epicId)
-        val epic = getEpicById(epicId)
-        epic.ensureMutable("unassign")
-        val assignee = getUserById(userId)
-        if (epic.assignments.none { it.user == assignee }) {
-            throw CustomException(ErrorCode.NOT_FOUND_EPIC_ASSIGNMENT, epicId, userId)
-        }
-        unassignAndNotify(epic, assignee)
-    }
-
-    private fun assignAndNotify(
-        epic: Epic,
-        assignee: User,
-    ) {
-        epic.assign(assignee)
-        eventPublisher.publishEvent(
-            TeamsNotificationEvent(assignee.requiredId, "${epic.name} 에픽에 배정되었습니다"),
-        )
-    }
-
-    private fun unassignAndNotify(
-        epic: Epic,
-        assignee: User,
-    ) {
-        epic.unassign(assignee)
-        taskRepository.deleteByEpicIdAndAssigneeId(epic.requiredId, assignee.requiredId)
-        eventPublisher.publishEvent(
-            TeamsNotificationEvent(assignee.requiredId, "${epic.name} 에픽에서 해제되었습니다"),
-        )
-    }
-
     private fun getEpicById(id: Long): Epic =
         epicRepository.findByIdOrNull(id)
             ?: throw CustomException(ErrorCode.NOT_FOUND_EPIC, id)
@@ -188,8 +112,4 @@ class EpicService(
     private fun getProjectById(id: Long): Project =
         projectRepository.findByIdOrNull(id)
             ?: throw CustomException(ErrorCode.NOT_FOUND_PROJECT, id)
-
-    private fun getUserById(id: Long): User =
-        userRepository.findByIdOrNull(id)
-            ?: throw CustomException(ErrorCode.NOT_FOUND_USER, id)
 }

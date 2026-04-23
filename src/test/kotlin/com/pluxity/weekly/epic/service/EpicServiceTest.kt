@@ -2,7 +2,6 @@ package com.pluxity.weekly.epic.service
 
 import com.pluxity.weekly.auth.authorization.AuthorizationService
 import com.pluxity.weekly.auth.user.entity.RoleType
-import com.pluxity.weekly.auth.user.repository.UserRepository
 import com.pluxity.weekly.core.constant.ErrorCode
 import com.pluxity.weekly.core.exception.CustomException
 import com.pluxity.weekly.epic.dto.dummyEpicRequest
@@ -10,12 +9,10 @@ import com.pluxity.weekly.epic.dto.dummyEpicUpdateRequest
 import com.pluxity.weekly.epic.entity.Epic
 import com.pluxity.weekly.epic.entity.EpicStatus
 import com.pluxity.weekly.epic.entity.dummyEpic
-import com.pluxity.weekly.epic.entity.dummyEpicAssignment
 import com.pluxity.weekly.epic.repository.EpicRepository
 import com.pluxity.weekly.project.entity.dummyProject
 import com.pluxity.weekly.project.repository.ProjectRepository
 import com.pluxity.weekly.task.repository.TaskRepository
-import com.pluxity.weekly.teams.event.TeamsNotificationEvent
 import com.pluxity.weekly.test.entity.dummyRole
 import com.pluxity.weekly.test.entity.dummyUser
 import io.kotest.assertions.throwables.shouldThrow
@@ -26,7 +23,6 @@ import io.mockk.just
 import io.mockk.mockk
 import io.mockk.runs
 import io.mockk.verify
-import org.springframework.context.ApplicationEventPublisher
 import org.springframework.data.repository.findByIdOrNull
 import java.time.LocalDate
 
@@ -36,10 +32,9 @@ class EpicServiceTest :
         val epicRepository: EpicRepository = mockk()
         val projectRepository: ProjectRepository = mockk()
         val taskRepository: TaskRepository = mockk()
-        val userRepository: UserRepository = mockk()
         val authorizationService: AuthorizationService = mockk()
-        val eventPublisher: ApplicationEventPublisher = mockk()
-        val service = EpicService(epicRepository, projectRepository, taskRepository, userRepository, authorizationService, eventPublisher)
+        val assignmentService: EpicAssignmentService = mockk(relaxed = true)
+        val service = EpicService(epicRepository, projectRepository, taskRepository, authorizationService, assignmentService)
 
         val adminUser =
             dummyUser(id = 1L, name = "관리자").apply {
@@ -139,30 +134,23 @@ class EpicServiceTest :
                 }
             }
 
-            When("userIds와 함께 생성하면 각 사용자에게 배정 알림이 발행된다") {
+            When("userIds와 함께 생성하면 assignmentService.sync 가 호출된다") {
                 val project = dummyProject(id = 1L)
                 val request =
                     dummyEpicRequest(
                         projectId = 1L,
-                        name = "알림 에픽",
+                        name = "동기화 에픽",
                         userIds = listOf(11L, 22L),
                     )
-                val savedEpic = dummyEpic(id = 7L, project = project, name = "알림 에픽")
-                val u1 = dummyUser(id = 11L, name = "유저1")
-                val u2 = dummyUser(id = 22L, name = "유저2")
+                val savedEpic = dummyEpic(id = 7L, project = project, name = "동기화 에픽")
 
                 every { projectRepository.findByIdOrNull(1L) } returns project
                 every { epicRepository.save(any<Epic>()) } returns savedEpic
-                every { userRepository.findByIdOrNull(11L) } returns u1
-                every { userRepository.findByIdOrNull(22L) } returns u2
-                every { eventPublisher.publishEvent(any<TeamsNotificationEvent>()) } just runs
 
                 service.create(request)
 
-                Then("두 사용자 모두 epic에 배정되고 알림이 발행된다") {
-                    savedEpic.assignments.map { it.user } shouldBe listOf(u1, u2)
-                    verify { eventPublisher.publishEvent(match<TeamsNotificationEvent> { it.userId == 11L && it.message.contains("배정") }) }
-                    verify { eventPublisher.publishEvent(match<TeamsNotificationEvent> { it.userId == 22L && it.message.contains("배정") }) }
+                Then("sync 가 저장된 epic 과 userIds 로 호출된다") {
+                    verify { assignmentService.sync(savedEpic, listOf(11L, 22L)) }
                 }
             }
 
@@ -277,127 +265,43 @@ class EpicServiceTest :
             }
         }
 
-        Given("에픽 수정 시 userIds 교체") {
-            When("userIds로 [2,3]을 보내면 기존 [1,2]에서 1은 해제되고 3은 추가된다") {
+        Given("에픽 수정 시 userIds 위임") {
+            When("userIds 가 전달되면 assignmentService.sync 가 호출된다") {
                 val project = dummyProject(id = 1L)
-                val epic = dummyEpic(id = 10L, project = project, name = "배정교체 에픽")
-                val user1 = dummyUser(id = 1L, name = "유저1")
-                val user2 = dummyUser(id = 2L, name = "유저2")
-                val user3 = dummyUser(id = 3L, name = "유저3")
-                epic.assign(user1)
-                epic.assign(user2)
+                val epic = dummyEpic(id = 10L, project = project, name = "위임 에픽")
 
                 every { epicRepository.findByIdOrNull(10L) } returns epic
-                every { userRepository.findAllById(listOf(2L, 3L)) } returns listOf(user2, user3)
-                every { taskRepository.deleteByEpicIdAndAssigneeId(10L, 1L) } just runs
-                every { eventPublisher.publishEvent(any<TeamsNotificationEvent>()) } just runs
 
                 service.update(10L, dummyEpicUpdateRequest(userIds = listOf(2L, 3L)))
 
-                Then("user1은 해제되고 user3은 추가된다") {
-                    epic.assignments.map { it.user } shouldBe listOf(user2, user3)
-                    verify { taskRepository.deleteByEpicIdAndAssigneeId(10L, 1L) }
-                    verify { eventPublisher.publishEvent(match<TeamsNotificationEvent> { it.userId == 1L && it.message.contains("해제") }) }
-                    verify { eventPublisher.publishEvent(match<TeamsNotificationEvent> { it.userId == 3L && it.message.contains("배정") }) }
+                Then("sync 가 올바른 인자로 호출된다") {
+                    verify { assignmentService.sync(epic, listOf(2L, 3L)) }
                 }
             }
 
-            When("빈 배열을 보내면 전체 해제된다") {
+            When("빈 배열을 보내도 sync 에 위임된다") {
                 val project = dummyProject(id = 1L)
-                val epic = dummyEpic(id = 11L, project = project, name = "전체해제 에픽")
-                val user1 = dummyUser(id = 10L, name = "유저A")
-                val user2 = dummyUser(id = 20L, name = "유저B")
-                epic.assign(user1)
-                epic.assign(user2)
+                val epic = dummyEpic(id = 11L, project = project, name = "빈 배열 에픽")
 
                 every { epicRepository.findByIdOrNull(11L) } returns epic
-                every { userRepository.findAllById(emptyList()) } returns emptyList()
-                every { taskRepository.deleteByEpicIdAndAssigneeId(11L, any()) } just runs
-                every { eventPublisher.publishEvent(any<TeamsNotificationEvent>()) } just runs
 
                 service.update(11L, dummyEpicUpdateRequest(userIds = emptyList()))
 
-                Then("배정이 모두 제거된다") {
-                    epic.assignments.size shouldBe 0
-                    verify { taskRepository.deleteByEpicIdAndAssigneeId(11L, 10L) }
-                    verify { taskRepository.deleteByEpicIdAndAssigneeId(11L, 20L) }
+                Then("sync 가 빈 리스트로 호출된다") {
+                    verify { assignmentService.sync(epic, emptyList()) }
                 }
             }
 
-            When("userIds가 null이면 배정이 변경되지 않는다") {
+            When("userIds 가 null 이면 sync 가 호출되지 않는다") {
                 val project = dummyProject(id = 1L)
-                val epic = dummyEpic(id = 12L, project = project, name = "변경없음 에픽")
-                val user1 = dummyUser(id = 10L, name = "유저X")
-                epic.assign(user1)
+                val epic = dummyEpic(id = 12L, project = project, name = "null 에픽")
 
                 every { epicRepository.findByIdOrNull(12L) } returns epic
 
                 service.update(12L, dummyEpicUpdateRequest(userIds = null))
 
-                Then("기존 배정이 유지된다") {
-                    epic.assignments.size shouldBe 1
-                    epic.assignments[0].user shouldBe user1
-                }
-            }
-        }
-
-        // ── EpicAssignment ──
-
-        Given("에픽 배정 목록 조회") {
-            When("에픽에 배정된 사용자를 조회하면") {
-                val epic = dummyEpic(id = 1L)
-                val user1 = dummyUser(id = 10L, name = "홍길동")
-                val user2 = dummyUser(id = 20L, name = "김영희")
-                epic.assignments.addAll(
-                    listOf(
-                        dummyEpicAssignment(id = 1L, epic = epic, user = user1),
-                        dummyEpicAssignment(id = 2L, epic = epic, user = user2),
-                    ),
-                )
-
-                every { epicRepository.findByIdOrNull(1L) } returns epic
-
-                val result = service.findAssignments(1L)
-
-                Then("배정 목록이 반환된다") {
-                    result.size shouldBe 2
-                }
-            }
-        }
-
-        Given("에픽 배정 해제") {
-            When("배정된 사용자를 해제하면") {
-                val epic = dummyEpic(id = 1L)
-                val user = dummyUser(id = 10L)
-                val event = TeamsNotificationEvent(user.requiredId, "테스트 에픽 에픽에서 해제되었습니다")
-                epic.assign(user)
-
-                every { epicRepository.findByIdOrNull(1L) } returns epic
-                every { userRepository.findByIdOrNull(10L) } returns user
-                every { taskRepository.deleteByEpicIdAndAssigneeId(1L, 10L) } just runs
-                every { eventPublisher.publishEvent(event) } just runs
-
-                service.unassign(1L, 10L)
-
-                Then("배정이 제거된다") {
-                    epic.assignments.size shouldBe 0
-                }
-            }
-
-            When("배정되지 않은 사용자를 해제하면") {
-                val epic = dummyEpic(id = 1L)
-                val user = dummyUser(id = 999L)
-
-                every { epicRepository.findByIdOrNull(1L) } returns epic
-                every { userRepository.findByIdOrNull(999L) } returns user
-
-                val exception =
-                    shouldThrow<CustomException> {
-                        service.unassign(1L, 999L)
-                    }
-
-                Then("NOT_FOUND 예외가 발생한다") {
-                    exception.code shouldBe ErrorCode.NOT_FOUND_EPIC_ASSIGNMENT
+                Then("sync 호출이 발생하지 않는다") {
+                    verify(exactly = 0) { assignmentService.sync(any(), any()) }
                 }
             }
         }

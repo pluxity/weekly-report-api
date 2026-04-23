@@ -8,6 +8,7 @@ import com.pluxity.weekly.core.constant.ErrorCode
 import com.pluxity.weekly.core.exception.CustomException
 import com.pluxity.weekly.epic.entity.Epic
 import com.pluxity.weekly.epic.repository.EpicRepository
+import com.pluxity.weekly.epic.service.EpicAssignmentService
 import com.pluxity.weekly.task.dto.TaskRequest
 import com.pluxity.weekly.task.dto.TaskResponse
 import com.pluxity.weekly.task.dto.TaskUpdateRequest
@@ -15,8 +16,6 @@ import com.pluxity.weekly.task.dto.toResponse
 import com.pluxity.weekly.task.entity.Task
 import com.pluxity.weekly.task.entity.TaskStatus
 import com.pluxity.weekly.task.repository.TaskRepository
-import com.pluxity.weekly.teams.event.TeamsNotificationEvent
-import org.springframework.context.ApplicationEventPublisher
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -28,7 +27,7 @@ class TaskService(
     private val epicRepository: EpicRepository,
     private val userRepository: UserRepository,
     private val authorizationService: AuthorizationService,
-    private val eventPublisher: ApplicationEventPublisher,
+    private val assignmentService: EpicAssignmentService,
 ) {
     fun findAll(): List<TaskResponse> = search(TaskSearchFilter())
 
@@ -57,7 +56,7 @@ class TaskService(
         epic.ensureMutable("create task")
         ensureUniqueTaskName(request.epicId, request.name)
         val newAssigneeId = request.assigneeId?.takeIf { it != user.requiredId }
-        autoAssignIfMissing(user, newAssigneeId, epic)
+        assignmentService.ensureAssigned(user, newAssigneeId, epic)
         return taskRepository
             .save(
                 Task(
@@ -87,7 +86,7 @@ class TaskService(
             ensureUniqueTaskName(task.epic.requiredId, newName)
         }
         val newAssigneeId = request.assigneeId?.takeIf { it != task.assignee?.requiredId }
-        autoAssignIfMissing(user, newAssigneeId, task.epic)
+        assignmentService.ensureAssigned(user, newAssigneeId, task.epic)
         task.update(
             name = request.name,
             description = request.description,
@@ -112,22 +111,6 @@ class TaskService(
     ) {
         if (taskRepository.existsByEpicIdAndName(epicId, name)) {
             throw CustomException(ErrorCode.DUPLICATE_TASK, epicId, name)
-        }
-    }
-
-    private fun autoAssignIfMissing(
-        actor: User,
-        assigneeId: Long?,
-        epic: Epic,
-    ) {
-        if (assigneeId == null) return
-        authorizationService.requireAdminOrPm(actor)
-        if (!epicRepository.existsByAssignmentsUserIdAndId(assigneeId, epic.requiredId)) {
-            val assignee = getUserById(assigneeId)
-            epic.assign(assignee)
-            eventPublisher.publishEvent(
-                TeamsNotificationEvent(assigneeId, "${epic.name} 에픽에 배정되었습니다"),
-            )
         }
     }
 

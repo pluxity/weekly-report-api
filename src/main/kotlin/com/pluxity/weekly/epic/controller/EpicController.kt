@@ -7,6 +7,7 @@ import com.pluxity.weekly.epic.dto.EpicAssignmentResponse
 import com.pluxity.weekly.epic.dto.EpicRequest
 import com.pluxity.weekly.epic.dto.EpicResponse
 import com.pluxity.weekly.epic.dto.EpicUpdateRequest
+import com.pluxity.weekly.epic.service.EpicAssignmentService
 import com.pluxity.weekly.epic.service.EpicService
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.media.Content
@@ -30,6 +31,7 @@ import org.springframework.web.bind.annotation.RestController
 @Tag(name = "Epic Controller", description = "에픽 관리 API")
 class EpicController(
     private val service: EpicService,
+    private val assignmentService: EpicAssignmentService,
 ) {
     @Operation(summary = "에픽 전체 조회", description = "에픽 전체 목록을 조회합니다")
     @ApiResponses(
@@ -131,7 +133,8 @@ class EpicController(
     @GetMapping("/{epicId}/assignments")
     fun findAssignments(
         @PathVariable epicId: Long,
-    ): ResponseEntity<DataResponseBody<List<EpicAssignmentResponse>>> = ResponseEntity.ok(DataResponseBody(service.findAssignments(epicId)))
+    ): ResponseEntity<DataResponseBody<List<EpicAssignmentResponse>>> =
+        ResponseEntity.ok(DataResponseBody(assignmentService.findByEpic(epicId)))
 
     @Operation(summary = "에픽 사용자 배정", description = "에픽에 사용자를 배정합니다")
     @ApiResponses(
@@ -154,7 +157,7 @@ class EpicController(
         @PathVariable epicId: Long,
         @PathVariable userId: Long,
     ): ResponseEntity<Void> {
-        service.assign(epicId, userId)
+        assignmentService.assign(epicId, userId)
         return ResponseEntity.noContent().build()
     }
 
@@ -174,7 +177,7 @@ class EpicController(
         @PathVariable epicId: Long,
         @PathVariable userId: Long,
     ): ResponseEntity<Void> {
-        service.unassign(epicId, userId)
+        assignmentService.unassign(epicId, userId)
         return ResponseEntity.noContent().build()
     }
 }

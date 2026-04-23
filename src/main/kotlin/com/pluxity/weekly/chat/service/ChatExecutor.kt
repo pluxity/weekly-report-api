@@ -3,6 +3,7 @@ package com.pluxity.weekly.chat.service
 import com.pluxity.weekly.chat.dto.ChatActionType
 import com.pluxity.weekly.chat.dto.ChatTarget
 import com.pluxity.weekly.chat.dto.LlmAction
+import com.pluxity.weekly.epic.service.EpicAssignmentService
 import com.pluxity.weekly.epic.service.EpicService
 import com.pluxity.weekly.project.service.ProjectService
 import com.pluxity.weekly.task.service.TaskReviewService
@@ -17,6 +18,7 @@ import org.springframework.stereotype.Component
 class ChatExecutor(
     private val projectService: ProjectService,
     private val epicService: EpicService,
+    private val epicAssignmentService: EpicAssignmentService,
     private val taskService: TaskService,
     private val taskReviewService: TaskReviewService,
 ) {
@@ -40,7 +42,7 @@ class ChatExecutor(
         if (ChatTarget.fromOrNull(action.target) != ChatTarget.EPIC) return null
         val id = action.id ?: return null
         action.userIds?.forEach { userId ->
-            epicService.assign(id, userId)
+            epicAssignmentService.assign(id, userId)
         }
         return id
     }
@@ -49,7 +51,7 @@ class ChatExecutor(
         if (ChatTarget.fromOrNull(action.target) != ChatTarget.EPIC) return null
         val id = action.id ?: return null
         action.removeUserIds?.forEach { userId ->
-            epicService.unassign(id, userId)
+            epicAssignmentService.unassign(id, userId)
         }
         return id
     }
