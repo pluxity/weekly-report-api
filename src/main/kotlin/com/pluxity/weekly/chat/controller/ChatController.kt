@@ -5,6 +5,7 @@ import com.pluxity.weekly.chat.dto.ChatRequest
 import com.pluxity.weekly.chat.dto.ChatResolveRequest
 import com.pluxity.weekly.chat.service.ChatResolveService
 import com.pluxity.weekly.chat.service.ChatService
+import com.pluxity.weekly.core.response.ClarifyErrorResponseBody
 import com.pluxity.weekly.core.response.DataResponseBody
 import com.pluxity.weekly.core.response.ErrorResponseBody
 import io.swagger.v3.oas.annotations.Operation
@@ -55,8 +56,13 @@ class ChatController(
             ApiResponse(responseCode = "200", description = "처리 성공"),
             ApiResponse(
                 responseCode = "400",
-                description = "세션 만료/누락 또는 추가 clarify 필요",
-                content = [Content(mediaType = "application/json", schema = Schema(implementation = ErrorResponseBody::class))],
+                description = "추가 clarify 필요시",
+                content = [
+                    Content(
+                        mediaType = "application/json",
+                        schema = Schema( ClarifyErrorResponseBody::class),
+                    ),
+                ],
             ),
         ],
     )
