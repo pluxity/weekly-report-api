@@ -271,4 +271,99 @@ class TaskReviewServiceTest :
                 }
             }
         }
+
+        Given("태스크 승인 로그 조회") {
+            When("정상적으로 조회하면") {
+                val epic = dummyEpic(id = 1L)
+                val taskEntity = dummyTask(id = 10L, epic = epic, name = "로그 대상")
+                val requester = dummyUser(id = 50L, name = "요청자")
+                val reviewer = dummyUser(id = 99L, name = "리뷰어")
+
+                val log1 = mockk<TaskApprovalLog>()
+                every { log1.requiredId } returns 1L
+                every { log1.task } returns taskEntity
+                every { log1.actor } returns requester
+                every { log1.action } returns TaskApprovalAction.REVIEW_REQUEST
+                every { log1.reason } returns null
+                every { log1.createdAt } returns LocalDateTime.of(2026, 4, 1, 9, 0)
+
+                val log2 = mockk<TaskApprovalLog>()
+                every { log2.requiredId } returns 2L
+                every { log2.task } returns taskEntity
+                every { log2.actor } returns reviewer
+                every { log2.action } returns TaskApprovalAction.APPROVE
+                every { log2.reason } returns null
+                every { log2.createdAt } returns LocalDateTime.of(2026, 4, 2, 10, 0)
+
+                every { taskRepository.findWithEpicAndProjectById(10L) } returns taskEntity
+                every { taskApprovalLogRepository.findByTaskIdOrderByIdAsc(10L) } returns listOf(log1, log2)
+
+                val result = service.findApprovalLogs(10L)
+
+                Then("저장 순서대로 DTO 로 매핑되어 반환된다") {
+                    result.size shouldBe 2
+                    result[0].id shouldBe 1L
+                    result[0].taskId shouldBe 10L
+                    result[0].actorId shouldBe 50L
+                    result[0].actorName shouldBe "요청자"
+                    result[0].action shouldBe TaskApprovalAction.REVIEW_REQUEST
+                    result[0].reason shouldBe null
+                    result[1].id shouldBe 2L
+                    result[1].actorId shouldBe 99L
+                    result[1].action shouldBe TaskApprovalAction.APPROVE
+                }
+            }
+
+            When("반려 사유가 있는 로그를 조회하면") {
+                val epic = dummyEpic(id = 2L)
+                val taskEntity = dummyTask(id = 11L, epic = epic, name = "반려 로그")
+                val reviewer = dummyUser(id = 99L, name = "리뷰어")
+
+                val rejectLog = mockk<TaskApprovalLog>()
+                every { rejectLog.requiredId } returns 3L
+                every { rejectLog.task } returns taskEntity
+                every { rejectLog.actor } returns reviewer
+                every { rejectLog.action } returns TaskApprovalAction.REJECT
+                every { rejectLog.reason } returns "요구사항 불충족"
+                every { rejectLog.createdAt } returns LocalDateTime.of(2026, 4, 3, 14, 0)
+
+                every { taskRepository.findWithEpicAndProjectById(11L) } returns taskEntity
+                every { taskApprovalLogRepository.findByTaskIdOrderByIdAsc(11L) } returns listOf(rejectLog)
+
+                val result = service.findApprovalLogs(11L)
+
+                Then("reason 이 응답에 포함된다") {
+                    result.size shouldBe 1
+                    result[0].action shouldBe TaskApprovalAction.REJECT
+                    result[0].reason shouldBe "요구사항 불충족"
+                }
+            }
+
+            When("로그가 없는 태스크를 조회하면") {
+                val epic = dummyEpic(id = 3L)
+                val taskEntity = dummyTask(id = 12L, epic = epic, name = "로그 없음")
+
+                every { taskRepository.findWithEpicAndProjectById(12L) } returns taskEntity
+                every { taskApprovalLogRepository.findByTaskIdOrderByIdAsc(12L) } returns emptyList()
+
+                val result = service.findApprovalLogs(12L)
+
+                Then("빈 목록이 반환된다") {
+                    result shouldBe emptyList()
+                }
+            }
+
+            When("존재하지 않는 태스크의 로그를 조회하면") {
+                every { taskRepository.findWithEpicAndProjectById(999L) } returns null
+
+                val exception =
+                    shouldThrow<CustomException> {
+                        service.findApprovalLogs(999L)
+                    }
+
+                Then("NOT_FOUND_TASK 예외가 발생한다") {
+                    exception.code shouldBe ErrorCode.NOT_FOUND_TASK
+                }
+            }
+        }
     })
