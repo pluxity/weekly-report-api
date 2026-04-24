@@ -12,20 +12,22 @@ class TeamsNotificationService(
     private val messageSender: TeamsMessageSender,
     private val userRepository: UserRepository,
 ) {
+    /** @return null 이면 성공, 값이 있으면 실패 사유 */
     fun sendDm(
         userId: Long,
         message: String,
-    ) {
-        val (serviceUrl, conversationId) = findTeamsInfo(userId) ?: return
-        messageSender.notify(serviceUrl, conversationId, message)
+    ): String? {
+        val (serviceUrl, conversationId) = findTeamsInfo(userId) ?: return MISSING_TEAMS_INFO
+        return messageSender.notify(serviceUrl, conversationId, message)
     }
 
+    /** @return null 이면 성공, 값이 있으면 실패 사유 */
     fun sendCard(
         userId: Long,
         card: Map<String, Any>,
-    ) {
-        val (serviceUrl, conversationId) = findTeamsInfo(userId) ?: return
-        messageSender.notifyCard(serviceUrl, conversationId, card)
+    ): String? {
+        val (serviceUrl, conversationId) = findTeamsInfo(userId) ?: return MISSING_TEAMS_INFO
+        return messageSender.notifyCard(serviceUrl, conversationId, card)
     }
 
     private fun findTeamsInfo(userId: Long): Pair<String, String>? {
@@ -37,5 +39,9 @@ class TeamsNotificationService(
             return null
         }
         return serviceUrl to conversationId
+    }
+
+    companion object {
+        private const val MISSING_TEAMS_INFO = "수신자 Teams 연동 정보 없음"
     }
 }

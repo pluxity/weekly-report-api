@@ -51,11 +51,12 @@ class TeamsMessageSender(
         postActivity(serviceUrl, conversationId, typingActivity)
     }
 
+    /** @return null 이면 성공, 값이 있으면 실패 사유 */
     fun notify(
         serviceUrl: String,
         conversationId: String,
         message: String,
-    ) {
+    ): String? {
         val body =
             mapOf(
                 "type" to "message",
@@ -64,14 +65,15 @@ class TeamsMessageSender(
                 "conversation" to mapOf("id" to conversationId),
             )
 
-        postActivity(serviceUrl, conversationId, body)
+        return postActivity(serviceUrl, conversationId, body)
     }
 
+    /** @return null 이면 성공, 값이 있으면 실패 사유 */
     fun notifyCard(
         serviceUrl: String,
         conversationId: String,
         card: Map<String, Any>,
-    ) {
+    ): String? {
         val body =
             mapOf(
                 "type" to "message",
@@ -86,18 +88,18 @@ class TeamsMessageSender(
                     ),
             )
 
-        postActivity(serviceUrl, conversationId, body)
+        return postActivity(serviceUrl, conversationId, body)
     }
 
     private fun postActivity(
         serviceUrl: String,
         conversationId: String,
         body: Map<String, Any>,
-    ) {
+    ): String? {
         val encodedConvId = URLEncoder.encode(conversationId, StandardCharsets.UTF_8)
         val uri = URI.create("${serviceUrl.trimEnd('/')}/v3/conversations/$encodedConvId/activities")
 
-        try {
+        return try {
             val token = teamsApiClient.getBotToken()
             val result =
                 webClient
@@ -110,10 +112,13 @@ class TeamsMessageSender(
                     .toBodilessEntity()
                     .block()
             log.info { "전송 성공: ${result?.statusCode}" }
+            null
         } catch (e: WebClientResponseException) {
             log.error { "전송 실패 (${e.statusCode}): ${e.responseBodyAsString}" }
+            "HTTP ${e.statusCode}: ${e.responseBodyAsString.take(500)}"
         } catch (e: Exception) {
             log.error(e) { "전송 중 예외" }
+            e.message ?: e.javaClass.simpleName
         }
     }
 
