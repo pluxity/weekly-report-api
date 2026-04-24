@@ -1,5 +1,6 @@
 package com.pluxity.weekly.teams.event
 
+import com.pluxity.weekly.teams.service.TeamsNotificationLogService
 import com.pluxity.weekly.teams.service.TeamsNotificationService
 import org.springframework.scheduling.annotation.Async
 import org.springframework.stereotype.Component
@@ -9,14 +10,32 @@ import org.springframework.transaction.event.TransactionalEventListener
 @Component
 class TeamsNotificationListener(
     private val notificationService: TeamsNotificationService,
+    private val logService: TeamsNotificationLogService,
 ) {
     @Async
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     fun handleNotification(event: TeamsNotificationEvent) {
-        if (event.card != null) {
-            notificationService.sendCard(event.userId, event.card)
+        val log =
+            logService.savePending(
+                userId = event.userId,
+                type = event.type,
+                message = event.message,
+            )
+        val logId = log.requiredId
+
+        val failReason =
+            runCatching {
+                if (event.card != null) {
+                    notificationService.sendCard(event.userId, event.card)
+                } else {
+                    notificationService.sendDm(event.userId, event.message)
+                }
+            }.getOrElse { e -> e.message ?: e.javaClass.simpleName }
+
+        if (failReason == null) {
+            logService.markSent(logId)
         } else {
-            notificationService.sendDm(event.userId, event.message)
+            logService.markFailed(logId, failReason)
         }
     }
 }
