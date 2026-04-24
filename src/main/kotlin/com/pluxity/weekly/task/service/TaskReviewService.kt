@@ -16,6 +16,7 @@ import com.pluxity.weekly.task.entity.TaskStatus
 import com.pluxity.weekly.task.repository.TaskApprovalLogRepository
 import com.pluxity.weekly.task.repository.TaskRepository
 import com.pluxity.weekly.teams.converter.TaskReviewCardBuilder
+import com.pluxity.weekly.teams.entity.TeamsNotificationType
 import com.pluxity.weekly.teams.event.TeamsNotificationEvent
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Service
@@ -50,6 +51,7 @@ class TaskReviewService(
             eventPublisher.publishEvent(
                 TeamsNotificationEvent(
                     userId = pmId,
+                    type = TeamsNotificationType.TASK_REVIEW_REQUEST,
                     message = "[리뷰 요청] '${task.name}' 태스크가 리뷰 요청되었습니다. 요청자: ${user.name}",
                     card = card,
                 ),
@@ -68,6 +70,7 @@ class TaskReviewService(
             eventPublisher.publishEvent(
                 TeamsNotificationEvent(
                     userId = assigneeId,
+                    type = TeamsNotificationType.TASK_APPROVE,
                     message = "[승인] '${task.name}' 태스크가 승인되었습니다.",
                 ),
             )
@@ -90,6 +93,7 @@ class TaskReviewService(
             eventPublisher.publishEvent(
                 TeamsNotificationEvent(
                     userId = assigneeId,
+                    type = TeamsNotificationType.TASK_REJECT,
                     message = "[반려] '${task.name}' 태스크가 반려되었습니다.$suffix",
                 ),
             )
