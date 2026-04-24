@@ -124,7 +124,7 @@ class TeamsNotificationLogServiceTest :
                 val page = PageImpl(listOf(log1, log2), pageable, 2)
 
                 every { authorizationService.currentUser() } returns user
-                every { logRepository.findByUserIdOrderByIdDesc(10L, pageable) } returns page
+                every { logRepository.findByUserId(10L, pageable) } returns page
 
                 val result = service.findMine(pageable)
 

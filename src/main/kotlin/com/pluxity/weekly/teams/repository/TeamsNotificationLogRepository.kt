@@ -6,7 +6,7 @@ import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
 
 interface TeamsNotificationLogRepository : JpaRepository<TeamsNotificationLog, Long> {
-    fun findByUserIdOrderByIdDesc(
+    fun findByUserId(
         userId: Long,
         pageable: Pageable,
     ): Page<TeamsNotificationLog>

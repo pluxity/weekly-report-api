@@ -54,6 +54,6 @@ class TeamsNotificationLogService(
     fun findMine(pageable: Pageable): PageResponse<TeamsNotificationLogResponse> {
         val user = authorizationService.currentUser()
         val userId = user.id ?: throw CustomException(ErrorCode.PERMISSION_DENIED)
-        return logRepository.findByUserIdOrderByIdDesc(userId, pageable).toPageResponse { it.toResponse() }
+        return logRepository.findByUserId(userId, pageable).toPageResponse { it.toResponse() }
     }
 }
