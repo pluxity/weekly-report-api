@@ -102,6 +102,9 @@ class ChatActionRouterTest :
             When("missingFields 없이 태스크 생성 요청이 들어오면") {
                 val action = LlmAction(action = "create", target = "task", name = "새 태스크")
                 val dto = TaskChatDto("새 태스크", null, null, null, null, null, null, null)
+                val user = mockk<User>()
+                every { authorizationService.currentUser() } returns user
+                every { authorizationService.visibleEpicIds(user) } returns listOf(1L)
                 every { chatDtoMapper.toDto(action) } returns dto
                 every { selectFieldResolver.resolve(action) } returns emptyList()
 
@@ -121,6 +124,9 @@ class ChatActionRouterTest :
                 val dto = TaskChatDto("null", null, null, null, null, null, null, null)
                 val selectFields =
                     listOf(SelectField("epicId", listOf(Candidate("1", "에픽A"))))
+                val user = mockk<User>()
+                every { authorizationService.currentUser() } returns user
+                every { authorizationService.visibleEpicIds(user) } returns listOf(1L)
                 every { chatDtoMapper.toDto(action) } returns dto
                 every { selectFieldResolver.resolve(action) } returns selectFields
 
@@ -130,6 +136,36 @@ class ChatActionRouterTest :
                     response.action shouldBe "create"
                     response.dto shouldBe dto
                     response.selectFields shouldBe selectFields
+                }
+            }
+
+            When("할당된 에픽이 없는 사용자가 태스크 생성을 시도하면") {
+                val action = LlmAction(action = "create", target = "task", name = "새 태스크")
+                val user = mockk<User>()
+                every { authorizationService.currentUser() } returns user
+                every { authorizationService.visibleEpicIds(user) } returns emptyList()
+
+                Then("ChatClarifyException 이 발생하고 form 이 만들어지지 않는다") {
+                    val ex = shouldThrow<ChatClarifyException> { router.route(action) }
+                    ex.message shouldBe "태스크를 생성할 수 있는 에픽이 없습니다. 먼저 에픽에 참여해주세요."
+                    verify(exactly = 0) { chatDtoMapper.toDto(any()) }
+                }
+            }
+
+            When("ADMIN 이 태스크 생성을 시도하면 (visibleEpicIds=null)") {
+                val action = LlmAction(action = "create", target = "task", name = "새 태스크")
+                val dto = TaskChatDto("새 태스크", null, null, null, null, null, null, null)
+                val user = mockk<User>()
+                every { authorizationService.currentUser() } returns user
+                every { authorizationService.visibleEpicIds(user) } returns null
+                every { chatDtoMapper.toDto(action) } returns dto
+                every { selectFieldResolver.resolve(action) } returns emptyList()
+
+                val response = router.route(action)
+
+                Then("자격 검증을 통과해 form 이 반환된다") {
+                    response.action shouldBe "create"
+                    response.dto shouldBe dto
                 }
             }
         }
