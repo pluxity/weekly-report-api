@@ -10,11 +10,12 @@ import com.pluxity.weekly.task.entity.TaskApprovalAction
 import com.pluxity.weekly.task.entity.TaskApprovalLog
 import com.pluxity.weekly.task.entity.TaskStatus
 import com.pluxity.weekly.task.entity.dummyTask
+import com.pluxity.weekly.task.event.TaskApprovedEvent
+import com.pluxity.weekly.task.event.TaskRejectedEvent
+import com.pluxity.weekly.task.event.TaskReviewRequestedEvent
 import com.pluxity.weekly.task.repository.TaskApprovalLogRepository
 import com.pluxity.weekly.task.repository.TaskRepository
 import com.pluxity.weekly.task.repository.TaskReviewRequestedAt
-import com.pluxity.weekly.teams.converter.TaskReviewCardBuilder
-import com.pluxity.weekly.teams.event.TeamsNotificationEvent
 import com.pluxity.weekly.test.entity.dummyRole
 import com.pluxity.weekly.test.entity.dummyUser
 import io.kotest.assertions.throwables.shouldThrow
@@ -36,14 +37,12 @@ class TaskReviewServiceTest :
         val taskApprovalLogRepository: TaskApprovalLogRepository = mockk(relaxed = true)
         val authorizationService: AuthorizationService = mockk()
         val eventPublisher: ApplicationEventPublisher = mockk(relaxed = true)
-        val taskReviewCardBuilder: TaskReviewCardBuilder = mockk(relaxed = true)
         val service =
             TaskReviewService(
                 taskRepository,
                 taskApprovalLogRepository,
                 authorizationService,
                 eventPublisher,
-                taskReviewCardBuilder,
             )
 
         val adminUser =
@@ -82,7 +81,7 @@ class TaskReviewServiceTest :
                 Then("태스크 상태가 IN_REVIEW 로 변경되고 PM 에게 알림이 발행된다") {
                     entity.status shouldBe TaskStatus.IN_REVIEW
                     verify(exactly = 1) { taskApprovalLogRepository.save(any<TaskApprovalLog>()) }
-                    (eventSlot.captured as TeamsNotificationEvent).userId shouldBe pmId
+                    (eventSlot.captured as TaskReviewRequestedEvent).pmId shouldBe pmId
                 }
             }
 
@@ -132,7 +131,7 @@ class TaskReviewServiceTest :
                 Then("태스크 상태가 DONE 으로 변경되고 담당자에게 알림이 발행된다") {
                     entity.status shouldBe TaskStatus.DONE
                     verify(exactly = 1) { taskApprovalLogRepository.save(any<TaskApprovalLog>()) }
-                    (eventSlot.captured as TeamsNotificationEvent).userId shouldBe 50L
+                    (eventSlot.captured as TaskApprovedEvent).userId shouldBe 50L
                 }
             }
 
@@ -155,50 +154,85 @@ class TaskReviewServiceTest :
             When("IN_REVIEW 태스크를 사유와 함께 반려하면") {
                 val project = dummyProject(id = 1L, pmId = 99L)
                 val epic = dummyEpic(id = 1L, project = project)
+                val assignee = dummyUser(id = 70L, name = "담당자")
                 val entity =
                     dummyTask(
                         id = 30L,
                         epic = epic,
                         name = "반려 대상",
                         status = TaskStatus.IN_REVIEW,
-                    )
+                    ).apply { this.assignee = assignee }
 
                 every { taskRepository.findWithEpicAndProjectById(30L) } returns entity
-                every { eventPublisher.publishEvent(any<TeamsNotificationEvent>()) } just runs
+                val eventSlot = slot<Any>()
+                every { eventPublisher.publishEvent(capture(eventSlot)) } just runs
                 val logSlot = slot<TaskApprovalLog>()
                 every { taskApprovalLogRepository.save(capture(logSlot)) } answers { logSlot.captured }
 
                 service.reject(30L, "요구사항 불충족")
 
-                Then("태스크 상태가 IN_PROGRESS 로 복귀되고 반려 사유가 로그에 기록된다") {
+                Then("태스크 상태가 IN_PROGRESS 로 복귀되고 반려 사유가 로그와 이벤트에 전파된다") {
                     entity.status shouldBe TaskStatus.IN_PROGRESS
                     logSlot.captured.action shouldBe TaskApprovalAction.REJECT
                     logSlot.captured.reason shouldBe "요구사항 불충족"
+
+                    val event = eventSlot.captured as TaskRejectedEvent
+                    event.userId shouldBe 70L
+                    event.taskName shouldBe "반려 대상"
+                    event.reason shouldBe "요구사항 불충족"
                 }
             }
 
             When("사유 없이(null) 반려하면") {
                 val project = dummyProject(id = 1L, pmId = 99L)
                 val epic = dummyEpic(id = 1L, project = project)
+                val assignee = dummyUser(id = 71L, name = "담당자")
                 val entity =
                     dummyTask(
                         id = 31L,
                         epic = epic,
                         name = "사유 없는 반려",
                         status = TaskStatus.IN_REVIEW,
-                    )
+                    ).apply { this.assignee = assignee }
 
                 every { taskRepository.findWithEpicAndProjectById(31L) } returns entity
-                every { eventPublisher.publishEvent(any<TeamsNotificationEvent>()) } just runs
+                val eventSlot = slot<Any>()
+                every { eventPublisher.publishEvent(capture(eventSlot)) } just runs
                 val logSlot = slot<TaskApprovalLog>()
                 every { taskApprovalLogRepository.save(capture(logSlot)) } answers { logSlot.captured }
 
                 service.reject(31L, null)
 
-                Then("태스크 상태가 IN_PROGRESS 로 복귀되고 reason 은 null 로 기록된다") {
+                Then("로그와 이벤트 모두 reason 이 null 로 전파된다") {
                     entity.status shouldBe TaskStatus.IN_PROGRESS
                     logSlot.captured.action shouldBe TaskApprovalAction.REJECT
                     logSlot.captured.reason shouldBe null
+                    (eventSlot.captured as TaskRejectedEvent).reason shouldBe null
+                }
+            }
+
+            When("담당자가 없는 태스크를 반려하면") {
+                val project = dummyProject(id = 1L, pmId = 99L)
+                val epic = dummyEpic(id = 1L, project = project)
+                val entity =
+                    dummyTask(
+                        id = 33L,
+                        epic = epic,
+                        name = "담당자 없음",
+                        status = TaskStatus.IN_REVIEW,
+                    )
+
+                every { taskRepository.findWithEpicAndProjectById(33L) } returns entity
+                val eventSlot = slot<Any>()
+                every { eventPublisher.publishEvent(capture(eventSlot)) } just runs
+                val logSlot = slot<TaskApprovalLog>()
+                every { taskApprovalLogRepository.save(capture(logSlot)) } answers { logSlot.captured }
+
+                service.reject(33L, "사유")
+
+                Then("로그는 기록되지만 알림 이벤트는 발행되지 않는다") {
+                    logSlot.captured.action shouldBe TaskApprovalAction.REJECT
+                    eventSlot.isCaptured shouldBe false
                 }
             }
         }

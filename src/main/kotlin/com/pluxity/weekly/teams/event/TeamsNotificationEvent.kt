@@ -1,6 +1,5 @@
 package com.pluxity.weekly.teams.event
 
-import com.pluxity.weekly.teams.entity.TeamsNotificationType
 
 /**
  * Teams Proactive 알림 이벤트.

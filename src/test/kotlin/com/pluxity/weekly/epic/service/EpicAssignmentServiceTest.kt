@@ -8,6 +8,8 @@ import com.pluxity.weekly.core.exception.CustomException
 import com.pluxity.weekly.epic.entity.EpicStatus
 import com.pluxity.weekly.epic.entity.dummyEpic
 import com.pluxity.weekly.epic.entity.dummyEpicAssignment
+import com.pluxity.weekly.epic.event.EpicAssignedEvent
+import com.pluxity.weekly.epic.event.EpicUnassignedEvent
 import com.pluxity.weekly.epic.repository.EpicRepository
 import com.pluxity.weekly.project.entity.dummyProject
 import com.pluxity.weekly.task.repository.TaskRepository
@@ -77,7 +79,7 @@ class EpicAssignmentServiceTest :
 
         Given("에픽에 사용자 배정") {
             When("정상적으로 배정하면") {
-                val epic = dummyEpic(id = 2L)
+                val epic = dummyEpic(id = 2L, name = "테스트 에픽")
                 val user = dummyUser(id = 30L, name = "신규")
 
                 every { epicRepository.findByIdOrNull(2L) } returns epic
@@ -87,7 +89,14 @@ class EpicAssignmentServiceTest :
 
                 Then("에픽 assignments 에 추가되고 알림이 발행된다") {
                     epic.assignments.any { it.user == user } shouldBe true
-                    verify { eventPublisher.publishEvent(match<TeamsNotificationEvent> { it.userId == 30L && it.message.contains("배정") }) }
+                    verify {
+                        eventPublisher.publishEvent(
+                            match<EpicAssignedEvent> {
+                                it.userId == 30L && it.epicId == 2L &&
+                                    it.epicName == "테스트 에픽"
+                            },
+                        )
+                    }
                 }
             }
 
@@ -141,7 +150,7 @@ class EpicAssignmentServiceTest :
                     verify { taskRepository.deleteByEpicIdAndAssigneeId(5L, 60L) }
                     verify {
                         eventPublisher.publishEvent(
-                            match<TeamsNotificationEvent> { it.userId == 60L && it.message.contains("해제") },
+                            match<EpicUnassignedEvent> { it.userId == 60L && it.epicId == 5L && it.epicName == "해제 에픽" },
                         )
                     }
                 }
@@ -197,8 +206,22 @@ class EpicAssignmentServiceTest :
                 Then("user1 은 해제되고 user3 은 추가된다") {
                     epic.assignments.map { it.user } shouldBe listOf(user2, user3)
                     verify { taskRepository.deleteByEpicIdAndAssigneeId(10L, 1L) }
-                    verify { eventPublisher.publishEvent(match<TeamsNotificationEvent> { it.userId == 1L && it.message.contains("해제") }) }
-                    verify { eventPublisher.publishEvent(match<TeamsNotificationEvent> { it.userId == 3L && it.message.contains("배정") }) }
+                    verify {
+                        eventPublisher.publishEvent(
+                            match<EpicUnassignedEvent> {
+                                it.userId == 1L && it.epicId == 10L &&
+                                    it.epicName == "동기화 에픽"
+                            },
+                        )
+                    }
+                    verify {
+                        eventPublisher.publishEvent(
+                            match<EpicAssignedEvent> {
+                                it.userId == 3L && it.epicId == 10L &&
+                                    it.epicName == "동기화 에픽"
+                            },
+                        )
+                    }
                 }
             }
 
@@ -274,7 +297,14 @@ class EpicAssignmentServiceTest :
 
                 Then("assignments 에 추가되고 배정 알림이 발행된다") {
                     epic.assignments.any { it.user == assignee } shouldBe true
-                    verify { eventPublisher.publishEvent(match<TeamsNotificationEvent> { it.userId == 80L && it.message.contains("배정") }) }
+                    verify {
+                        eventPublisher.publishEvent(
+                            match<EpicAssignedEvent> {
+                                it.userId == 80L && it.epicId == 22L &&
+                                    it.epicName == "자동편입"
+                            },
+                        )
+                    }
                 }
             }
 
