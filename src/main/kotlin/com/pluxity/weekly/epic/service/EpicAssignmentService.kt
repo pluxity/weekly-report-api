@@ -8,10 +8,10 @@ import com.pluxity.weekly.core.exception.CustomException
 import com.pluxity.weekly.epic.dto.EpicAssignmentResponse
 import com.pluxity.weekly.epic.dto.toResponse
 import com.pluxity.weekly.epic.entity.Epic
+import com.pluxity.weekly.epic.event.EpicAssignedEvent
+import com.pluxity.weekly.epic.event.EpicUnassignedEvent
 import com.pluxity.weekly.epic.repository.EpicRepository
 import com.pluxity.weekly.task.repository.TaskRepository
-import com.pluxity.weekly.teams.entity.TeamsNotificationType
-import com.pluxity.weekly.teams.event.TeamsNotificationEvent
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
@@ -97,10 +97,10 @@ class EpicAssignmentService(
     ) {
         epic.assign(assignee)
         eventPublisher.publishEvent(
-            TeamsNotificationEvent(
+            EpicAssignedEvent(
                 userId = assignee.requiredId,
-                type = TeamsNotificationType.EPIC_ASSIGN,
-                message = "${epic.name} 에픽에 배정되었습니다",
+                epicId = epic.requiredId,
+                epicName = epic.name,
             ),
         )
     }
@@ -112,10 +112,10 @@ class EpicAssignmentService(
         epic.unassign(assignee)
         taskRepository.deleteByEpicIdAndAssigneeId(epic.requiredId, assignee.requiredId)
         eventPublisher.publishEvent(
-            TeamsNotificationEvent(
+            EpicUnassignedEvent(
                 userId = assignee.requiredId,
-                type = TeamsNotificationType.EPIC_UNASSIGN,
-                message = "${epic.name} 에픽에서 해제되었습니다",
+                epicId = epic.requiredId,
+                epicName = epic.name,
             ),
         )
     }

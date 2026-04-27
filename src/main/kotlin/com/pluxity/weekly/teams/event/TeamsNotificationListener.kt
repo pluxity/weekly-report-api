@@ -15,13 +15,7 @@ class TeamsNotificationListener(
     @Async
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     fun handleNotification(event: TeamsNotificationEvent) {
-        val log =
-            logService.savePending(
-                userId = event.userId,
-                type = event.type,
-                message = event.message,
-            )
-        val logId = log.requiredId
+        val logId = event.logId
 
         val failReason =
             runCatching {
