@@ -20,8 +20,14 @@ class TeamsMessageHandler(
     fun handleActivity(activity: Activity) {
         when (activity.type) {
             "message" -> {
-                messageSender.sendTyping(activity)
-                asyncChatHandler.handleMessage(activity)
+                if (activity.value != null) {
+                    asyncChatHandler.handleMessage(activity)
+                } else {
+                    messageSender.reply(
+                        activity,
+                        cardConverter.textMessage("채팅 기능은 현재 비활성화되어 있습니다."),
+                    )
+                }
             }
             "installationUpdate" -> handleInstallationUpdate(activity)
             else -> log.debug { "Unhandled activity type: ${activity.type}" }
