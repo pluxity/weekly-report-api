@@ -13,11 +13,11 @@ import com.pluxity.weekly.task.entity.Task
 import com.pluxity.weekly.task.entity.TaskApprovalAction
 import com.pluxity.weekly.task.entity.TaskApprovalLog
 import com.pluxity.weekly.task.entity.TaskStatus
+import com.pluxity.weekly.task.event.TaskApprovedEvent
+import com.pluxity.weekly.task.event.TaskRejectedEvent
+import com.pluxity.weekly.task.event.TaskReviewRequestedEvent
 import com.pluxity.weekly.task.repository.TaskApprovalLogRepository
 import com.pluxity.weekly.task.repository.TaskRepository
-import com.pluxity.weekly.teams.converter.TaskReviewCardBuilder
-import com.pluxity.weekly.teams.entity.TeamsNotificationType
-import com.pluxity.weekly.teams.event.TeamsNotificationEvent
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -30,7 +30,6 @@ class TaskReviewService(
     private val taskApprovalLogRepository: TaskApprovalLogRepository,
     private val authorizationService: AuthorizationService,
     private val eventPublisher: ApplicationEventPublisher,
-    private val taskReviewCardBuilder: TaskReviewCardBuilder,
 ) {
     @Transactional
     fun requestReview(id: Long) {
@@ -40,20 +39,14 @@ class TaskReviewService(
         task.requestReview()
         writeLog(task, user, TaskApprovalAction.REVIEW_REQUEST)
         task.epic.project.pmId?.let { pmId ->
-            val card =
-                taskReviewCardBuilder.build(
+            eventPublisher.publishEvent(
+                TaskReviewRequestedEvent(
                     taskId = task.requiredId,
                     taskName = task.name,
                     projectName = task.epic.project.name,
                     epicName = task.epic.name,
                     requesterName = user.name,
-                )
-            eventPublisher.publishEvent(
-                TeamsNotificationEvent(
-                    userId = pmId,
-                    type = TeamsNotificationType.TASK_REVIEW_REQUEST,
-                    message = "[리뷰 요청] '${task.name}' 태스크가 리뷰 요청되었습니다. 요청자: ${user.name}",
-                    card = card,
+                    pmId = pmId,
                 ),
             )
         }
@@ -68,10 +61,9 @@ class TaskReviewService(
         writeLog(task, user, TaskApprovalAction.APPROVE)
         task.assignee?.requiredId?.let { assigneeId ->
             eventPublisher.publishEvent(
-                TeamsNotificationEvent(
+                TaskApprovedEvent(
                     userId = assigneeId,
-                    type = TeamsNotificationType.TASK_APPROVE,
-                    message = "[승인] '${task.name}' 태스크가 승인되었습니다.",
+                    taskName = task.name,
                 ),
             )
         }
@@ -89,12 +81,11 @@ class TaskReviewService(
         val normalizedReason = reason?.takeIf { it.isNotBlank() }
         writeLog(task, user, TaskApprovalAction.REJECT, normalizedReason)
         task.assignee?.requiredId?.let { assigneeId ->
-            val suffix = normalizedReason?.let { " 사유: $it" } ?: ""
             eventPublisher.publishEvent(
-                TeamsNotificationEvent(
+                TaskRejectedEvent(
                     userId = assigneeId,
-                    type = TeamsNotificationType.TASK_REJECT,
-                    message = "[반려] '${task.name}' 태스크가 반려되었습니다.$suffix",
+                    taskName = task.name,
+                    reason = normalizedReason,
                 ),
             )
         }
