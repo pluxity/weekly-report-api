@@ -68,6 +68,13 @@ class ChatActionRouter(
         if (target == ChatTarget.TEAM && type != ChatActionType.READ) {
             throw ChatClarifyException("팀 관리는 웹페이지에서 이용해주세요.")
         }
+        if (type == ChatActionType.CREATE && target == ChatTarget.TASK) {
+            val user = authorizationService.currentUser()
+            val visibleEpics = authorizationService.visibleEpicIds(user)
+            if (visibleEpics != null && visibleEpics.isEmpty()) {
+                throw ChatClarifyException("태스크를 생성할 수 있는 에픽이 없습니다. 먼저 에픽에 참여해주세요.")
+            }
+        }
         if (type.validatesMissingFields && !action.missingFields.isNullOrEmpty()) {
             if (action.missingFields.size > 1) {
                 log.warn { "LLM이 복수 missingFields 반환: ${action.missingFields} — [0]만 사용" }
