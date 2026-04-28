@@ -68,9 +68,9 @@ tests:
       - type: javascript
         value: "JSON.parse(output).actions.includes('create') && JSON.parse(output).target === 'task'"
 
-  - description: "[intent] 에픽 생성"
+  - description: "[intent] 업무 그룹 생성"
     vars:
-      userMessage: "에픽 만들어줘"
+      userMessage: "업무 그룹 만들어줘"
     prompts: [intent]
     assert:
       - type: is-json
@@ -136,18 +136,18 @@ tests:
         value: "JSON.parse(output).actions.includes('delete') && JSON.parse(output).target === 'project'"
 
   ## assign / unassign
-  - description: "[intent] 에픽 배정"
+  - description: "[intent] 업무 그룹 배정"
     vars:
-      userMessage: "대시보드 에픽에 홍길동 할당해줘"
+      userMessage: "대시보드 업무 그룹에 홍길동 할당해줘"
     prompts: [intent]
     assert:
       - type: is-json
       - type: javascript
         value: "JSON.parse(output).actions.includes('assign') && JSON.parse(output).target === 'epic'"
 
-  - description: "[intent] 에픽 배정 해제"
+  - description: "[intent] 업무 그룹 배정 해제"
     vars:
-      userMessage: "대시보드 에픽에서 홍길동 빼줘"
+      userMessage: "대시보드 업무 그룹에서 홍길동 빼줘"
     prompts: [intent]
     assert:
       - type: is-json
@@ -174,9 +174,9 @@ tests:
         value: "JSON.parse(output).actions.includes('review_request') && JSON.parse(output).target === 'task'"
 
   ## create with hint
-  - description: "[intent] 에픽에 태스크 추가 → create + hint"
+  - description: "[intent] 업무 그룹에 태스크 추가 → create + hint"
     vars:
-      userMessage: "백엔드 에픽에 API 설계 태스크 추가해줘"
+      userMessage: "백엔드 업무 그룹에 API 설계 태스크 추가해줘"
     prompts: [intent]
     assert:
       - type: is-json
@@ -248,11 +248,11 @@ tests:
           const o = JSON.parse(output);
           return o.actions.includes('read') && o.target === 'task';
 
-  ## 히스토리 참조 - 에픽 read 후 태스크 create
+  ## 히스토리 참조 - 업무 그룹 read 후 태스크 create
   - description: "[intent-history] 거기에 태스크 추가 → create task + epic hint"
     vars:
       userMessage: "거기에 태스크 추가해줘"
-      history: "--- 히스토리 #1 | 질문: 백엔드 에픽 보여줘 | target: epic | actions: [read] | 결과: read epic 3건 ---"
+      history: "--- 히스토리 #1 | 질문: 백엔드 업무 그룹 보여줘 | target: epic | actions: [read] | 결과: read epic 3건 ---"
     prompts: [intent]
     assert:
       - type: is-json
@@ -379,9 +379,9 @@ tests:
           return o.action === 'update' && o.missing_fields && o.missing_fields.includes('id');
 
   ## assign
-  - description: "[system] 센서 연동 에픽에 김민지 할당 → assign"
+  - description: "[system] 센서 연동 업무 그룹에 김민지 할당 → assign"
     vars:
-      userMessage: "센서 연동 에픽에 김민지 할당해줘"
+      userMessage: "센서 연동 업무 그룹에 김민지 할당해줘"
       intent: '{"actions":["assign"],"target":"epic"}'
     prompts: [system]
     assert:
@@ -393,9 +393,9 @@ tests:
           return o.action === 'assign' && o.target === 'epic' && o.id === 101 && o.user_ids && o.user_ids.includes(4);
 
   ## create - 이름 없이 생성
-  - description: "[system] 에픽 만들어줘 → create, name 없음"
+  - description: "[system] 업무 그룹 만들어줘 → create, name 없음"
     vars:
-      userMessage: "에픽 만들어줘"
+      userMessage: "업무 그룹 만들어줘"
       intent: '{"actions":["create"],"target":"epic"}'
     prompts: [system]
     assert:
@@ -406,7 +406,7 @@ tests:
           const o = arr[0];
           return o.action === 'create' && o.target === 'epic' && !o.name;
 
-  ## create - 동명 에픽 FK (대시보드가 2개: 102, 202)
+  ## create - 동명 업무 그룹 FK (대시보드가 2개: 102, 202)
   - description: "[system] 대시보드에 태스크 추가 → epic_id는 102 또는 202"
     vars:
       userMessage: "대시보드에 태스크 추가해줘"
@@ -476,10 +476,10 @@ tests:
           const o = arr[0];
           return o.action === 'read' && o.filters && o.filters.project_id === 1 && o.filters.status === 'IN_PROGRESS';
 
-  ## create - 프로젝트 지정 에픽 생성
-  - description: "[system] 모바일 POS에 배송 에픽 추가 → project_id=2"
+  ## create - 프로젝트 지정 업무 그룹 생성
+  - description: "[system] 모바일 POS에 배송 업무 그룹 추가 → project_id=2"
     vars:
-      userMessage: "모바일 POS에 배송 에픽 추가해줘"
+      userMessage: "모바일 POS에 배송 업무 그룹 추가해줘"
       intent: '{"actions":["create"],"target":"epic","project":"모바일 POS","name":"배송"}'
     prompts: [system]
     assert:
@@ -504,10 +504,10 @@ tests:
           const o = arr[0];
           return o.action === 'clarify' && !!o.message;
 
-  ## assign - 동명 에픽 + user 미지정 (복수 미확정 → missing_fields는 id 1개만)
+  ## assign - 동명 업무 그룹 + user 미지정 (복수 미확정 → missing_fields는 id 1개만)
   - description: "[system] 복수 미확정 → missing_fields는 id 1개만"
     vars:
-      userMessage: "대시보드 에픽에 할당해줘"
+      userMessage: "대시보드 업무 그룹에 할당해줘"
       intent: '{"actions":["assign"],"target":"epic"}'
     prompts: [system]
     assert:
