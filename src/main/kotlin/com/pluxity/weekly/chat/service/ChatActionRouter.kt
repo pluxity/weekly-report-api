@@ -72,7 +72,7 @@ class ChatActionRouter(
             val user = authorizationService.currentUser()
             val visibleEpics = authorizationService.visibleEpicIds(user)
             if (visibleEpics != null && visibleEpics.isEmpty()) {
-                throw ChatClarifyException("태스크를 생성할 수 있는 에픽이 없습니다. 먼저 에픽에 참여해주세요.")
+                throw ChatClarifyException("태스크를 생성할 수 있는 업무 그룹이 없습니다. 먼저 업무 그룹에 참여해주세요.")
             }
         }
         if (type.validatesMissingFields && !action.missingFields.isNullOrEmpty()) {

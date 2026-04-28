@@ -23,7 +23,7 @@ data class MemberTaskBar(
     val taskId: Long,
     @field:Schema(description = "태스크명", example = "DB 설계")
     val taskName: String,
-    @field:Schema(description = "에픽명", example = "백엔드 구축")
+    @field:Schema(description = "업무 그룹명", example = "백엔드 구축")
     val epicName: String,
     @field:Schema(description = "프로젝트명", example = "알파 프로젝트")
     val projectName: String,

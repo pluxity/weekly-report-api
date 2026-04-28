@@ -25,7 +25,7 @@ data class AdminProjectCard(
     val status: ProjectStatus,
     @field:Schema(description = "전체 진행률 (태스크 평균)", example = "45")
     val progress: Int,
-    @field:Schema(description = "에픽 수", example = "5")
+    @field:Schema(description = "업무 그룹 수", example = "5")
     val epicCount: Int,
     @field:Schema(description = "참여 인원 수", example = "8")
     val memberCount: Int,

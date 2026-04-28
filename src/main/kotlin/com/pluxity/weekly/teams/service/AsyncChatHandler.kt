@@ -114,7 +114,7 @@ class AsyncChatHandler(
                                         userIds = userIds,
                                     ),
                                 )
-                            cardConverter.textMessage("에픽 생성이 완료되었습니다. (ID: $id)")
+                            cardConverter.textMessage("업무 그룹 생성이 완료되었습니다. (ID: $id)")
                         }
                     }
                     action == "approve" && target == "task" -> {

@@ -33,7 +33,7 @@ class TeamsNotificationEventHandler(
         publishNotification(
             userId = event.userId,
             type = TeamsNotificationType.EPIC_ASSIGN,
-            message = "${event.epicName} 에픽에 배정되었습니다.",
+            message = "${event.epicName} 업무 그룹에 배정되었습니다.",
         )
     }
 
@@ -42,7 +42,7 @@ class TeamsNotificationEventHandler(
         publishNotification(
             userId = event.userId,
             type = TeamsNotificationType.EPIC_UNASSIGN,
-            message = "${event.epicName} 에픽 배정이 해제되었습니다.",
+            message = "${event.epicName} 업무 그룹 배정이 해제되었습니다.",
         )
     }
 

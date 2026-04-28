@@ -16,9 +16,9 @@ data class PendingReviewResponse(
     val projectId: Long,
     @field:Schema(description = "프로젝트명", example = "SAFERS 관제 시스템")
     val projectName: String,
-    @field:Schema(description = "에픽 ID", example = "10")
+    @field:Schema(description = "업무 그룹 ID", example = "10")
     val epicId: Long,
-    @field:Schema(description = "에픽명", example = "기획")
+    @field:Schema(description = "업무 그룹명", example = "기획")
     val epicName: String,
     @field:Schema(description = "담당자 ID", example = "5")
     val assigneeId: Long?,

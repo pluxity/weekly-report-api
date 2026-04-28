@@ -30,7 +30,7 @@ class TaskReviewCardBuilder {
                         "color" to "accent",
                     ),
                     factRow("프로젝트", projectName, separator = true),
-                    factRow("에픽", epicName, separator = true),
+                    factRow("업무 그룹", epicName, separator = true),
                     factRow("태스크", taskName, separator = true),
                     factRow("요청자", requesterName, separator = true),
                 ),

@@ -8,7 +8,7 @@ import com.pluxity.weekly.epic.entity.EpicStatus
 import io.swagger.v3.oas.annotations.media.Schema
 import java.time.LocalDate
 
-@Schema(description = "에픽 응답")
+@Schema(description = "업무 그룹 응답")
 data class EpicResponse(
     @field:Schema(description = "ID", example = "1")
     val id: Long,
@@ -16,9 +16,9 @@ data class EpicResponse(
     val projectId: Long,
     @field:Schema(description = "프로젝트명", example = "Safers")
     val projectName: String,
-    @field:Schema(description = "에픽명", example = "사용자 인증 모듈")
+    @field:Schema(description = "업무 그룹명", example = "사용자 인증 모듈")
     val name: String,
-    @field:Schema(description = "설명", example = "에픽 설명입니다")
+    @field:Schema(description = "설명", example = "업무 그룹 설명입니다")
     val description: String?,
     @field:Schema(description = "상태", example = "TODO")
     val status: EpicStatus,
@@ -32,7 +32,7 @@ data class EpicResponse(
     val baseResponse: BaseResponse,
 )
 
-@Schema(description = "에픽 배정 사용자 정보")
+@Schema(description = "업무 그룹 배정 사용자 정보")
 data class EpicMemberResponse(
     @field:Schema(description = "사용자 ID", example = "1")
     val userId: Long,
