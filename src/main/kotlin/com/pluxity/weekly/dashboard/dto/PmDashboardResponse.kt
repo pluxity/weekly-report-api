@@ -11,7 +11,7 @@ import java.time.LocalDateTime
 data class PmDashboardResponse(
     @field:Schema(description = "프로젝트 요약 정보")
     val project: PmProjectSummary,
-    @field:Schema(description = "에픽 목록 (간트차트/테이블뷰 공용)")
+    @field:Schema(description = "업무 그룹 목록 (간트차트/테이블뷰 공용)")
     val epics: List<PmEpicItem>,
 )
 
@@ -31,7 +31,7 @@ data class PmProjectSummary(
     val startDate: LocalDate?,
     @field:Schema(description = "마감일", example = "2026-06-30")
     val dueDate: LocalDate?,
-    @field:Schema(description = "에픽 수", example = "5")
+    @field:Schema(description = "업무 그룹 수", example = "5")
     val epicCount: Int,
     @field:Schema(description = "태스크 수", example = "20")
     val taskCount: Int,
@@ -41,15 +41,15 @@ data class PmProjectSummary(
     val updatedAt: LocalDateTime,
 )
 
-@Schema(description = "PM 대시보드 에픽 항목 (간트차트/테이블뷰 공용)")
+@Schema(description = "PM 대시보드 업무 그룹 항목 (간트차트/테이블뷰 공용)")
 data class PmEpicItem(
-    @field:Schema(description = "에픽 ID", example = "1")
+    @field:Schema(description = "업무 그룹 ID", example = "1")
     val epicId: Long,
-    @field:Schema(description = "에픽명", example = "백엔드 구축")
+    @field:Schema(description = "업무 그룹명", example = "백엔드 구축")
     val epicName: String,
-    @field:Schema(description = "에픽 상태", example = "IN_PROGRESS")
+    @field:Schema(description = "업무 그룹 상태", example = "IN_PROGRESS")
     val status: EpicStatus,
-    @field:Schema(description = "에픽 진행률 (태스크 평균)", example = "45")
+    @field:Schema(description = "업무 그룹 진행률 (태스크 평균)", example = "45")
     val progress: Int,
     @field:Schema(description = "시작일", example = "2026-01-01")
     val startDate: LocalDate?,

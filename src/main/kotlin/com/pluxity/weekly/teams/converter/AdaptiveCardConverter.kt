@@ -137,7 +137,7 @@ class AdaptiveCardConverter {
                         "facts" to
                             listOfNotNull(
                                 mapOf("title" to "프로젝트", "value" to review.projectName),
-                                mapOf("title" to "에픽", "value" to review.epicName),
+                                mapOf("title" to "업무 그룹", "value" to review.epicName),
                                 review.assigneeName?.let { mapOf("title" to "담당자", "value" to it) },
                                 review.dueDate?.let { mapOf("title" to "마감일", "value" to it.toString()) },
                                 mapOf("title" to "요청 시각", "value" to review.reviewRequestedAt.toString()),
@@ -238,7 +238,7 @@ class AdaptiveCardConverter {
                 inputs += dateInput("dueDate", "마감일", dto.dueDate)
             }
             is EpicChatDto -> {
-                inputs += textInput("name", "에픽명", dto.name)
+                inputs += textInput("name", "업무 그룹명", dto.name)
                 inputs += selectOrText("projectId", "프로젝트", selectFieldMap, false, dto.projectId.toString())
                 inputs += textInput("description", "설명", dto.description)
                 inputs += selectOrText("userIds", "담당자", selectFieldMap, isMultiSelect = true)
@@ -321,7 +321,7 @@ class AdaptiveCardConverter {
     private fun targetLabel(target: String): String =
         when (ChatTarget.fromOrNull(target)) {
             ChatTarget.PROJECT -> "프로젝트"
-            ChatTarget.EPIC -> "에픽"
+            ChatTarget.EPIC -> "업무 그룹"
             ChatTarget.TASK -> "태스크"
             ChatTarget.TEAM -> "팀"
             ChatTarget.REVIEW -> "리뷰"

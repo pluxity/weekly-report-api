@@ -28,12 +28,12 @@ import org.springframework.web.bind.annotation.RestController
 
 @RestController
 @RequestMapping("/epics")
-@Tag(name = "Epic Controller", description = "에픽 관리 API")
+@Tag(name = "Epic Controller", description = "업무 그룹 관리 API")
 class EpicController(
     private val service: EpicService,
     private val assignmentService: EpicAssignmentService,
 ) {
-    @Operation(summary = "에픽 전체 조회", description = "에픽 전체 목록을 조회합니다")
+    @Operation(summary = "업무 그룹 전체 조회", description = "업무 그룹 전체 목록을 조회합니다")
     @ApiResponses(
         value = [
             ApiResponse(responseCode = "200", description = "조회 성공"),
@@ -47,13 +47,13 @@ class EpicController(
     @GetMapping
     fun findAll(): ResponseEntity<DataResponseBody<List<EpicResponse>>> = ResponseEntity.ok(DataResponseBody(service.findAll()))
 
-    @Operation(summary = "에픽 단건 조회", description = "ID로 에픽을 조회합니다")
+    @Operation(summary = "업무 그룹 단건 조회", description = "ID로 업무 그룹을 조회합니다")
     @ApiResponses(
         value = [
             ApiResponse(responseCode = "200", description = "조회 성공"),
             ApiResponse(
                 responseCode = "404",
-                description = "에픽을 찾을 수 없음",
+                description = "업무 그룹을 찾을 수 없음",
                 content = [Content(mediaType = "application/json", schema = Schema(implementation = ErrorResponseBody::class))],
             ),
         ],
@@ -63,7 +63,7 @@ class EpicController(
         @PathVariable id: Long,
     ): ResponseEntity<DataResponseBody<EpicResponse>> = ResponseEntity.ok(DataResponseBody(service.findById(id)))
 
-    @Operation(summary = "에픽 등록", description = "새로운 에픽을 등록합니다")
+    @Operation(summary = "업무 그룹 등록", description = "새로운 업무 그룹을 등록합니다")
     @ApiResponses(
         value = [
             ApiResponse(responseCode = "201", description = "등록 성공"),
@@ -80,13 +80,13 @@ class EpicController(
         @RequestBody @Valid request: EpicRequest,
     ): ResponseEntity<Long> = ResponseEntity.ok(service.create(request))
 
-    @Operation(summary = "에픽 부분 수정", description = "전달된 필드만 수정합니다")
+    @Operation(summary = "업무 그룹 부분 수정", description = "전달된 필드만 수정합니다")
     @ApiResponses(
         value = [
             ApiResponse(responseCode = "204", description = "수정 성공"),
             ApiResponse(
                 responseCode = "404",
-                description = "에픽을 찾을 수 없음",
+                description = "업무 그룹을 찾을 수 없음",
                 content = [Content(mediaType = "application/json", schema = Schema(implementation = ErrorResponseBody::class))],
             ),
         ],
@@ -100,13 +100,13 @@ class EpicController(
         return ResponseEntity.noContent().build()
     }
 
-    @Operation(summary = "에픽 삭제", description = "에픽을 삭제합니다")
+    @Operation(summary = "업무 그룹 삭제", description = "업무 그룹을 삭제합니다")
     @ApiResponses(
         value = [
             ApiResponse(responseCode = "204", description = "삭제 성공"),
             ApiResponse(
                 responseCode = "404",
-                description = "에픽을 찾을 수 없음",
+                description = "업무 그룹을 찾을 수 없음",
                 content = [Content(mediaType = "application/json", schema = Schema(implementation = ErrorResponseBody::class))],
             ),
         ],
@@ -119,13 +119,13 @@ class EpicController(
         return ResponseEntity.noContent().build()
     }
 
-    @Operation(summary = "에픽 배정 목록 조회", description = "에픽에 배정된 사용자 목록을 조회합니다")
+    @Operation(summary = "업무 그룹 배정 목록 조회", description = "업무 그룹에 배정된 사용자 목록을 조회합니다")
     @ApiResponses(
         value = [
             ApiResponse(responseCode = "200", description = "조회 성공"),
             ApiResponse(
                 responseCode = "404",
-                description = "에픽을 찾을 수 없음",
+                description = "업무 그룹을 찾을 수 없음",
                 content = [Content(mediaType = "application/json", schema = Schema(implementation = ErrorResponseBody::class))],
             ),
         ],
@@ -136,7 +136,7 @@ class EpicController(
     ): ResponseEntity<DataResponseBody<List<EpicAssignmentResponse>>> =
         ResponseEntity.ok(DataResponseBody(assignmentService.findByEpic(epicId)))
 
-    @Operation(summary = "에픽 사용자 배정", description = "에픽에 사용자를 배정합니다")
+    @Operation(summary = "업무 그룹 사용자 배정", description = "업무 그룹에 사용자를 배정합니다")
     @ApiResponses(
         value = [
             ApiResponse(responseCode = "204", description = "배정 성공"),
@@ -147,7 +147,7 @@ class EpicController(
             ),
             ApiResponse(
                 responseCode = "404",
-                description = "에픽 또는 사용자를 찾을 수 없음",
+                description = "업무 그룹 또는 사용자를 찾을 수 없음",
                 content = [Content(mediaType = "application/json", schema = Schema(implementation = ErrorResponseBody::class))],
             ),
         ],
@@ -161,13 +161,13 @@ class EpicController(
         return ResponseEntity.noContent().build()
     }
 
-    @Operation(summary = "에픽 사용자 배정 해제", description = "에픽에서 사용자 배정을 해제합니다")
+    @Operation(summary = "업무 그룹 사용자 배정 해제", description = "업무 그룹에서 사용자 배정을 해제합니다")
     @ApiResponses(
         value = [
             ApiResponse(responseCode = "204", description = "해제 성공"),
             ApiResponse(
                 responseCode = "404",
-                description = "에픽 또는 배정을 찾을 수 없음",
+                description = "업무 그룹 또는 배정을 찾을 수 없음",
                 content = [Content(mediaType = "application/json", schema = Schema(implementation = ErrorResponseBody::class))],
             ),
         ],

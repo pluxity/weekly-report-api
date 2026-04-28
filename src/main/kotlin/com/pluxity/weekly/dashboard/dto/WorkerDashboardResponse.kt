@@ -10,7 +10,7 @@ import java.time.LocalDateTime
 data class WorkerDashboardResponse(
     @field:Schema(description = "요약 정보")
     val summary: WorkerSummary,
-    @field:Schema(description = "배정된 에픽 목록")
+    @field:Schema(description = "배정된 업무 그룹 목록")
     val epics: List<WorkerEpicItem>,
 )
 
@@ -26,19 +26,19 @@ data class WorkerSummary(
     val total: Int,
 )
 
-@Schema(description = "작업자 에픽 항목")
+@Schema(description = "작업자 업무 그룹 항목")
 data class WorkerEpicItem(
-    @field:Schema(description = "에픽 ID", example = "1")
+    @field:Schema(description = "업무 그룹 ID", example = "1")
     val epicId: Long,
-    @field:Schema(description = "에픽명", example = "백엔드 구축")
+    @field:Schema(description = "업무 그룹명", example = "백엔드 구축")
     val epicName: String,
     @field:Schema(description = "프로젝트 ID", example = "1")
     val projectId: Long,
     @field:Schema(description = "프로젝트명", example = "알파 프로젝트")
     val projectName: String,
-    @field:Schema(description = "에픽 상태", example = "IN_PROGRESS")
+    @field:Schema(description = "업무 그룹 상태", example = "IN_PROGRESS")
     val status: EpicStatus,
-    @field:Schema(description = "에픽 진행률 (본인 태스크 평균)", example = "45")
+    @field:Schema(description = "업무 그룹 진행률 (본인 태스크 평균)", example = "45")
     val progress: Int,
     @field:Schema(description = "시작일", example = "2026-01-01")
     val startDate: LocalDate?,

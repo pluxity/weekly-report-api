@@ -7,16 +7,16 @@ import jakarta.validation.constraints.NotNull
 import jakarta.validation.constraints.Size
 import java.time.LocalDate
 
-@Schema(description = "에픽 등록/수정 요청")
+@Schema(description = "업무 그룹 등록/수정 요청")
 data class EpicRequest(
     @field:Schema(description = "프로젝트 ID", example = "1", required = true)
     @field:NotNull(message = "프로젝트 ID는 필수입니다")
     val projectId: Long,
-    @field:Schema(description = "에픽명 (최대 255자)", example = "사용자 인증 모듈", required = true, maxLength = 255)
-    @field:NotBlank(message = "에픽명은 필수입니다")
-    @field:Size(max = 255, message = "에픽명은 최대 255자까지 입력 가능합니다")
+    @field:Schema(description = "업무 그룹명 (최대 255자)", example = "사용자 인증 모듈", required = true, maxLength = 255)
+    @field:NotBlank(message = "업무 그룹명은 필수입니다")
+    @field:Size(max = 255, message = "업무 그룹명은 최대 255자까지 입력 가능합니다")
     val name: String,
-    @field:Schema(description = "설명 (최대 1000자)", example = "에픽 설명입니다")
+    @field:Schema(description = "설명 (최대 1000자)", example = "업무 그룹 설명입니다")
     @field:Size(max = 1000, message = "설명은 최대 1000자까지 입력 가능합니다")
     val description: String? = null,
     @field:Schema(description = "상태", example = "TODO")

@@ -11,8 +11,8 @@ import java.time.LocalDate
 
 @Schema(description = "태스크 등록/수정 요청")
 data class TaskRequest(
-    @field:Schema(description = "에픽 ID", example = "1", required = true)
-    @field:NotNull(message = "에픽 ID는 필수입니다")
+    @field:Schema(description = "업무 그룹 ID", example = "1", required = true)
+    @field:NotNull(message = "업무 그룹 ID는 필수입니다")
     val epicId: Long,
     @field:Schema(description = "태스크명 (최대 255자)", example = "로그인 API 개발", required = true, maxLength = 255)
     @field:NotBlank(message = "태스크명은 필수입니다")

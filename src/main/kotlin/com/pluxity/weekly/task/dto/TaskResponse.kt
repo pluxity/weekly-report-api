@@ -16,9 +16,9 @@ data class TaskResponse(
     val projectId: Long,
     @field:Schema(description = "프로젝트명", example = "SAFERS 관제 시스템")
     val projectName: String,
-    @field:Schema(description = "에픽 ID", example = "1")
+    @field:Schema(description = "업무 그룹 ID", example = "1")
     val epicId: Long,
-    @field:Schema(description = "에픽명", example = "기획")
+    @field:Schema(description = "업무 그룹명", example = "기획")
     val epicName: String,
     @field:Schema(description = "태스크명", example = "로그인 API 개발")
     val name: String,

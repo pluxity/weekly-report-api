@@ -28,16 +28,16 @@ enum class ErrorCode(
 
     // ── Project / Epic / Task ──
     NOT_FOUND_PROJECT(HttpStatus.NOT_FOUND, "ID가 %s인 프로젝트를 찾을 수 없습니다."),
-    NOT_FOUND_EPIC(HttpStatus.NOT_FOUND, "ID가 %s인 에픽을 찾을 수 없습니다."),
-    DUPLICATE_EPIC_ASSIGNMENT(HttpStatus.BAD_REQUEST, "사용자 %s은(는) 이미 에픽 %s에 배정되어 있습니다."),
-    NOT_FOUND_EPIC_ASSIGNMENT(HttpStatus.NOT_FOUND, "에픽 %s에 사용자 %s이(가) 배정되어 있지 않습니다."),
+    NOT_FOUND_EPIC(HttpStatus.NOT_FOUND, "ID가 %s인 업무 그룹을 찾을 수 없습니다."),
+    DUPLICATE_EPIC_ASSIGNMENT(HttpStatus.BAD_REQUEST, "사용자 %s은(는) 이미 업무 그룹 %s에 배정되어 있습니다."),
+    NOT_FOUND_EPIC_ASSIGNMENT(HttpStatus.NOT_FOUND, "업무 그룹 %s에 사용자 %s이(가) 배정되어 있지 않습니다."),
     NOT_FOUND_TASK(HttpStatus.NOT_FOUND, "ID가 %s인 태스크를 찾을 수 없습니다."),
-    DUPLICATE_TASK(HttpStatus.BAD_REQUEST, "에픽 '%s'에 이미 '%s' 태스크가 존재합니다."),
+    DUPLICATE_TASK(HttpStatus.BAD_REQUEST, "업무 그룹 '%s'에 이미 '%s' 태스크가 존재합니다."),
     INVALID_STATUS_TRANSITION(HttpStatus.BAD_REQUEST, "상태 %s에서는 %s 동작을 수행할 수 없습니다."),
     INVALID_INITIAL_STATUS(HttpStatus.BAD_REQUEST, "%s 상태로는 생성할 수 없습니다."),
     INVALID_DATE_RANGE(HttpStatus.BAD_REQUEST, "시작일(%s)이 마감일(%s)보다 늦을 수 없습니다."),
-    EPIC_NOT_ALL_DONE(HttpStatus.BAD_REQUEST, "프로젝트를 완료하려면 모든 하위 에픽을 먼저 완료해야 합니다."),
-    TASK_NOT_ALL_DONE(HttpStatus.BAD_REQUEST, "에픽을 완료하려면 모든 하위 태스크를 먼저 완료해야 합니다."),
+    EPIC_NOT_ALL_DONE(HttpStatus.BAD_REQUEST, "프로젝트를 완료하려면 모든 하위 업무 그룹을 먼저 완료해야 합니다."),
+    TASK_NOT_ALL_DONE(HttpStatus.BAD_REQUEST, "업무 그룹을 완료하려면 모든 하위 태스크를 먼저 완료해야 합니다."),
 
     // ── Chat / LLM ──
     LLM_SERVICE_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "LLM 서비스에 연결할 수 없습니다."),

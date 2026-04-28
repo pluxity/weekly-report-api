@@ -58,7 +58,7 @@ class WeeklyReportApiConfigurer {
     fun projectApi(): GroupedOpenApi = apiGroup("5. 프로젝트 관리 API", "/projects/**")
 
     @Bean
-    fun epicApi(): GroupedOpenApi = apiGroup("6. 에픽 관리 API", "/epics/**")
+    fun epicApi(): GroupedOpenApi = apiGroup("6. 업무 그룹 관리 API", "/epics/**")
 
     @Bean
     fun taskApi(): GroupedOpenApi = apiGroup("7. 태스크 관리 API", "/tasks/**")

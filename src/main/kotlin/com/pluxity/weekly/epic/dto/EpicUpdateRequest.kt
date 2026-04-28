@@ -5,10 +5,10 @@ import io.swagger.v3.oas.annotations.media.Schema
 import jakarta.validation.constraints.Size
 import java.time.LocalDate
 
-@Schema(description = "에픽 수정 요청 (null인 필드는 변경하지 않음)")
+@Schema(description = "업무 그룹 수정 요청 (null인 필드는 변경하지 않음)")
 data class EpicUpdateRequest(
-    @field:Schema(description = "에픽명", example = "사용자 인증 모듈")
-    @field:Size(max = 255, message = "에픽명은 최대 255자까지 입력 가능합니다")
+    @field:Schema(description = "업무 그룹명", example = "사용자 인증 모듈")
+    @field:Size(max = 255, message = "업무 그룹명은 최대 255자까지 입력 가능합니다")
     val name: String? = null,
     @field:Schema(description = "설명")
     @field:Size(max = 1000, message = "설명은 최대 1000자까지 입력 가능합니다")

@@ -29,7 +29,7 @@ data class ChatReadResponse(
     val tasks: List<TaskResponse>? = null,
     @field:Schema(description = "프로젝트 목록")
     val projects: List<ProjectResponse>? = null,
-    @field:Schema(description = "에픽 목록")
+    @field:Schema(description = "업무 그룹 목록")
     val epics: List<EpicResponse>? = null,
     @field:Schema(description = "팀 목록")
     val teams: List<TeamResponse>? = null,
