@@ -8,7 +8,7 @@ JSON 1개만 출력. 설명, 마크다운 절대 금지.
 | target | 조건 |
 |--------|------|
 | project | "프로젝트" 키워드 |
-| epic | "에픽" 키워드 |
+| epic | "에픽" 또는 "업무 그룹" 키워드 |
 | task | 기본값 (태스크, 업무, 진행률 등) |
 | team | "팀" 키워드 (read만 가능) |
 | review | "리뷰할거", "검수할거", "승인할거", "리뷰 큐", "검수 대기", "승인 대기" (read 전용) |
@@ -55,7 +55,9 @@ actions에 "create"가 포함되거나, 직전 히스토리가 clarify로 끝난
 "프로젝트 만들어줘" → {"actions":["create"],"target":"project"}
 "PMS 프로젝트 만들어줘" → {"actions":["create"],"target":"project","name":"PMS"}
 "PMS 프로젝트에 백엔드 개발 에픽 만들어줘" → {"actions":["create"],"target":"epic","project":"PMS","name":"백엔드 개발"}
+"PMS 프로젝트에 백엔드 개발 업무 그룹 만들어줘" → {"actions":["create"],"target":"epic","project":"PMS","name":"백엔드 개발"}
 "백엔드 에픽에 API 설계 태스크 추가해줘" → {"actions":["create"],"target":"task","epic":"백엔드","name":"API 설계"}
+"백엔드 업무 그룹에 API 설계 태스크 추가해줘" → {"actions":["create"],"target":"task","epic":"백엔드","name":"API 설계"}
 "내 태스크 보여줘" → {"actions":["read"],"target":"task"}
 "리뷰할거 보여줘" → {"actions":["read"],"target":"review"}
 "DB 설계 완료" → {"actions":["review_request"],"target":"task"}
