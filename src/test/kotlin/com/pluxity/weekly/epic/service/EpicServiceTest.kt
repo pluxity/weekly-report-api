@@ -381,16 +381,21 @@ class EpicServiceTest :
 
         Given("에픽 복구") {
             When("존재하는 에픽을 복구하면 (부모 프로젝트 alive)") {
+                val parent = dummyProject(id = 700L)
+                val entity = dummyEpic(id = 710L, project = parent, name = "복구 대상")
                 every { epicRepository.findProjectIdRawById(710L) } returns 700L
                 every { epicRepository.isParentProjectDeletedByEpicId(710L) } returns false
                 every { epicRepository.restoreById(710L) } returns 1
                 every { taskRepository.restoreByEpicId(710L) } returns 0
+                every { epicRepository.findByIdOrNull(710L) } returns entity
 
-                service.restore(710L)
+                val response = service.restore(710L)
 
-                Then("에픽 + 하위 태스크 모두 복구된다") {
+                Then("에픽 + 하위 태스크 모두 복구되고 복구된 에픽이 반환된다") {
                     verify(exactly = 1) { epicRepository.restoreById(710L) }
                     verify(exactly = 1) { taskRepository.restoreByEpicId(710L) }
+                    response.id shouldBe 710L
+                    response.name shouldBe "복구 대상"
                 }
             }
 

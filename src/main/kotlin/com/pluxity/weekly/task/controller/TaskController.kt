@@ -209,10 +209,10 @@ class TaskController(
         return ResponseEntity.noContent().build()
     }
 
-    @Operation(summary = "태스크 복구", description = "소프트 삭제된 태스크를 복구합니다")
+    @Operation(summary = "태스크 복구", description = "소프트 삭제된 태스크를 복구하고 복구된 태스크를 반환합니다")
     @ApiResponses(
         value = [
-            ApiResponse(responseCode = "204", description = "복구 성공"),
+            ApiResponse(responseCode = "200", description = "복구 성공"),
             ApiResponse(
                 responseCode = "403",
                 description = "권한 없음",
@@ -228,8 +228,5 @@ class TaskController(
     @PostMapping("/{id}/restore")
     fun restore(
         @PathVariable id: Long,
-    ): ResponseEntity<Void> {
-        service.restore(id)
-        return ResponseEntity.noContent().build()
-    }
+    ): ResponseEntity<DataResponseBody<TaskResponse>> = ResponseEntity.ok(DataResponseBody(service.restore(id)))
 }

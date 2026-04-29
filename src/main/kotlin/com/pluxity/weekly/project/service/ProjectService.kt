@@ -124,7 +124,7 @@ class ProjectService(
     }
 
     @Transactional
-    fun restore(id: Long) {
+    fun restore(id: Long): ProjectResponse {
         val user = authorizationService.currentUser()
         val project = projectRepository.findRawById(id)
             ?: throw CustomException(ErrorCode.NOT_FOUND_PROJECT, id)
@@ -133,6 +133,8 @@ class ProjectService(
         projectRepository.restoreById(id)
         epicRepository.restoreByProjectId(id)
         taskRepository.restoreByProjectId(id)
+
+        return findById(id)
     }
 
     private fun getById(id: Long): Project =

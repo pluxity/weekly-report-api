@@ -116,10 +116,10 @@ class ProjectController(
         return ResponseEntity.noContent().build()
     }
 
-    @Operation(summary = "프로젝트 복구", description = "소프트 삭제된 프로젝트와 하위 업무 그룹/태스크를 복구합니다")
+    @Operation(summary = "프로젝트 복구", description = "소프트 삭제된 프로젝트와 하위 업무 그룹/태스크를 복구하고 복구된 프로젝트를 반환합니다")
     @ApiResponses(
         value = [
-            ApiResponse(responseCode = "204", description = "복구 성공"),
+            ApiResponse(responseCode = "200", description = "복구 성공"),
             ApiResponse(
                 responseCode = "403",
                 description = "권한 없음",
@@ -135,8 +135,5 @@ class ProjectController(
     @PostMapping("/{id}/restore")
     fun restore(
         @PathVariable id: Long,
-    ): ResponseEntity<Void> {
-        service.restore(id)
-        return ResponseEntity.noContent().build()
-    }
+    ): ResponseEntity<DataResponseBody<ProjectResponse>> = ResponseEntity.ok(DataResponseBody(service.restore(id)))
 }

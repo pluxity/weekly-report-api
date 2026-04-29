@@ -431,13 +431,18 @@ class ProjectServiceTest :
                 every { projectRepository.restoreById(600L) } returns 1
                 every { epicRepository.restoreByProjectId(600L) } returns 0
                 every { taskRepository.restoreByProjectId(600L) } returns 0
+                every { projectRepository.findByIdOrNull(600L) } returns entity
+                every { projectRepository.findMembersByProjectIds(listOf(600L)) } returns emptyList()
+                every { userRepository.findByIdOrNull(1L) } returns dummyUser(id = 1L, name = "PM")
 
-                service.restore(600L)
+                val response = service.restore(600L)
 
-                Then("프로젝트 + 하위 에픽 + 하위 태스크 모두 복구된다") {
+                Then("프로젝트 + 하위 에픽 + 하위 태스크 모두 복구되고 복구된 프로젝트가 반환된다") {
                     verify(exactly = 1) { projectRepository.restoreById(600L) }
                     verify(exactly = 1) { epicRepository.restoreByProjectId(600L) }
                     verify(exactly = 1) { taskRepository.restoreByProjectId(600L) }
+                    response.id shouldBe 600L
+                    response.name shouldBe "복구 대상"
                 }
             }
 

@@ -490,11 +490,14 @@ class TaskServiceTest :
                 every { taskRepository.isParentProjectDeletedByTaskId(800L) } returns false
                 every { taskRepository.isParentEpicDeletedByTaskId(800L) } returns false
                 every { taskRepository.restoreById(800L) } returns 1
+                every { taskRepository.findWithEpicAndProjectById(800L) } returns task
 
-                service.restore(800L)
+                val response = service.restore(800L)
 
-                Then("태스크가 복구된다") {
+                Then("태스크가 복구되고 복구된 태스크가 반환된다") {
                     verify(exactly = 1) { taskRepository.restoreById(800L) }
+                    response.id shouldBe 800L
+                    response.name shouldBe "복구 대상"
                 }
             }
 

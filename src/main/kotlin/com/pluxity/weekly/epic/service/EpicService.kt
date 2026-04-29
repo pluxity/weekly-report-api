@@ -106,7 +106,7 @@ class EpicService(
     }
 
     @Transactional
-    fun restore(id: Long) {
+    fun restore(id: Long): EpicResponse {
         val user = authorizationService.currentUser()
         val projectId = epicRepository.findProjectIdRawById(id)
             ?: throw CustomException(ErrorCode.NOT_FOUND_EPIC, id)
@@ -117,6 +117,8 @@ class EpicService(
 
         epicRepository.restoreById(id)
         taskRepository.restoreByEpicId(id)
+
+        return findById(id)
     }
 
     private fun getEpicById(id: Long): Epic =

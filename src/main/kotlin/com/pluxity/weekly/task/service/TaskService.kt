@@ -106,7 +106,7 @@ class TaskService(
     }
 
     @Transactional
-    fun restore(id: Long) {
+    fun restore(id: Long): TaskResponse {
         val user = authorizationService.currentUser()
         val task = taskRepository.findRawById(id)
             ?: throw CustomException(ErrorCode.NOT_FOUND_TASK, id)
@@ -119,6 +119,8 @@ class TaskService(
         authorizationService.requireTaskOwner(user, task)
 
         taskRepository.restoreById(id)
+
+        return findById(id)
     }
 
     private fun ensureUniqueTaskName(

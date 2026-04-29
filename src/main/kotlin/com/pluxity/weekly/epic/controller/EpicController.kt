@@ -119,10 +119,10 @@ class EpicController(
         return ResponseEntity.noContent().build()
     }
 
-    @Operation(summary = "업무 그룹 복구", description = "소프트 삭제된 업무 그룹과 하위 태스크를 복구합니다")
+    @Operation(summary = "업무 그룹 복구", description = "소프트 삭제된 업무 그룹과 하위 태스크를 복구하고 복구된 업무 그룹을 반환합니다")
     @ApiResponses(
         value = [
-            ApiResponse(responseCode = "204", description = "복구 성공"),
+            ApiResponse(responseCode = "200", description = "복구 성공"),
             ApiResponse(
                 responseCode = "403",
                 description = "권한 없음",
@@ -138,10 +138,7 @@ class EpicController(
     @PostMapping("/{id}/restore")
     fun restore(
         @PathVariable id: Long,
-    ): ResponseEntity<Void> {
-        service.restore(id)
-        return ResponseEntity.noContent().build()
-    }
+    ): ResponseEntity<DataResponseBody<EpicResponse>> = ResponseEntity.ok(DataResponseBody(service.restore(id)))
 
     @Operation(summary = "업무 그룹 배정 목록 조회", description = "업무 그룹에 배정된 사용자 목록을 조회합니다")
     @ApiResponses(
