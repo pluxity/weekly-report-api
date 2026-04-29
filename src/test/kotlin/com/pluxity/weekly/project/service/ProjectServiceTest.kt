@@ -22,6 +22,7 @@ import io.mockk.just
 import io.mockk.mockk
 import io.mockk.runs
 import io.mockk.verify
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.data.repository.findByIdOrNull
 import java.time.LocalDate
 
@@ -32,7 +33,8 @@ class ProjectServiceTest :
         val epicRepository: EpicRepository = mockk()
         val userRepository: UserRepository = mockk()
         val authorizationService: AuthorizationService = mockk()
-        val service = ProjectService(projectRepository, epicRepository, userRepository, authorizationService)
+        val eventPublisher: ApplicationEventPublisher = mockk(relaxed = true)
+        val service = ProjectService(projectRepository, epicRepository, userRepository, authorizationService, eventPublisher)
 
         val adminUser =
             dummyUser(id = 1L, name = "관리자").apply {

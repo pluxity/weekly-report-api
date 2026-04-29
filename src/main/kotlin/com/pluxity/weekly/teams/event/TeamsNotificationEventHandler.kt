@@ -2,6 +2,7 @@ package com.pluxity.weekly.teams.event
 
 import com.pluxity.weekly.epic.event.EpicAssignedEvent
 import com.pluxity.weekly.epic.event.EpicUnassignedEvent
+import com.pluxity.weekly.project.event.ProjectPmAssignedEvent
 import com.pluxity.weekly.task.event.TaskApprovedEvent
 import com.pluxity.weekly.task.event.TaskRejectedEvent
 import com.pluxity.weekly.task.event.TaskReviewRequestedEvent
@@ -43,6 +44,15 @@ class TeamsNotificationEventHandler(
             userId = event.userId,
             type = TeamsNotificationType.EPIC_UNASSIGN,
             message = "${event.epicName} 업무 그룹 배정이 해제되었습니다.",
+        )
+    }
+
+    @EventListener
+    fun on(event: ProjectPmAssignedEvent) {
+        publishNotification(
+            userId = event.pmId,
+            type = TeamsNotificationType.PROJECT_PM_ASSIGN,
+            message = "${event.projectName} 프로젝트의 PM으로 배정되었습니다.",
         )
     }
 
