@@ -38,6 +38,8 @@ enum class ErrorCode(
     INVALID_DATE_RANGE(HttpStatus.BAD_REQUEST, "시작일(%s)이 마감일(%s)보다 늦을 수 없습니다."),
     EPIC_NOT_ALL_DONE(HttpStatus.BAD_REQUEST, "프로젝트를 완료하려면 모든 하위 업무 그룹을 먼저 완료해야 합니다."),
     TASK_NOT_ALL_DONE(HttpStatus.BAD_REQUEST, "업무 그룹을 완료하려면 모든 하위 태스크를 먼저 완료해야 합니다."),
+    PARENT_PROJECT_DELETED(HttpStatus.BAD_REQUEST, "상위 프로젝트가 삭제 상태입니다. 프로젝트부터 복구해주세요."),
+    PARENT_EPIC_DELETED(HttpStatus.BAD_REQUEST, "상위 업무 그룹이 삭제 상태입니다. 업무 그룹부터 복구해주세요."),
 
     // ── Chat / LLM ──
     LLM_SERVICE_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "LLM 서비스에 연결할 수 없습니다."),

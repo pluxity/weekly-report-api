@@ -7,6 +7,7 @@ import com.pluxity.weekly.chat.dto.ChatTarget
 import com.pluxity.weekly.core.constant.ErrorCode
 import com.pluxity.weekly.core.exception.CustomException
 import com.pluxity.weekly.epic.repository.EpicRepository
+import com.pluxity.weekly.project.entity.Project
 import com.pluxity.weekly.project.repository.ProjectRepository
 import com.pluxity.weekly.task.entity.Task
 import org.springframework.security.core.context.SecurityContextHolder
@@ -53,6 +54,17 @@ class AuthorizationService(
     ) {
         if (user.hasRole(UserType.ADMIN)) return
         if (user.isProjectManager() && projectRepository.existsByIdAndPmId(projectId, user.requiredId)) return
+        throw CustomException(ErrorCode.PERMISSION_DENIED)
+    }
+
+    /** soft-deleted 프로젝트에도 동작하도록 엔티티를 직접 받는 오버로드 — 복구 흐름용 */
+    fun requireProjectManager(
+        user: User,
+        project: Project,
+    ) {
+        if (user.hasRole(UserType.ADMIN)) return
+        val pmId = project.pmId
+        if (user.isProjectManager() && pmId != null && pmId == user.requiredId) return
         throw CustomException(ErrorCode.PERMISSION_DENIED)
     }
 
@@ -110,6 +122,7 @@ class AuthorizationService(
         if (user.isProjectManager() && pmId != null && pmId == user.requiredId) return
         throw CustomException(ErrorCode.PERMISSION_DENIED)
     }
+
 
     /** target + action 조합의 사전 권한 체크 — Chat context 빌드 전 호출 */
     fun checkChatPermission(

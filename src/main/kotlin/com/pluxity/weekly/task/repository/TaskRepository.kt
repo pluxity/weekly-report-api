@@ -5,6 +5,9 @@ import com.pluxity.weekly.task.entity.Task
 import com.pluxity.weekly.task.entity.TaskStatus
 import org.springframework.data.jpa.repository.EntityGraph
 import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.jpa.repository.Modifying
+import org.springframework.data.jpa.repository.Query
+import org.springframework.data.repository.query.Param
 
 interface TaskRepository :
     JpaRepository<Task, Long>,
@@ -43,4 +46,62 @@ interface TaskRepository :
         epicId: Long,
         assigneeId: Long,
     )
+
+    @Query(value = "SELECT * FROM tasks WHERE id = :id", nativeQuery = true)
+    fun findRawById(
+        @Param("id") id: Long,
+    ): Task?
+
+    @Query(
+        value = """
+            SELECT EXISTS(
+              SELECT 1 FROM tasks t
+              JOIN epics e ON t.epic_id = e.id
+              WHERE t.id = :id AND e.deleted = true
+            )
+        """,
+        nativeQuery = true,
+    )
+    fun isParentEpicDeletedByTaskId(
+        @Param("id") id: Long,
+    ): Boolean
+
+    @Query(
+        value = """
+            SELECT EXISTS(
+              SELECT 1 FROM tasks t
+              JOIN epics e ON t.epic_id = e.id
+              JOIN projects p ON e.project_id = p.id
+              WHERE t.id = :id AND p.deleted = true
+            )
+        """,
+        nativeQuery = true,
+    )
+    fun isParentProjectDeletedByTaskId(
+        @Param("id") id: Long,
+    ): Boolean
+
+    @Modifying
+    @Query(value = "UPDATE tasks SET deleted = false WHERE id = :id", nativeQuery = true)
+    fun restoreById(
+        @Param("id") id: Long,
+    ): Int
+
+    @Modifying
+    @Query(value = "UPDATE tasks SET deleted = false WHERE epic_id = :epicId", nativeQuery = true)
+    fun restoreByEpicId(
+        @Param("epicId") epicId: Long,
+    ): Int
+
+    @Modifying
+    @Query(
+        value = """
+            UPDATE tasks SET deleted = false
+            WHERE epic_id IN (SELECT id FROM epics WHERE project_id = :projectId)
+        """,
+        nativeQuery = true,
+    )
+    fun restoreByProjectId(
+        @Param("projectId") projectId: Long,
+    ): Int
 }

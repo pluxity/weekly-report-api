@@ -378,4 +378,51 @@ class EpicServiceTest :
                 }
             }
         }
+
+        Given("에픽 복구") {
+            When("존재하는 에픽을 복구하면 (부모 프로젝트 alive)") {
+                every { epicRepository.findProjectIdRawById(710L) } returns 700L
+                every { epicRepository.isParentProjectDeletedByEpicId(710L) } returns false
+                every { epicRepository.restoreById(710L) } returns 1
+                every { taskRepository.restoreByEpicId(710L) } returns 0
+
+                service.restore(710L)
+
+                Then("에픽 + 하위 태스크 모두 복구된다") {
+                    verify(exactly = 1) { epicRepository.restoreById(710L) }
+                    verify(exactly = 1) { taskRepository.restoreByEpicId(710L) }
+                }
+            }
+
+            When("부모 프로젝트가 삭제 상태이면") {
+                every { epicRepository.findProjectIdRawById(720L) } returns 700L
+                every { epicRepository.isParentProjectDeletedByEpicId(720L) } returns true
+
+                val exception =
+                    shouldThrow<CustomException> {
+                        service.restore(720L)
+                    }
+
+                Then("PARENT_PROJECT_DELETED 예외가 발생하고 복구 쿼리가 실행되지 않는다") {
+                    exception.code shouldBe ErrorCode.PARENT_PROJECT_DELETED
+                    verify(exactly = 0) { epicRepository.restoreById(720L) }
+                    verify(exactly = 0) { taskRepository.restoreByEpicId(720L) }
+                }
+            }
+
+            When("존재하지 않는 에픽을 복구하면") {
+                every { epicRepository.findProjectIdRawById(999L) } returns null
+
+                val exception =
+                    shouldThrow<CustomException> {
+                        service.restore(999L)
+                    }
+
+                Then("NOT_FOUND_EPIC 예외가 발생하고 어떤 복구 쿼리도 실행되지 않는다") {
+                    exception.code shouldBe ErrorCode.NOT_FOUND_EPIC
+                    verify(exactly = 0) { epicRepository.restoreById(any()) }
+                    verify(exactly = 0) { taskRepository.restoreByEpicId(any()) }
+                }
+            }
+        }
     })

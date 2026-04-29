@@ -105,6 +105,20 @@ class EpicService(
         epicRepository.delete(epic)
     }
 
+    @Transactional
+    fun restore(id: Long) {
+        val user = authorizationService.currentUser()
+        val projectId = epicRepository.findProjectIdRawById(id)
+            ?: throw CustomException(ErrorCode.NOT_FOUND_EPIC, id)
+        if (epicRepository.isParentProjectDeletedByEpicId(id)) {
+            throw CustomException(ErrorCode.PARENT_PROJECT_DELETED)
+        }
+        authorizationService.requireEpicManage(user, projectId)
+
+        epicRepository.restoreById(id)
+        taskRepository.restoreByEpicId(id)
+    }
+
     private fun getEpicById(id: Long): Epic =
         epicRepository.findByIdOrNull(id)
             ?: throw CustomException(ErrorCode.NOT_FOUND_EPIC, id)

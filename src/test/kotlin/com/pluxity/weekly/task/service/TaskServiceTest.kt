@@ -482,4 +482,67 @@ class TaskServiceTest :
                 }
             }
         }
+
+        Given("태스크 복구") {
+            When("존재하는 태스크를 복구하면 (부모 모두 alive)") {
+                val task = dummyTask(id = 800L, name = "복구 대상")
+                every { taskRepository.findRawById(800L) } returns task
+                every { taskRepository.isParentProjectDeletedByTaskId(800L) } returns false
+                every { taskRepository.isParentEpicDeletedByTaskId(800L) } returns false
+                every { taskRepository.restoreById(800L) } returns 1
+
+                service.restore(800L)
+
+                Then("태스크가 복구된다") {
+                    verify(exactly = 1) { taskRepository.restoreById(800L) }
+                }
+            }
+
+            When("부모 업무 그룹이 삭제 상태이면") {
+                val task = dummyTask(id = 810L)
+                every { taskRepository.findRawById(810L) } returns task
+                every { taskRepository.isParentProjectDeletedByTaskId(810L) } returns false
+                every { taskRepository.isParentEpicDeletedByTaskId(810L) } returns true
+
+                val exception =
+                    shouldThrow<CustomException> {
+                        service.restore(810L)
+                    }
+
+                Then("PARENT_EPIC_DELETED 예외가 발생하고 복구 쿼리가 실행되지 않는다") {
+                    exception.code shouldBe ErrorCode.PARENT_EPIC_DELETED
+                    verify(exactly = 0) { taskRepository.restoreById(810L) }
+                }
+            }
+
+            When("부모 프로젝트가 삭제 상태이면") {
+                val task = dummyTask(id = 820L)
+                every { taskRepository.findRawById(820L) } returns task
+                every { taskRepository.isParentProjectDeletedByTaskId(820L) } returns true
+
+                val exception =
+                    shouldThrow<CustomException> {
+                        service.restore(820L)
+                    }
+
+                Then("PARENT_PROJECT_DELETED 예외가 발생한다") {
+                    exception.code shouldBe ErrorCode.PARENT_PROJECT_DELETED
+                    verify(exactly = 0) { taskRepository.restoreById(820L) }
+                }
+            }
+
+            When("존재하지 않는 태스크를 복구하면") {
+                every { taskRepository.findRawById(999L) } returns null
+
+                val exception =
+                    shouldThrow<CustomException> {
+                        service.restore(999L)
+                    }
+
+                Then("NOT_FOUND_TASK 예외가 발생하고 복구 쿼리는 실행되지 않는다") {
+                    exception.code shouldBe ErrorCode.NOT_FOUND_TASK
+                    verify(exactly = 0) { taskRepository.restoreById(any()) }
+                }
+            }
+        }
     })

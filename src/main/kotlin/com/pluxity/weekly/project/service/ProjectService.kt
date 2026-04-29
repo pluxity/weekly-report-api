@@ -15,6 +15,7 @@ import com.pluxity.weekly.project.entity.Project
 import com.pluxity.weekly.project.entity.ProjectStatus
 import com.pluxity.weekly.project.event.ProjectPmAssignedEvent
 import com.pluxity.weekly.project.repository.ProjectRepository
+import com.pluxity.weekly.task.repository.TaskRepository
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
@@ -25,6 +26,7 @@ import org.springframework.transaction.annotation.Transactional
 class ProjectService(
     private val projectRepository: ProjectRepository,
     private val epicRepository: EpicRepository,
+    private val taskRepository: TaskRepository,
     private val userRepository: UserRepository,
     private val authorizationService: AuthorizationService,
     private val eventPublisher: ApplicationEventPublisher,
@@ -119,6 +121,18 @@ class ProjectService(
         val user = authorizationService.currentUser()
         authorizationService.requireProjectManager(user, id)
         projectRepository.delete(getById(id))
+    }
+
+    @Transactional
+    fun restore(id: Long) {
+        val user = authorizationService.currentUser()
+        val project = projectRepository.findRawById(id)
+            ?: throw CustomException(ErrorCode.NOT_FOUND_PROJECT, id)
+        authorizationService.requireProjectManager(user, project)
+
+        projectRepository.restoreById(id)
+        epicRepository.restoreByProjectId(id)
+        taskRepository.restoreByProjectId(id)
     }
 
     private fun getById(id: Long): Project =
