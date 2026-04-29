@@ -22,10 +22,24 @@ interface EpicRepository :
 
     fun findByProjectIdIn(projectIds: List<Long>): List<Epic>
 
-    @Query(value = "SELECT * FROM epics WHERE id = :id", nativeQuery = true)
-    fun findRawById(
+    @Query(value = "SELECT project_id FROM epics WHERE id = :id", nativeQuery = true)
+    fun findProjectIdRawById(
         @Param("id") id: Long,
-    ): Epic?
+    ): Long?
+
+    @Query(
+        value = """
+            SELECT EXISTS(
+              SELECT 1 FROM epics e
+              JOIN projects p ON e.project_id = p.id
+              WHERE e.id = :id AND p.deleted = true
+            )
+        """,
+        nativeQuery = true,
+    )
+    fun isParentProjectDeletedByEpicId(
+        @Param("id") id: Long,
+    ): Boolean
 
     @Modifying
     @Query(value = "UPDATE epics SET deleted = false WHERE id = :id", nativeQuery = true)

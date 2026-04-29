@@ -52,6 +52,35 @@ interface TaskRepository :
         @Param("id") id: Long,
     ): Task?
 
+    @Query(
+        value = """
+            SELECT EXISTS(
+              SELECT 1 FROM tasks t
+              JOIN epics e ON t.epic_id = e.id
+              WHERE t.id = :id AND e.deleted = true
+            )
+        """,
+        nativeQuery = true,
+    )
+    fun isParentEpicDeletedByTaskId(
+        @Param("id") id: Long,
+    ): Boolean
+
+    @Query(
+        value = """
+            SELECT EXISTS(
+              SELECT 1 FROM tasks t
+              JOIN epics e ON t.epic_id = e.id
+              JOIN projects p ON e.project_id = p.id
+              WHERE t.id = :id AND p.deleted = true
+            )
+        """,
+        nativeQuery = true,
+    )
+    fun isParentProjectDeletedByTaskId(
+        @Param("id") id: Long,
+    ): Boolean
+
     @Modifying
     @Query(value = "UPDATE tasks SET deleted = false WHERE id = :id", nativeQuery = true)
     fun restoreById(
