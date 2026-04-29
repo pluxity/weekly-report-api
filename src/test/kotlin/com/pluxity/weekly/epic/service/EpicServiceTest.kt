@@ -378,4 +378,36 @@ class EpicServiceTest :
                 }
             }
         }
+
+        Given("에픽 복구") {
+            When("존재하는 에픽을 복구하면") {
+                val parent = dummyProject(id = 700L, pmId = 1L)
+                val entity = dummyEpic(id = 710L, project = parent, name = "복구 대상")
+                every { epicRepository.findRawById(710L) } returns entity
+                every { epicRepository.restoreById(710L) } returns 1
+                every { taskRepository.restoreByEpicId(710L) } returns 0
+
+                service.restore(710L)
+
+                Then("에픽 + 하위 태스크 모두 복구된다") {
+                    verify(exactly = 1) { epicRepository.restoreById(710L) }
+                    verify(exactly = 1) { taskRepository.restoreByEpicId(710L) }
+                }
+            }
+
+            When("존재하지 않는 에픽을 복구하면") {
+                every { epicRepository.findRawById(999L) } returns null
+
+                val exception =
+                    shouldThrow<CustomException> {
+                        service.restore(999L)
+                    }
+
+                Then("NOT_FOUND_EPIC 예외가 발생하고 어떤 복구 쿼리도 실행되지 않는다") {
+                    exception.code shouldBe ErrorCode.NOT_FOUND_EPIC
+                    verify(exactly = 0) { epicRepository.restoreById(any()) }
+                    verify(exactly = 0) { taskRepository.restoreByEpicId(any()) }
+                }
+            }
+        }
     })

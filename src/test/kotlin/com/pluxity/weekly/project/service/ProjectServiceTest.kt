@@ -13,6 +13,7 @@ import com.pluxity.weekly.project.entity.ProjectStatus
 import com.pluxity.weekly.project.entity.dummyProject
 import com.pluxity.weekly.project.event.ProjectPmAssignedEvent
 import com.pluxity.weekly.project.repository.ProjectRepository
+import com.pluxity.weekly.task.repository.TaskRepository
 import com.pluxity.weekly.test.entity.dummyRole
 import com.pluxity.weekly.test.entity.dummyUser
 import io.kotest.assertions.throwables.shouldThrow
@@ -32,10 +33,19 @@ class ProjectServiceTest :
 
         val projectRepository: ProjectRepository = mockk()
         val epicRepository: EpicRepository = mockk()
+        val taskRepository: TaskRepository = mockk()
         val userRepository: UserRepository = mockk()
         val authorizationService: AuthorizationService = mockk()
         val eventPublisher: ApplicationEventPublisher = mockk(relaxed = true)
-        val service = ProjectService(projectRepository, epicRepository, userRepository, authorizationService, eventPublisher)
+        val service =
+            ProjectService(
+                projectRepository,
+                epicRepository,
+                taskRepository,
+                userRepository,
+                authorizationService,
+                eventPublisher,
+            )
 
         val adminUser =
             dummyUser(id = 1L, name = "관리자").apply {
@@ -44,7 +54,8 @@ class ProjectServiceTest :
 
         beforeSpec {
             every { authorizationService.currentUser() } returns adminUser
-            every { authorizationService.requireProjectManager(any(), any()) } just runs
+            every { authorizationService.requireProjectManager(any(), any<Long>()) } just runs
+            every { authorizationService.requireProjectManager(any(), any<Project>()) } just runs
             every { authorizationService.requireAdmin(any()) } just runs
             every { authorizationService.visibleProjectIds(any()) } returns null
         }
@@ -409,6 +420,40 @@ class ProjectServiceTest :
                             match<ProjectPmAssignedEvent> { it.projectId == 312L },
                         )
                     }
+                }
+            }
+        }
+
+        Given("프로젝트 복구") {
+            When("존재하는 프로젝트를 복구하면") {
+                val entity = dummyProject(id = 600L, name = "복구 대상", pmId = 1L)
+                every { projectRepository.findRawById(600L) } returns entity
+                every { projectRepository.restoreById(600L) } returns 1
+                every { epicRepository.restoreByProjectId(600L) } returns 0
+                every { taskRepository.restoreByProjectId(600L) } returns 0
+
+                service.restore(600L)
+
+                Then("프로젝트 + 하위 에픽 + 하위 태스크 모두 복구된다") {
+                    verify(exactly = 1) { projectRepository.restoreById(600L) }
+                    verify(exactly = 1) { epicRepository.restoreByProjectId(600L) }
+                    verify(exactly = 1) { taskRepository.restoreByProjectId(600L) }
+                }
+            }
+
+            When("존재하지 않는 프로젝트를 복구하면") {
+                every { projectRepository.findRawById(999L) } returns null
+
+                val exception =
+                    shouldThrow<CustomException> {
+                        service.restore(999L)
+                    }
+
+                Then("NOT_FOUND_PROJECT 예외가 발생하고 어떤 복구 쿼리도 실행되지 않는다") {
+                    exception.code shouldBe ErrorCode.NOT_FOUND_PROJECT
+                    verify(exactly = 0) { projectRepository.restoreById(any()) }
+                    verify(exactly = 0) { epicRepository.restoreByProjectId(any()) }
+                    verify(exactly = 0) { taskRepository.restoreByProjectId(any()) }
                 }
             }
         }

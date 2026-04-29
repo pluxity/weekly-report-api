@@ -105,6 +105,16 @@ class TaskService(
         taskRepository.delete(task)
     }
 
+    @Transactional
+    fun restore(id: Long) {
+        val user = authorizationService.currentUser()
+        val task = taskRepository.findRawById(id)
+            ?: throw CustomException(ErrorCode.NOT_FOUND_TASK, id)
+        authorizationService.requireTaskOwner(user, task)
+
+        taskRepository.restoreById(id)
+    }
+
     private fun ensureUniqueTaskName(
         epicId: Long,
         name: String,
