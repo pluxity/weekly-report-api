@@ -6,4 +6,5 @@ enum class TeamsNotificationType {
     TASK_REJECT,
     EPIC_ASSIGN,
     EPIC_UNASSIGN,
+    PROJECT_PM_ASSIGN,
 }

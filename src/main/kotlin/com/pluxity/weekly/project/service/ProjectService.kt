@@ -13,7 +13,9 @@ import com.pluxity.weekly.project.dto.ProjectUpdateRequest
 import com.pluxity.weekly.project.dto.toResponse
 import com.pluxity.weekly.project.entity.Project
 import com.pluxity.weekly.project.entity.ProjectStatus
+import com.pluxity.weekly.project.event.ProjectPmAssignedEvent
 import com.pluxity.weekly.project.repository.ProjectRepository
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -25,6 +27,7 @@ class ProjectService(
     private val epicRepository: EpicRepository,
     private val userRepository: UserRepository,
     private val authorizationService: AuthorizationService,
+    private val eventPublisher: ApplicationEventPublisher,
 ) {
     fun findAll(): List<ProjectResponse> = search(ProjectSearchFilter())
 
@@ -58,17 +61,20 @@ class ProjectService(
             throw CustomException(ErrorCode.INVALID_INITIAL_STATUS, request.status)
         }
         request.pmId?.let { ensurePmExists(it) }
-        return projectRepository
-            .save(
-                Project(
-                    name = request.name,
-                    description = request.description,
-                    status = request.status,
-                    startDate = request.startDate,
-                    dueDate = request.dueDate,
-                    pmId = request.pmId,
-                ),
-            ).requiredId
+        val project =
+            projectRepository
+                .save(
+                    Project(
+                        name = request.name,
+                        description = request.description,
+                        status = request.status,
+                        startDate = request.startDate,
+                        dueDate = request.dueDate,
+                        pmId = request.pmId,
+                    ),
+                )
+        request.pmId?.let { publishPmAssigned(it, project) }
+        return project.requiredId
     }
 
     @Transactional
@@ -81,6 +87,7 @@ class ProjectService(
         val project = getById(id)
         project.ensureMutable()
         request.pmId?.let { ensurePmExists(it) }
+        val previousPmId = project.pmId
 
         request.status?.let { newStatus ->
             val allEpicsDone =
@@ -101,6 +108,10 @@ class ProjectService(
             dueDate = request.dueDate,
             pmId = request.pmId,
         )
+
+        request.pmId
+            ?.takeIf { it != previousPmId }
+            ?.let { publishPmAssigned(it, project) }
     }
 
     @Transactional
@@ -118,6 +129,19 @@ class ProjectService(
         if (!userRepository.existsById(pmId)) {
             throw CustomException(ErrorCode.NOT_FOUND_USER, pmId)
         }
+    }
+
+    private fun publishPmAssigned(
+        pmId: Long,
+        project: Project,
+    ) {
+        eventPublisher.publishEvent(
+            ProjectPmAssignedEvent(
+                pmId = pmId,
+                projectId = project.requiredId,
+                projectName = project.name,
+            ),
+        )
     }
 
     private fun resolvePmNames(pmIds: List<Long>): Map<Long, String> =

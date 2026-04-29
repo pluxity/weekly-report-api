@@ -1,6 +1,5 @@
 package com.pluxity.weekly.teams.event
 
-
 /**
  * Teams Proactive 알림 이벤트.
  *

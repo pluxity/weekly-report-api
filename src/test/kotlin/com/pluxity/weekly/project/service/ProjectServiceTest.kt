@@ -11,6 +11,7 @@ import com.pluxity.weekly.project.dto.dummyProjectUpdateRequest
 import com.pluxity.weekly.project.entity.Project
 import com.pluxity.weekly.project.entity.ProjectStatus
 import com.pluxity.weekly.project.entity.dummyProject
+import com.pluxity.weekly.project.event.ProjectPmAssignedEvent
 import com.pluxity.weekly.project.repository.ProjectRepository
 import com.pluxity.weekly.test.entity.dummyRole
 import com.pluxity.weekly.test.entity.dummyUser
@@ -22,6 +23,7 @@ import io.mockk.just
 import io.mockk.mockk
 import io.mockk.runs
 import io.mockk.verify
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.data.repository.findByIdOrNull
 import java.time.LocalDate
 
@@ -32,7 +34,8 @@ class ProjectServiceTest :
         val epicRepository: EpicRepository = mockk()
         val userRepository: UserRepository = mockk()
         val authorizationService: AuthorizationService = mockk()
-        val service = ProjectService(projectRepository, epicRepository, userRepository, authorizationService)
+        val eventPublisher: ApplicationEventPublisher = mockk(relaxed = true)
+        val service = ProjectService(projectRepository, epicRepository, userRepository, authorizationService, eventPublisher)
 
         val adminUser =
             dummyUser(id = 1L, name = "관리자").apply {
@@ -320,6 +323,92 @@ class ProjectServiceTest :
 
                 Then("EPIC_NOT_ALL_DONE 예외가 발생한다 (빈 컨테이너 차단)") {
                     exception.code shouldBe ErrorCode.EPIC_NOT_ALL_DONE
+                }
+            }
+        }
+
+        Given("PM 배정 이벤트 발행") {
+            When("create 시 pmId 가 있으면") {
+                val request = dummyProjectRequest(name = "새 프로젝트", pmId = 5L)
+                val saved = dummyProject(id = 300L, name = "새 프로젝트", pmId = 5L)
+                every { userRepository.existsById(5L) } returns true
+                every { projectRepository.save(any<Project>()) } returns saved
+
+                service.create(request)
+
+                Then("ProjectPmAssignedEvent 가 발행된다") {
+                    verify(exactly = 1) {
+                        eventPublisher.publishEvent(
+                            match<ProjectPmAssignedEvent> {
+                                it.pmId == 5L && it.projectId == 300L && it.projectName == "새 프로젝트"
+                            },
+                        )
+                    }
+                }
+            }
+
+            When("create 시 pmId 가 없으면") {
+                val request = dummyProjectRequest(name = "PM없는 프로젝트", pmId = null)
+                val saved = dummyProject(id = 301L, name = "PM없는 프로젝트", pmId = null)
+                every { projectRepository.save(any<Project>()) } returns saved
+
+                service.create(request)
+
+                Then("이벤트가 발행되지 않는다") {
+                    verify(exactly = 0) {
+                        eventPublisher.publishEvent(
+                            match<ProjectPmAssignedEvent> { it.projectId == 301L },
+                        )
+                    }
+                }
+            }
+
+            When("update 로 새 PM 을 배정하면") {
+                val entity = dummyProject(id = 310L, name = "PM 변경", pmId = 1L)
+                every { projectRepository.findByIdOrNull(310L) } returns entity
+                every { userRepository.existsById(2L) } returns true
+
+                service.update(310L, dummyProjectUpdateRequest(pmId = 2L))
+
+                Then("ProjectPmAssignedEvent 가 발행된다") {
+                    verify(exactly = 1) {
+                        eventPublisher.publishEvent(
+                            match<ProjectPmAssignedEvent> {
+                                it.pmId == 2L && it.projectId == 310L
+                            },
+                        )
+                    }
+                }
+            }
+
+            When("update 로 같은 PM 을 다시 지정하면") {
+                val entity = dummyProject(id = 311L, name = "동일 PM", pmId = 7L)
+                every { projectRepository.findByIdOrNull(311L) } returns entity
+                every { userRepository.existsById(7L) } returns true
+
+                service.update(311L, dummyProjectUpdateRequest(pmId = 7L))
+
+                Then("이벤트가 발행되지 않는다") {
+                    verify(exactly = 0) {
+                        eventPublisher.publishEvent(
+                            match<ProjectPmAssignedEvent> { it.projectId == 311L },
+                        )
+                    }
+                }
+            }
+
+            When("update 시 pmId 를 지정하지 않으면") {
+                val entity = dummyProject(id = 312L, name = "PM 미지정", pmId = 3L)
+                every { projectRepository.findByIdOrNull(312L) } returns entity
+
+                service.update(312L, dummyProjectUpdateRequest(name = "이름만 변경"))
+
+                Then("이벤트가 발행되지 않는다") {
+                    verify(exactly = 0) {
+                        eventPublisher.publishEvent(
+                            match<ProjectPmAssignedEvent> { it.projectId == 312L },
+                        )
+                    }
                 }
             }
         }

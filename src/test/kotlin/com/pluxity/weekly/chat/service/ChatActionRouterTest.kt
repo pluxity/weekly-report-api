@@ -147,7 +147,7 @@ class ChatActionRouterTest :
 
                 Then("ChatClarifyException 이 발생하고 form 이 만들어지지 않는다") {
                     val ex = shouldThrow<ChatClarifyException> { router.route(action) }
-                    ex.message shouldBe "태스크를 생성할 수 있는 에픽이 없습니다. 먼저 에픽에 참여해주세요."
+                    ex.message shouldBe "태스크를 생성할 수 있는 업무 그룹이 없습니다. 먼저 업무 그룹에 참여해주세요."
                     verify(exactly = 0) { chatDtoMapper.toDto(any()) }
                 }
             }
