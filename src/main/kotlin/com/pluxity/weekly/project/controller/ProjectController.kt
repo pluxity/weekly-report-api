@@ -115,4 +115,28 @@ class ProjectController(
         service.delete(id)
         return ResponseEntity.noContent().build()
     }
+
+    @Operation(summary = "프로젝트 복구", description = "소프트 삭제된 프로젝트와 하위 업무 그룹/태스크를 복구합니다")
+    @ApiResponses(
+        value = [
+            ApiResponse(responseCode = "204", description = "복구 성공"),
+            ApiResponse(
+                responseCode = "403",
+                description = "권한 없음",
+                content = [Content(mediaType = "application/json", schema = Schema(implementation = ErrorResponseBody::class))],
+            ),
+            ApiResponse(
+                responseCode = "404",
+                description = "프로젝트를 찾을 수 없음",
+                content = [Content(mediaType = "application/json", schema = Schema(implementation = ErrorResponseBody::class))],
+            ),
+        ],
+    )
+    @PostMapping("/{id}/restore")
+    fun restore(
+        @PathVariable id: Long,
+    ): ResponseEntity<Void> {
+        service.restore(id)
+        return ResponseEntity.noContent().build()
+    }
 }

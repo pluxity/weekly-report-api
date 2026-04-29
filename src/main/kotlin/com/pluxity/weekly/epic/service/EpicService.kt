@@ -105,6 +105,17 @@ class EpicService(
         epicRepository.delete(epic)
     }
 
+    @Transactional
+    fun restore(id: Long) {
+        val user = authorizationService.currentUser()
+        val epic = epicRepository.findRawById(id)
+            ?: throw CustomException(ErrorCode.NOT_FOUND_EPIC, id)
+        authorizationService.requireEpicManage(user, epic.project.requiredId)
+
+        epicRepository.restoreById(id)
+        taskRepository.restoreByEpicId(id)
+    }
+
     private fun getEpicById(id: Long): Epic =
         epicRepository.findByIdOrNull(id)
             ?: throw CustomException(ErrorCode.NOT_FOUND_EPIC, id)
