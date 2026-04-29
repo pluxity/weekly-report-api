@@ -482,4 +482,32 @@ class TaskServiceTest :
                 }
             }
         }
+
+        Given("태스크 복구") {
+            When("존재하는 태스크를 복구하면") {
+                val entity = dummyTask(id = 800L, name = "복구 대상")
+                every { taskRepository.findRawById(800L) } returns entity
+                every { taskRepository.restoreById(800L) } returns 1
+
+                service.restore(800L)
+
+                Then("태스크가 복구된다") {
+                    verify(exactly = 1) { taskRepository.restoreById(800L) }
+                }
+            }
+
+            When("존재하지 않는 태스크를 복구하면") {
+                every { taskRepository.findRawById(999L) } returns null
+
+                val exception =
+                    shouldThrow<CustomException> {
+                        service.restore(999L)
+                    }
+
+                Then("NOT_FOUND_TASK 예외가 발생하고 복구 쿼리는 실행되지 않는다") {
+                    exception.code shouldBe ErrorCode.NOT_FOUND_TASK
+                    verify(exactly = 0) { taskRepository.restoreById(any()) }
+                }
+            }
+        }
     })
