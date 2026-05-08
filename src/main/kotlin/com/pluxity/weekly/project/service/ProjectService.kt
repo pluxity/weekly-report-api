@@ -126,8 +126,9 @@ class ProjectService(
     @Transactional
     fun restore(id: Long): ProjectResponse {
         val user = authorizationService.currentUser()
-        val project = projectRepository.findRawById(id)
-            ?: throw CustomException(ErrorCode.NOT_FOUND_PROJECT, id)
+        val project =
+            projectRepository.findRawById(id)
+                ?: throw CustomException(ErrorCode.NOT_FOUND_PROJECT, id)
         authorizationService.requireProjectManager(user, project)
 
         projectRepository.restoreById(id)

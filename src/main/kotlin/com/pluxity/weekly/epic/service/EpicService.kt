@@ -108,8 +108,9 @@ class EpicService(
     @Transactional
     fun restore(id: Long): EpicResponse {
         val user = authorizationService.currentUser()
-        val projectId = epicRepository.findProjectIdRawById(id)
-            ?: throw CustomException(ErrorCode.NOT_FOUND_EPIC, id)
+        val projectId =
+            epicRepository.findProjectIdRawById(id)
+                ?: throw CustomException(ErrorCode.NOT_FOUND_EPIC, id)
         if (epicRepository.isParentProjectDeletedByEpicId(id)) {
             throw CustomException(ErrorCode.PARENT_PROJECT_DELETED)
         }

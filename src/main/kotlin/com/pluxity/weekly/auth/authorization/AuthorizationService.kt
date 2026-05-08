@@ -123,7 +123,6 @@ class AuthorizationService(
         throw CustomException(ErrorCode.PERMISSION_DENIED)
     }
 
-
     /** target + action 조합의 사전 권한 체크 — Chat context 빌드 전 호출 */
     fun checkChatPermission(
         user: User,

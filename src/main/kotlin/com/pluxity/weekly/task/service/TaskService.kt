@@ -108,8 +108,9 @@ class TaskService(
     @Transactional
     fun restore(id: Long): TaskResponse {
         val user = authorizationService.currentUser()
-        val task = taskRepository.findRawById(id)
-            ?: throw CustomException(ErrorCode.NOT_FOUND_TASK, id)
+        val task =
+            taskRepository.findRawById(id)
+                ?: throw CustomException(ErrorCode.NOT_FOUND_TASK, id)
         if (taskRepository.isParentProjectDeletedByTaskId(id)) {
             throw CustomException(ErrorCode.PARENT_PROJECT_DELETED)
         }
