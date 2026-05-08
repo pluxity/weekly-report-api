@@ -177,6 +177,9 @@ class SelectFieldResolver(
                 if ("epicId" !in existingFields) {
                     result.add(resolveEpicCandidates(emptyList()) ?: return)
                 }
+                if ("status" !in existingFields) {
+                    result.add(resolveStatusCandidates())
+                }
             }
             ChatTarget.TEAM, ChatTarget.REVIEW, null -> Unit
         }
