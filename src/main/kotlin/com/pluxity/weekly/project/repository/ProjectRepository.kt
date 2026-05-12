@@ -12,6 +12,8 @@ interface ProjectRepository :
     ProjectCustomRepository {
     fun findByPmId(pmId: Long): List<Project>
 
+    fun existsByPmId(pmId: Long): Boolean
+
     fun existsByIdAndPmId(
         id: Long,
         pmId: Long,

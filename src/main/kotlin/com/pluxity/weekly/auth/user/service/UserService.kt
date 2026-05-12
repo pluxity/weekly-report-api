@@ -19,6 +19,8 @@ import com.pluxity.weekly.auth.user.repository.UserRoleRepository
 import com.pluxity.weekly.core.constant.ErrorCode
 import com.pluxity.weekly.core.exception.CustomException
 import com.pluxity.weekly.core.utils.SortUtils
+import com.pluxity.weekly.project.repository.ProjectRepository
+import com.pluxity.weekly.team.repository.TeamRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.security.crypto.password.PasswordEncoder
@@ -37,6 +39,8 @@ class UserService(
     private val refreshTokenRepository: RefreshTokenRepository,
     private val userRoleRepository: UserRoleRepository,
     private val userProperties: UserProperties,
+    private val projectRepository: ProjectRepository,
+    private val teamRepository: TeamRepository,
 ) {
     fun findById(id: Long): UserResponse {
         val user = findUserById(id)
@@ -119,8 +123,15 @@ class UserService(
     @Transactional
     fun delete(id: Long) {
         val user = findUserById(id)
+        ensureNoActiveResponsibility(id)
         refreshTokenRepository.findByIdOrNull(user.username)?.let { refreshTokenRepository.delete(it) }
         userRepository.delete(user)
+    }
+
+    private fun ensureNoActiveResponsibility(userId: Long) {
+        if (projectRepository.existsByPmId(userId) || teamRepository.existsByLeaderId(userId)) {
+            throw CustomException(ErrorCode.USER_HAS_ACTIVE_RESPONSIBILITY)
+        }
     }
 
     /**

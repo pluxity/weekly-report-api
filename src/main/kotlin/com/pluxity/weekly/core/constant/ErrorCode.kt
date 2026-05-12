@@ -20,6 +20,10 @@ enum class ErrorCode(
     NOT_FOUND_ROLE(HttpStatus.NOT_FOUND, "ID가 %s인 Role을 찾을 수 없습니다."),
     DUPLICATE_ROLE(HttpStatus.BAD_REQUEST, "이미 할당된 Role입니다: %s"),
     NOT_FOUND_USER_ROLE(HttpStatus.NOT_FOUND, "사용자에게 할당되지 않은 Role입니다: %s"),
+    USER_HAS_ACTIVE_RESPONSIBILITY(
+        HttpStatus.CONFLICT,
+        "사용자가 프로젝트 PM 또는 팀 리더로 배정되어 있어 삭제할 수 없습니다. 먼저 다른 사용자로 인계해주세요.",
+    ),
 
     // ── Team ──
     NOT_FOUND_TEAM(HttpStatus.NOT_FOUND, "ID가 %s인 팀을 찾을 수 없습니다."),
