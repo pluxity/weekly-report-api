@@ -3,6 +3,7 @@ package com.pluxity.weekly.teams.config
 import com.pluxity.weekly.auth.authentication.security.CustomUserDetails
 import com.pluxity.weekly.auth.user.entity.User
 import com.pluxity.weekly.auth.user.repository.UserRepository
+import com.pluxity.weekly.auth.user.service.UserService
 import com.pluxity.weekly.teams.service.TeamsApiClient
 import io.github.oshai.kotlinlogging.KotlinLogging
 import jakarta.servlet.FilterChain
@@ -30,6 +31,7 @@ class TeamsAuthFilter(
     private val objectMapper: ObjectMapper,
     private val userRepository: UserRepository,
     private val teamsApiClient: TeamsApiClient,
+    private val userService: UserService,
 ) : OncePerRequestFilter() {
     override fun shouldNotFilter(request: HttpServletRequest): Boolean = !request.requestURI.endsWith("/teams/messages")
 
@@ -75,32 +77,21 @@ class TeamsAuthFilter(
     }
 
     private fun resolveUser(aadObjectId: String): User? {
-        // 1. aadObjectId로 직접 사용자 조회
         userRepository.findByAadObjectId(aadObjectId)?.let { return it }
 
-        // 2. Graph API로 사용자 정보 조회 → email 매칭
         val graphUser = teamsApiClient.getGraphUser(aadObjectId)
         if (graphUser == null) {
             log.warn { "Graph API 사용자 조회 실패 - aadObjectId: $aadObjectId" }
             return null
         }
 
-        log.info { "Graph API 사용자 조회 성공 - mail: ${graphUser.mail}, displayName: ${graphUser.displayName}" }
-
-        val email = graphUser.mail
-        if (email.isNullOrBlank()) {
-            log.warn { "Graph API 응답에 mail 없음 - aadObjectId: $aadObjectId" }
-            return null
-        }
-
-        val user = userRepository.findByEmail(email)
-        if (user == null) {
-            log.warn { "매칭되는 사용자 없음 - email: $email" }
-            return null
-        }
-
-        log.info { "Teams 사용자 매칭 성공 - aadObjectId: $aadObjectId → userId: ${user.requiredId}" }
-        return user
+        return userService.provisionFromTeams(
+            aadObjectId = aadObjectId,
+            displayName = graphUser.displayName,
+            email = graphUser.mail,
+            teamsServiceUrl = null,
+            teamsConversationId = null,
+        )
     }
 
     /**
