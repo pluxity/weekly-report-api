@@ -102,6 +102,7 @@ class UserServiceTest :
                             email = "x@external.com",
                             teamsServiceUrl = "https://teams",
                             teamsConversationId = "conv-1",
+                            phoneNumber = "010-1234-5678",
                         )
                     result.shouldBeNull()
                     verify(exactly = 0) { userRepository.save(any<User>()) }
@@ -111,10 +112,10 @@ class UserServiceTest :
             When("email 또는 displayName이 누락되면") {
                 Then("null 반환") {
                     service
-                        .provisionFromTeams("aad-1", displayName = null, email = "a@pluxity.com", null, null)
+                        .provisionFromTeams("aad-1", displayName = null, email = "a@pluxity.com", phoneNumber = "010-1111-2222", null, null)
                         .shouldBeNull()
                     service
-                        .provisionFromTeams("aad-1", displayName = "n", email = null, null, null)
+                        .provisionFromTeams("aad-1", displayName = "n", email = null, phoneNumber = null, null, null)
                         .shouldBeNull()
                 }
             }
@@ -132,6 +133,7 @@ class UserServiceTest :
                             aadObjectId = "aad-30",
                             displayName = "복원이름",
                             email = "a@pluxity.com",
+                            phoneNumber = "010-1234-5678",
                             teamsServiceUrl = "https://teams",
                             teamsConversationId = "conv-30",
                         )
@@ -153,6 +155,7 @@ class UserServiceTest :
                             aadObjectId = "aad-new",
                             displayName = "신규",
                             email = "new@pluxity.com",
+                            phoneNumber = "010-1234-5678",
                             teamsServiceUrl = "https://teams",
                             teamsConversationId = "conv-new",
                         )

@@ -145,6 +145,7 @@ class UserService(
         aadObjectId: String,
         displayName: String?,
         email: String?,
+        phoneNumber: String?,
         teamsServiceUrl: String?,
         teamsConversationId: String?,
     ): User? {
@@ -171,7 +172,7 @@ class UserService(
             return existing
         }
 
-        return createTeamsUser(aadObjectId, displayName, email, teamsServiceUrl, teamsConversationId)
+        return createTeamsUser(aadObjectId, displayName, email, phoneNumber, teamsServiceUrl, teamsConversationId)
     }
 
     private fun isEmailDomainAllowed(email: String): Boolean {
@@ -202,6 +203,7 @@ class UserService(
         aadObjectId: String,
         displayName: String,
         email: String,
+        phoneNumber: String?,
         teamsServiceUrl: String?,
         teamsConversationId: String?,
     ): User {
@@ -211,7 +213,7 @@ class UserService(
                 password = requireNotNull(passwordEncoder.encode(userProperties.initPassword)),
                 name = displayName,
                 code = null,
-                phoneNumber = null,
+                phoneNumber = phoneNumber,
                 email = email,
             )
         newUser.aadObjectId = aadObjectId

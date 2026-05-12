@@ -53,6 +53,7 @@ class TeamsMessageHandler(
                 aadObjectId = aadObjectId,
                 displayName = graphUser?.displayName ?: activity.from.name,
                 email = graphUser?.mail,
+                phoneNumber = graphUser?.mobilePhone,
                 teamsServiceUrl = serviceUrl,
                 teamsConversationId = conversationId,
             )

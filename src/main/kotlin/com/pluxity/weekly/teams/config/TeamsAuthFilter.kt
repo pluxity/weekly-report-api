@@ -112,6 +112,7 @@ class TeamsAuthFilter(
             aadObjectId = aadObjectId,
             displayName = graphUser.displayName,
             email = graphUser.mail,
+            phoneNumber = graphUser.mobilePhone,
             teamsServiceUrl = context.serviceUrl,
             teamsConversationId = context.conversationId,
         )

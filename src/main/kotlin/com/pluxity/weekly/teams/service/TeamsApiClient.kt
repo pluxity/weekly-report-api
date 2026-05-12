@@ -49,8 +49,7 @@ class TeamsApiClient(
                 displayName = response["displayName"] as? String,
                 mail = response["mail"] as? String,
                 userPrincipalName = response["userPrincipalName"] as? String,
-                jobTitle = response["jobTitle"] as? String,
-                department = response["department"] as? String,
+                mobilePhone = response["mobilePhone"] as? String,
             )
         } catch (e: Exception) {
             log.error(e) { "Graph API 사용자 조회 실패 - aadObjectId: $aadObjectId" }
@@ -179,6 +178,5 @@ data class GraphUser(
     val displayName: String?,
     val mail: String?,
     val userPrincipalName: String?,
-    val jobTitle: String?,
-    val department: String?,
+    val mobilePhone: String?,
 )
