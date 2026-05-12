@@ -158,7 +158,7 @@ class UserServiceTest :
                         )
                     result.shouldNotBeNull()
                     val saved = saveSlot.first()
-                    saved.username shouldBe "new@pluxity.com"
+                    saved.username shouldBe "new"
                     saved.email shouldBe "new@pluxity.com"
                     saved.aadObjectId shouldBe "aad-new"
                     saved.userRoles.any { it.role.name == RoleType.USER.roleName } shouldBe true

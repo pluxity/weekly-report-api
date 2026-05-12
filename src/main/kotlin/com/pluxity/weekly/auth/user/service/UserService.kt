@@ -207,7 +207,7 @@ class UserService(
     ): User {
         val newUser =
             User(
-                username = email,
+                username = email.substringBefore('@'),
                 password = requireNotNull(passwordEncoder.encode(userProperties.initPassword)),
                 name = displayName,
                 code = null,

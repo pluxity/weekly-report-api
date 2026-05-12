@@ -48,20 +48,14 @@ class TeamsAuthFilter(
         }
 
         val body = request.inputStream.readAllBytes()
-        val aadObjectId =
-            try {
-                val node: JsonNode = objectMapper.readTree(body)
-                node.path("from").path("aadObjectId").asString()
-            } catch (_: Exception) {
-                null
-            }
+        val context = parseActivityContext(body)
 
-        if (!aadObjectId.isNullOrBlank()) {
-            val user = resolveUser(aadObjectId)
+        if (!context.aadObjectId.isNullOrBlank()) {
+            val user = resolveUser(context)
             if (user != null) {
                 setSecurityContext(user)
             } else {
-                log.warn { "Teams 인증 실패 - 매칭되는 사용자 없음 (aadObjectId: $aadObjectId)" }
+                log.warn { "Teams 인증 실패 - 매칭되는 사용자 없음 (aadObjectId: ${context.aadObjectId})" }
             }
         } else {
             log.warn { "Teams 인증 실패 - aadObjectId 없음" }
@@ -70,13 +64,42 @@ class TeamsAuthFilter(
         filterChain.doFilter(CachedBodyRequestWrapper(request, body), response)
     }
 
+    private data class ActivityContext(
+        val aadObjectId: String?,
+        val serviceUrl: String?,
+        val conversationId: String?,
+    )
+
+    private fun parseActivityContext(body: ByteArray): ActivityContext =
+        try {
+            val node: JsonNode = objectMapper.readTree(body)
+            ActivityContext(
+                aadObjectId =
+                    node
+                        .path("from")
+                        .path("aadObjectId")
+                        .asString()
+                        .takeIf { it.isNotBlank() },
+                serviceUrl = node.path("serviceUrl").asString().takeIf { it.isNotBlank() },
+                conversationId =
+                    node
+                        .path("conversation")
+                        .path("id")
+                        .asString()
+                        .takeIf { it.isNotBlank() },
+            )
+        } catch (_: Exception) {
+            ActivityContext(null, null, null)
+        }
+
     private fun setSecurityContext(user: User) {
         val userDetails = CustomUserDetails(user)
         val auth = UsernamePasswordAuthenticationToken(userDetails, null, userDetails.authorities)
         SecurityContextHolder.getContext().authentication = auth
     }
 
-    private fun resolveUser(aadObjectId: String): User? {
+    private fun resolveUser(context: ActivityContext): User? {
+        val aadObjectId = context.aadObjectId ?: return null
         userRepository.findByAadObjectId(aadObjectId)?.let { return it }
 
         val graphUser = teamsApiClient.getGraphUser(aadObjectId)
@@ -89,8 +112,8 @@ class TeamsAuthFilter(
             aadObjectId = aadObjectId,
             displayName = graphUser.displayName,
             email = graphUser.mail,
-            teamsServiceUrl = null,
-            teamsConversationId = null,
+            teamsServiceUrl = context.serviceUrl,
+            teamsConversationId = context.conversationId,
         )
     }
 
