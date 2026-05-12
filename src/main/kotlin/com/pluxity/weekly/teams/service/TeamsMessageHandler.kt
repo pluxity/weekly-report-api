@@ -51,7 +51,7 @@ class TeamsMessageHandler(
             val graphUser = teamsApiClient.getGraphUser(aadObjectId)
             userService.provisionFromTeams(
                 aadObjectId = aadObjectId,
-                displayName = graphUser?.displayName ?: activity.from?.name,
+                displayName = graphUser?.displayName ?: activity.from.name,
                 email = graphUser?.mail,
                 teamsServiceUrl = serviceUrl,
                 teamsConversationId = conversationId,
