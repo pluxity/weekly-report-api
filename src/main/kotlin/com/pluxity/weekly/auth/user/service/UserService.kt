@@ -114,7 +114,7 @@ class UserService(
     @Transactional
     fun delete(id: Long) {
         val user = findUserById(id)
-        userRoleRepository.deleteAllByUser(user)
+        refreshTokenRepository.findByIdOrNull(user.username)?.let { refreshTokenRepository.delete(it) }
         userRepository.delete(user)
     }
 
