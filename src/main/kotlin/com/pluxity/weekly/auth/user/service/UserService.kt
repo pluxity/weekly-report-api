@@ -26,7 +26,6 @@ import org.springframework.data.repository.findByIdOrNull
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
-import java.util.UUID
 
 private val log = KotlinLogging.logger {}
 
@@ -209,7 +208,7 @@ class UserService(
         val newUser =
             User(
                 username = email,
-                password = requireNotNull(passwordEncoder.encode(UUID.randomUUID().toString())),
+                password = requireNotNull(passwordEncoder.encode(userProperties.initPassword)),
                 name = displayName,
                 code = null,
                 phoneNumber = null,
