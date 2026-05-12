@@ -57,7 +57,7 @@ interface UserRepository : JpaRepository<User, Long> {
     )
     fun findByAadObjectIdIncludingDeleted(aadObjectId: String): User?
 
-    @Modifying
+    @Modifying(clearAutomatically = true)
     @Query(
         value = "UPDATE users SET deleted = false WHERE id = :id",
         nativeQuery = true,
