@@ -4,6 +4,7 @@ import com.pluxity.weekly.auth.user.entity.User
 import org.springframework.data.domain.Sort
 import org.springframework.data.jpa.repository.EntityGraph
 import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
 
 interface UserRepository : JpaRepository<User, Long> {
@@ -49,4 +50,17 @@ interface UserRepository : JpaRepository<User, Long> {
             "ORDER BY u.name",
     )
     fun findAllByRoleName(roleName: String): List<User>
+
+    @Query(
+        value = "SELECT * FROM users WHERE aad_object_id = :aadObjectId",
+        nativeQuery = true,
+    )
+    fun findByAadObjectIdIncludingDeleted(aadObjectId: String): User?
+
+    @Modifying(clearAutomatically = true)
+    @Query(
+        value = "UPDATE users SET deleted = false WHERE id = :id",
+        nativeQuery = true,
+    )
+    fun restoreById(id: Long): Int
 }

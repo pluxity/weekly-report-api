@@ -49,4 +49,7 @@ springdoc:
   default-produces-media-type: application/json
 
 user:
-  init-password: qwer1234
+  init-password: pluxity123!@#
+  # Teams 자동 가입 시 허용할 회사 이메일 도메인
+  allowed-email-domains:
+    - pluxity.com

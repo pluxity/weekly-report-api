@@ -8,10 +8,12 @@ import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.OneToMany
 import jakarta.persistence.Table
+import org.hibernate.annotations.SoftDelete
 import java.time.LocalDateTime
 
 @Entity
 @Table(name = "users")
+@SoftDelete(columnName = "deleted")
 class User(
     @Column(nullable = false, unique = true)
     var username: String,

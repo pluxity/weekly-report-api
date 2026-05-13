@@ -10,4 +10,6 @@ interface RoleRepository : JpaRepository<Role, Long> {
 
     @EntityGraph(attributePaths = ["userRoles.user", "userRoles.role"])
     fun findAllByOrderByCreatedAtDesc(): List<Role>
+
+    fun findByName(name: String): Role?
 }
