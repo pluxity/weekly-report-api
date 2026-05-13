@@ -160,14 +160,14 @@ class TeamsMessageSender(
         private val BACKOFF: Duration = Duration.ofMillis(500)
 
         private val retrySpec: Retry =
-            Retry.fixedDelay(MAX_RETRIES, BACKOFF)
+            Retry
+                .fixedDelay(MAX_RETRIES, BACKOFF)
                 .filter { it.isRetryable() }
                 .doBeforeRetry { signal ->
                     log.warn {
                         "Teams 전송 재시도 ${signal.totalRetries() + 1}/$MAX_RETRIES — ${signal.failure().message}"
                     }
-                }
-                .onRetryExhaustedThrow { _, signal -> signal.failure() }
+                }.onRetryExhaustedThrow { _, signal -> signal.failure() }
 
         private fun Throwable.isRetryable(): Boolean =
             when (this) {

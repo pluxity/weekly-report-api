@@ -94,6 +94,5 @@ class TeamsNotificationLogController(
     @PostMapping("/{id}/retry")
     fun retry(
         @PathVariable id: Long,
-    ): ResponseEntity<DataResponseBody<TeamsNotificationLogResponse>> =
-        ResponseEntity.ok(DataResponseBody(service.retry(id)))
+    ): ResponseEntity<DataResponseBody<TeamsNotificationLogResponse>> = ResponseEntity.ok(DataResponseBody(service.retry(id)))
 }
