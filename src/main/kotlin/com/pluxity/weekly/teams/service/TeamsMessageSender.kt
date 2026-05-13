@@ -2,18 +2,26 @@ package com.pluxity.weekly.teams.service
 
 import com.pluxity.weekly.teams.dto.Activity
 import io.github.oshai.kotlinlogging.KotlinLogging
+import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Component
 import org.springframework.web.reactive.function.client.WebClient
 import org.springframework.web.reactive.function.client.WebClientResponseException
+import reactor.util.retry.Retry
+import java.io.IOException
 import java.net.URI
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
+import java.time.Duration
+import java.util.concurrent.TimeoutException
 
 private val log = KotlinLogging.logger {}
 
 /**
  * 봇 서버 → Teams 사용자에게 메시지를 전송하는 클라이언트.
  * 전송 실패 시 예외를 던지지 않고 로그만 남긴다 (Teams 사용자에게 에러를 전달할 수단이 없으므로).
+ *
+ * 일시적 오류(5xx, 408, 429, 네트워크 단절)는 500ms 간격으로 최대 3회 재시도한다.
+ * 4xx(408/429 제외)는 영구 실패로 간주하고 즉시 반환한다.
  */
 @Component
 class TeamsMessageSender(
@@ -110,6 +118,7 @@ class TeamsMessageSender(
                     .bodyValue(body)
                     .retrieve()
                     .toBodilessEntity()
+                    .retryWhen(retrySpec)
                     .block()
             log.info { "전송 성공: ${result?.statusCode}" }
             null
@@ -145,4 +154,32 @@ class TeamsMessageSender(
             )
             put("conversation", mapOf("id" to conversationId))
         }
+
+    companion object {
+        private const val MAX_RETRIES = 3L
+        private val BACKOFF: Duration = Duration.ofMillis(500)
+
+        private val retrySpec: Retry =
+            Retry.fixedDelay(MAX_RETRIES, BACKOFF)
+                .filter { it.isRetryable() }
+                .doBeforeRetry { signal ->
+                    log.warn {
+                        "Teams 전송 재시도 ${signal.totalRetries() + 1}/$MAX_RETRIES — ${signal.failure().message}"
+                    }
+                }
+                .onRetryExhaustedThrow { _, signal -> signal.failure() }
+
+        private fun Throwable.isRetryable(): Boolean =
+            when (this) {
+                is WebClientResponseException -> isTransientHttpStatus(statusCode.value())
+                is IOException -> true
+                is TimeoutException -> true
+                else -> false
+            }
+
+        private fun isTransientHttpStatus(status: Int): Boolean =
+            status >= HttpStatus.INTERNAL_SERVER_ERROR.value() ||
+                status == HttpStatus.REQUEST_TIMEOUT.value() ||
+                status == HttpStatus.TOO_MANY_REQUESTS.value()
+    }
 }
