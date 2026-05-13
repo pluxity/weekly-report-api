@@ -45,6 +45,9 @@ enum class ErrorCode(
     PARENT_PROJECT_DELETED(HttpStatus.BAD_REQUEST, "상위 프로젝트가 삭제 상태입니다. 프로젝트부터 복구해주세요."),
     PARENT_EPIC_DELETED(HttpStatus.BAD_REQUEST, "상위 업무 그룹이 삭제 상태입니다. 업무 그룹부터 복구해주세요."),
 
+    // ── Teams Notification ──
+    NOT_FOUND_TEAMS_NOTIFICATION(HttpStatus.NOT_FOUND, "ID가 %s인 Teams 알림을 찾을 수 없습니다."),
+
     // ── Chat / LLM ──
     LLM_SERVICE_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "LLM 서비스에 연결할 수 없습니다."),
     LLM_INVALID_RESPONSE(HttpStatus.INTERNAL_SERVER_ERROR, "LLM 응답을 파싱할 수 없습니다."),

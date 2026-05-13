@@ -6,6 +6,7 @@ import com.pluxity.weekly.core.exception.CustomException
 import com.pluxity.weekly.teams.entity.TeamsNotificationLog
 import com.pluxity.weekly.teams.entity.TeamsNotificationStatus
 import com.pluxity.weekly.teams.entity.TeamsNotificationType
+import com.pluxity.weekly.teams.event.TeamsNotificationEvent
 import com.pluxity.weekly.teams.repository.TeamsNotificationLogRepository
 import com.pluxity.weekly.test.entity.dummyUser
 import com.pluxity.weekly.test.withAudit
@@ -14,8 +15,11 @@ import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
 import io.mockk.every
+import io.mockk.just
 import io.mockk.mockk
+import io.mockk.runs
 import io.mockk.slot
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.data.domain.PageImpl
 import org.springframework.data.domain.PageRequest
 import org.springframework.data.repository.findByIdOrNull
@@ -26,7 +30,8 @@ class TeamsNotificationLogServiceTest :
 
         val logRepository: TeamsNotificationLogRepository = mockk()
         val authorizationService: AuthorizationService = mockk()
-        val service = TeamsNotificationLogService(logRepository, authorizationService)
+        val eventPublisher: ApplicationEventPublisher = mockk()
+        val service = TeamsNotificationLogService(logRepository, authorizationService, eventPublisher)
 
         Given("savePending") {
             When("로그를 PENDING 상태로 저장하면") {
@@ -146,6 +151,169 @@ class TeamsNotificationLogServiceTest :
                 val exception =
                     shouldThrow<CustomException> {
                         service.findMine(PageRequest.of(0, 20))
+                    }
+
+                Then("PERMISSION_DENIED 예외가 발생한다") {
+                    exception.code shouldBe ErrorCode.PERMISSION_DENIED
+                }
+            }
+        }
+
+        Given("findAllForAdmin") {
+            When("ADMIN 이 status 필터 없이 전체 조회하면") {
+                val admin = dummyUser(id = 1L, name = "admin")
+                val log1 =
+                    TeamsNotificationLog(
+                        userId = 10L,
+                        type = TeamsNotificationType.TASK_APPROVE,
+                        message = "승인",
+                    ).withId(2L)
+                val log2 =
+                    TeamsNotificationLog(
+                        userId = 11L,
+                        type = TeamsNotificationType.EPIC_ASSIGN,
+                        message = "배정",
+                    ).withId(1L)
+                val pageable = PageRequest.of(0, 20)
+                val page = PageImpl(listOf(log1, log2), pageable, 2)
+
+                every { authorizationService.currentUser() } returns admin
+                every { authorizationService.requireAdmin(admin) } just runs
+                every { logRepository.findAll(pageable) } returns page
+
+                val result = service.findAllForAdmin(null, pageable)
+
+                Then("전체 알림이 Response 로 반환된다") {
+                    result.content.size shouldBe 2
+                    result.totalElements shouldBe 2
+                }
+            }
+
+            When("ADMIN 이 status=FAILED 로 필터링하면") {
+                val admin = dummyUser(id = 1L, name = "admin")
+                val failedLog =
+                    TeamsNotificationLog(
+                        userId = 10L,
+                        type = TeamsNotificationType.TASK_REVIEW_REQUEST,
+                        message = "리뷰 요청",
+                        status = TeamsNotificationStatus.FAILED,
+                        failReason = "HTTP 500: boom",
+                    ).withId(7L)
+                val pageable = PageRequest.of(0, 20)
+                val page = PageImpl(listOf(failedLog), pageable, 1)
+
+                every { authorizationService.currentUser() } returns admin
+                every { authorizationService.requireAdmin(admin) } just runs
+                every { logRepository.findByStatus(TeamsNotificationStatus.FAILED, pageable) } returns page
+
+                val result = service.findAllForAdmin(TeamsNotificationStatus.FAILED, pageable)
+
+                Then("FAILED 알림만 반환된다") {
+                    result.content.size shouldBe 1
+                    result.content[0].id shouldBe 7L
+                    result.content[0].status shouldBe TeamsNotificationStatus.FAILED
+                    result.content[0].failReason shouldBe "HTTP 500: boom"
+                }
+            }
+
+            When("ADMIN 권한이 없으면") {
+                val nonAdmin = dummyUser(id = 5L, name = "일반")
+                every { authorizationService.currentUser() } returns nonAdmin
+                every {
+                    authorizationService.requireAdmin(nonAdmin)
+                } throws CustomException(ErrorCode.PERMISSION_DENIED)
+
+                val exception =
+                    shouldThrow<CustomException> {
+                        service.findAllForAdmin(null, PageRequest.of(0, 20))
+                    }
+
+                Then("PERMISSION_DENIED 예외가 발생한다") {
+                    exception.code shouldBe ErrorCode.PERMISSION_DENIED
+                }
+            }
+        }
+
+        Given("retry") {
+            When("ADMIN 이 FAILED 알림을 재시도하면") {
+                val log =
+                    TeamsNotificationLog(
+                        userId = 10L,
+                        type = TeamsNotificationType.EPIC_ASSIGN,
+                        message = "배정",
+                        status = TeamsNotificationStatus.FAILED,
+                        failReason = "HTTP 500: boom",
+                    ).withId(3L)
+                val admin = dummyUser(id = 1L, name = "admin")
+
+                every { authorizationService.currentUser() } returns admin
+                every { authorizationService.requireAdmin(admin) } just runs
+                every { logRepository.findByIdOrNull(3L) } returns log
+                val captured = slot<TeamsNotificationEvent>()
+                every { eventPublisher.publishEvent(capture(captured)) } just runs
+
+                val result = service.retry(3L)
+
+                Then("상태가 PENDING 으로 바뀌고 메시지만 담은 이벤트가 재발행된다") {
+                    log.status shouldBe TeamsNotificationStatus.PENDING
+                    log.failReason shouldBe null
+                    captured.captured.logId shouldBe 3L
+                    captured.captured.userId shouldBe 10L
+                    captured.captured.message shouldBe "배정"
+                    captured.captured.card shouldBe null
+                    result.status shouldBe TeamsNotificationStatus.PENDING
+                }
+            }
+
+            When("존재하지 않는 logId 이면") {
+                val admin = dummyUser(id = 1L, name = "admin")
+                every { authorizationService.currentUser() } returns admin
+                every { authorizationService.requireAdmin(admin) } just runs
+                every { logRepository.findByIdOrNull(999L) } returns null
+
+                val exception =
+                    shouldThrow<CustomException> {
+                        service.retry(999L)
+                    }
+
+                Then("NOT_FOUND_TEAMS_NOTIFICATION 예외가 발생한다") {
+                    exception.code shouldBe ErrorCode.NOT_FOUND_TEAMS_NOTIFICATION
+                }
+            }
+
+            When("FAILED 가 아닌 상태이면") {
+                val log =
+                    TeamsNotificationLog(
+                        userId = 10L,
+                        type = TeamsNotificationType.TASK_APPROVE,
+                        message = "승인",
+                        status = TeamsNotificationStatus.SENT,
+                    ).withId(8L)
+                val admin = dummyUser(id = 1L, name = "admin")
+                every { authorizationService.currentUser() } returns admin
+                every { authorizationService.requireAdmin(admin) } just runs
+                every { logRepository.findByIdOrNull(8L) } returns log
+
+                val exception =
+                    shouldThrow<CustomException> {
+                        service.retry(8L)
+                    }
+
+                Then("INVALID_STATUS_TRANSITION 예외가 발생한다") {
+                    exception.code shouldBe ErrorCode.INVALID_STATUS_TRANSITION
+                }
+            }
+
+            When("ADMIN 권한이 없으면") {
+                val nonAdmin = dummyUser(id = 5L, name = "일반")
+                every { authorizationService.currentUser() } returns nonAdmin
+                every {
+                    authorizationService.requireAdmin(nonAdmin)
+                } throws CustomException(ErrorCode.PERMISSION_DENIED)
+
+                val exception =
+                    shouldThrow<CustomException> {
+                        service.retry(1L)
                     }
 
                 Then("PERMISSION_DENIED 예외가 발생한다") {

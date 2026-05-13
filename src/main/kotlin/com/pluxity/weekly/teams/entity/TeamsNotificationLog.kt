@@ -32,4 +32,9 @@ class TeamsNotificationLog(
         status = TeamsNotificationStatus.FAILED
         failReason = reason?.take(1000)
     }
+
+    fun markPending() {
+        status = TeamsNotificationStatus.PENDING
+        failReason = null
+    }
 }
