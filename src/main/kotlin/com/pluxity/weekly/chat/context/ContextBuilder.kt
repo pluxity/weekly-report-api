@@ -139,7 +139,7 @@ class ContextBuilder(
                 today = today,
                 todayDayOfWeek = todayDayOfWeek,
                 user = user,
-                projects = groupByProject(activeEpics),
+                projects = groupByProjectWithMembers(activeEpics),
             )
         } else {
             val tasks =
@@ -173,14 +173,24 @@ class ContextBuilder(
             users = findAllUsers(),
         )
 
-    private fun groupByProject(epics: List<EpicResponse>): List<ProjectWithEpics> =
+    private fun groupByProjectWithMembers(epics: List<EpicResponse>): List<ProjectWithEpicsAndMembers> =
         epics
             .groupBy { it.projectId to it.projectName }
             .map { (key, epics) ->
-                ProjectWithEpics(
+                ProjectWithEpicsAndMembers(
                     id = key.first,
                     name = key.second,
-                    epics = epics.map { EpicRef(id = it.id, name = it.name) },
+                    epics =
+                        epics.map { epic ->
+                            EpicWithMembers(
+                                id = epic.id,
+                                name = epic.name,
+                                members =
+                                    epic.members.map {
+                                        UserRef(id = it.userId, name = it.userName)
+                                    },
+                            )
+                        },
                 )
             }
 

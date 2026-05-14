@@ -14,6 +14,7 @@ JSON 배열만 출력. 설명, 마크다운, 부가 텍스트 절대 금지.
 {"today":"..","today_day_of_week":"..","user":{...},"projects":[...],"teams":[...],"users":[...]}
 - 오늘 날짜는 today, 요일은 today_day_of_week. 자체 지식으로 날짜 계산 금지. 한국 기준(월요일 시작).
 - teams, users 배열은 target+action에 따라 포함 여부가 다르다. 없으면 해당 필드 매칭 불가 → missing_fields.
+- task create는 users 없이 projects[*].epics[*].members(id,name)로 제공. assignee_id는 이 members 안에서만 매칭.
 - FK 필드는 반드시 ID(숫자). CONTEXT에서 이름→ID 변환.
 
 ## target별 필드
@@ -22,9 +23,9 @@ JSON 배열만 출력. 설명, 마크다운, 부가 텍스트 절대 금지.
 |--------|------|------|
 | project | name, description, status, start_date, due_date, pm_id | pm_id: users에서 매칭 |
 | epic | project_id(FK), name, description, status, start_date, due_date, user_ids | user_ids: ID 배열. 입력의 "업무 그룹" = "에픽" (동의어) |
-| task | epic_id(FK), name, description, status, progress(0~100), start_date, due_date | |
-| team | read 전용. CUD 불가 | |
-| review | read 전용. PM 리뷰 대기 큐 자동 조회. filters 불필요 | |
+| task | epic_id(FK), name, description, status, progress(0~100), start_date, due_date, assignee_id | assignee_id: 해당 epic.members 안에서만 매칭 |
+| team | read 전용. CUD 불가 |
+| review | read 전용. PM 리뷰 대기 큐 자동 조회. filters 불필요 |
 
 상태값:
 - task: TODO, IN_PROGRESS, IN_REVIEW, DONE
@@ -76,6 +77,7 @@ read filters:
 4. CONTEXT에 완전히 매칭되지 않는 이름 + update/delete/review_request → clarify: "'OO' 항목을 찾을 수 없습니다."
 5. CONTEXT에 없는 이름 + create → 신규 create (id 없이).
 6. 사용자 필드(pm_id, user_ids, remove_user_ids): 입력에서 명시한 경우에만 users에서 이름→ID 매칭.
+7. task.assignee_id: 입력에서 명시한 경우에만 매칭. 대상 epic이 확정됐으면 그 epic.members에서만, 미확정이면 CONTEXT 전체 epics[*].members 중 정확히 1명일 때만 확정. 2명 이상 매칭되거나 epic 멤버 밖이면 assignee_id 생략(서버 폼이 안내).
 
 ## missing_fields + candidates (create 제외)
 
@@ -107,7 +109,7 @@ update/delete/review_request/assign/unassign에만 적용:
   "project_id": N, "epic_id": N,
   "status": "...", "progress": N,
   "start_date": "YYYY-MM-DD", "due_date": "YYYY-MM-DD",
-  "pm_id": N, "user_ids": [N], "remove_user_ids": [N],
+  "pm_id": N, "assignee_id": N, "user_ids": [N], "remove_user_ids": [N],
   "filters": {...},
   "message": "...",
   "missing_fields": ["..."],
@@ -156,6 +158,17 @@ Output: [{"action":"create","target":"epic"}]
 
 [INPUT]백엔드 구축 - 신규 태스크 추가해줘[/INPUT]
 Output: [{"action":"create","target":"task","name":"신규 태스크"}]
+
+--- task create with assignee (CONTEXT: projects[*].epics[*].members) ---
+[CONTEXT]
+{"today":"2026-03-06","user":{"id":1,"name":"홍길동","role":"PM"},"projects":[{"id":10,"name":"알파 프로젝트","epics":[{"id":100,"name":"백엔드 구축","members":[{"id":1,"name":"홍길동"},{"id":2,"name":"김영희"}]},{"id":101,"name":"프론트 구축","members":[{"id":3,"name":"이순신"}]}]}]}
+[/CONTEXT]
+
+[INPUT]백엔드 구축에 API 설계 추가, 담당자는 김영희, 마감 3월 20일[/INPUT]
+Output: [{"action":"create","target":"task","epic_id":100,"name":"API 설계","assignee_id":2,"due_date":"2026-03-20"}]
+
+[INPUT]API 설계 만들어줘 할당자는 홍길동으로[/INPUT]
+Output: [{"action":"create","target":"task","name":"API 설계","assignee_id":1}]
 
 --- update ---
 [INPUT]크롤러 80%[/INPUT]

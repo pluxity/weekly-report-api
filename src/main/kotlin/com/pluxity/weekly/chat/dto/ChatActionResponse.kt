@@ -41,6 +41,18 @@ data class ChatReadResponse(
 data class SelectField(
     @field:Schema(description = "필드명", example = "projectId")
     val field: String,
-    @field:Schema(description = "후보 목록")
+    @field:Schema(description = "후보 목록 (그룹이 있으면 groups 사용)")
+    val candidates: List<Candidate> = emptyList(),
+    @field:Schema(description = "그룹화된 후보 목록 (assigneeId 등 에픽별 묶음)")
+    val groups: List<CandidateGroup>? = null,
+)
+
+@Schema(description = "후보 그룹")
+data class CandidateGroup(
+    @field:Schema(description = "그룹 라벨", example = "백엔드 구축")
+    val label: String,
+    @field:Schema(description = "그룹 ID (선택)", example = "100")
+    val id: Long? = null,
+    @field:Schema(description = "그룹 내 후보")
     val candidates: List<Candidate>,
 )

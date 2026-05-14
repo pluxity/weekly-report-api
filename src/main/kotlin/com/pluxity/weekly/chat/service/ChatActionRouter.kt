@@ -1,6 +1,7 @@
 package com.pluxity.weekly.chat.service
 
 import com.pluxity.weekly.auth.authorization.AuthorizationService
+import com.pluxity.weekly.auth.user.entity.User
 import com.pluxity.weekly.chat.dto.ChatActionResponse
 import com.pluxity.weekly.chat.dto.ChatActionType
 import com.pluxity.weekly.chat.dto.ChatDto
@@ -74,6 +75,7 @@ class ChatActionRouter(
             if (visibleEpics != null && visibleEpics.isEmpty()) {
                 throw ChatClarifyException("태스크를 생성할 수 있는 업무 그룹이 없습니다. 먼저 업무 그룹에 참여해주세요.")
             }
+            validateAssigneeAccess(action, user)
         }
         if (type.validatesMissingFields && !action.missingFields.isNullOrEmpty()) {
             if (action.missingFields.size > 1) {
@@ -83,6 +85,22 @@ class ChatActionRouter(
         }
         type.requiredFields.firstOrNull { !action.hasValueFor(it) }?.let { missing ->
             throwSelectOrClarify(action, missing)
+        }
+    }
+
+    private fun validateAssigneeAccess(
+        action: LlmAction,
+        user: User,
+    ) {
+        val assigneeId = action.assigneeId ?: return
+        if (assigneeId == user.requiredId) return
+        val accessibleUserIds =
+            epicService
+                .findAll()
+                .flatMap { it.members.map { m -> m.userId } }
+                .toSet()
+        if (assigneeId !in accessibleUserIds) {
+            throw ChatClarifyException("선택한 담당자는 접근 가능한 업무 그룹의 멤버가 아닙니다. 먼저 업무 그룹에 영입한 뒤 할당해주세요.")
         }
     }
 
