@@ -521,3 +521,84 @@ tests:
             o.missing_fields[0] === 'id' &&
             o.candidates && o.candidates.length >= 2;
 
+  # ──────────────────────────────────────
+  # system-prompt task create with assignee tests
+  # (fixture: context-task-create.json — epic.members 노출, users 없음)
+  # ──────────────────────────────────────
+
+  ## task create - assignee 매칭 (대상 epic 멤버)
+  - description: "[system-task-create] 센서 연동에 알람 규칙 + 담당자 김민지 → epic_id=101, assignee_id=4"
+    vars:
+      contextFile: context-task-create.json
+      userMessage: "센서 연동에 알람 규칙 추가, 담당자 김민지"
+      intent: '{"actions":["create"],"target":"task","epic":"센서 연동","name":"알람 규칙"}'
+    prompts: [system]
+    assert:
+      - type: is-json
+      - type: javascript
+        value: |
+          const arr = JSON.parse(output);
+          const o = arr[0];
+          return o.action === 'create' && o.target === 'task' && o.epic_id === 101
+            && o.name === '알람 규칙' && o.assignee_id === 4;
+
+  ## task create - 담당자 미지정 → assignee_id 없음
+  - description: "[system-task-create] 센서 연동에 알람 규칙 추가 → assignee_id 없음"
+    vars:
+      contextFile: context-task-create.json
+      userMessage: "센서 연동에 알람 규칙 추가"
+      intent: '{"actions":["create"],"target":"task","epic":"센서 연동","name":"알람 규칙"}'
+    prompts: [system]
+    assert:
+      - type: is-json
+      - type: javascript
+        value: |
+          const arr = JSON.parse(output);
+          const o = arr[0];
+          return o.action === 'create' && o.target === 'task' && o.epic_id === 101 && !o.assignee_id;
+
+  ## task create - 담당자가 대상 epic 멤버 밖 → assignee_id 생략
+  - description: "[system-task-create] 결제 모듈에 환불 처리 + 김민지(비멤버) → assignee_id 생략"
+    vars:
+      contextFile: context-task-create.json
+      userMessage: "결제 모듈에 환불 처리 추가, 담당자 김민지"
+      intent: '{"actions":["create"],"target":"task","epic":"결제 모듈","name":"환불 처리"}'
+    prompts: [system]
+    assert:
+      - type: is-json
+      - type: javascript
+        value: |
+          const arr = JSON.parse(output);
+          const o = arr[0];
+          return o.action === 'create' && o.target === 'task' && o.epic_id === 201 && !o.assignee_id;
+
+  ## task create - 본인을 담당자로 (epic 멤버)
+  - description: "[system-task-create] 센서 연동에 API 설계 + 담당자 박서준 → assignee_id=3"
+    vars:
+      contextFile: context-task-create.json
+      userMessage: "센서 연동에 API 설계 추가, 담당자 박서준"
+      intent: '{"actions":["create"],"target":"task","epic":"센서 연동","name":"API 설계"}'
+    prompts: [system]
+    assert:
+      - type: is-json
+      - type: javascript
+        value: |
+          const arr = JSON.parse(output);
+          const o = arr[0];
+          return o.action === 'create' && o.target === 'task' && o.epic_id === 101 && o.assignee_id === 3;
+
+  ## task create - epic 미지정 + 담당자 단일 매칭
+  - description: "[system-task-create] API 설계 + 담당자 최우석 → assignee_id=7 (epic 미정)"
+    vars:
+      contextFile: context-task-create.json
+      userMessage: "API 설계 만들어줘, 담당자 최우석"
+      intent: '{"actions":["create"],"target":"task","name":"API 설계"}'
+    prompts: [system]
+    assert:
+      - type: is-json
+      - type: javascript
+        value: |
+          const arr = JSON.parse(output);
+          const o = arr[0];
+          return o.action === 'create' && o.target === 'task' && o.assignee_id === 7;
+

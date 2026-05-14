@@ -33,8 +33,20 @@ data class TaskCreateContext(
     override val today: String,
     override val todayDayOfWeek: String,
     override val user: UserRef,
-    val projects: List<ProjectWithEpics>,
+    val projects: List<ProjectWithEpicsAndMembers>,
 ) : ChatContext()
+
+data class ProjectWithEpicsAndMembers(
+    val id: Long,
+    val name: String,
+    val epics: List<EpicWithMembers>,
+)
+
+data class EpicWithMembers(
+    val id: Long,
+    val name: String,
+    val members: List<UserRef>,
+)
 
 data class TaskContext(
     override val today: String,

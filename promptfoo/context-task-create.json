@@ -1,0 +1,34 @@
+{
+  "today": "2026-04-15",
+  "today_day_of_week": "수요일",
+  "user": { "id": 3, "name": "박서준", "role": "PM" },
+  "projects": [
+    {
+      "id": 1, "name": "스마트팩토리",
+      "epics": [
+        { "id": 101, "name": "센서 연동", "members": [
+          { "id": 3, "name": "박서준" },
+          { "id": 4, "name": "김민지" }
+        ]},
+        { "id": 102, "name": "대시보드", "members": [
+          { "id": 5, "name": "이도현" }
+        ]},
+        { "id": 103, "name": "설비 관리", "members": [
+          { "id": 4, "name": "김민지" },
+          { "id": 6, "name": "정하은" }
+        ]}
+      ]
+    },
+    {
+      "id": 2, "name": "모바일 POS",
+      "epics": [
+        { "id": 201, "name": "결제 모듈", "members": [
+          { "id": 7, "name": "최우석" }
+        ]},
+        { "id": 202, "name": "대시보드", "members": [
+          { "id": 8, "name": "한소희" }
+        ]}
+      ]
+    }
+  ]
+}

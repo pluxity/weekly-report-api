@@ -9,6 +9,8 @@ import com.pluxity.weekly.chat.dto.SelectField
 import com.pluxity.weekly.chat.dto.TaskChatDto
 import com.pluxity.weekly.chat.exception.ChatClarifyException
 import com.pluxity.weekly.chat.exception.ChatSelectRequiredException
+import com.pluxity.weekly.epic.dto.EpicMemberResponse
+import com.pluxity.weekly.epic.dto.EpicResponse
 import com.pluxity.weekly.epic.service.EpicService
 import com.pluxity.weekly.project.service.ProjectService
 import com.pluxity.weekly.task.service.TaskService
@@ -166,6 +168,62 @@ class ChatActionRouterTest :
                 Then("자격 검증을 통과해 form 이 반환된다") {
                     response.action shouldBe "create"
                     response.dto shouldBe dto
+                }
+            }
+
+            When("assigneeId 가 visible epic 멤버 합집합에 속하면") {
+                val action = LlmAction(action = "create", target = "task", name = "새 태스크", assigneeId = 7L)
+                val dto = TaskChatDto("새 태스크", null, null, null, null, null, null, 7L)
+                val user = mockk<User> { every { requiredId } returns 1L }
+                val epic =
+                    mockk<EpicResponse> {
+                        every { members } returns listOf(EpicMemberResponse(userId = 7L, userName = "철수"))
+                    }
+                every { authorizationService.currentUser() } returns user
+                every { authorizationService.visibleEpicIds(user) } returns listOf(10L)
+                every { epicService.findAll() } returns listOf(epic)
+                every { chatDtoMapper.toDto(action) } returns dto
+                every { selectFieldResolver.resolve(action) } returns emptyList()
+
+                val response = router.route(action)
+
+                Then("검증을 통과해 form 이 반환된다") {
+                    response.dto shouldBe dto
+                }
+            }
+
+            When("assigneeId 가 본인이면 (epic 멤버가 아니어도)") {
+                val action = LlmAction(action = "create", target = "task", name = "새 태스크", assigneeId = 1L)
+                val dto = TaskChatDto("새 태스크", null, null, null, null, null, null, 1L)
+                val user = mockk<User> { every { requiredId } returns 1L }
+                every { authorizationService.currentUser() } returns user
+                every { authorizationService.visibleEpicIds(user) } returns listOf(10L)
+                every { chatDtoMapper.toDto(action) } returns dto
+                every { selectFieldResolver.resolve(action) } returns emptyList()
+
+                val response = router.route(action)
+
+                Then("epicService.findAll 호출 없이 통과한다") {
+                    response.dto shouldBe dto
+                    verify(exactly = 0) { epicService.findAll() }
+                }
+            }
+
+            When("assigneeId 가 visible epic 어디에도 속하지 않으면") {
+                val action = LlmAction(action = "create", target = "task", name = "새 태스크", assigneeId = 99L)
+                val user = mockk<User> { every { requiredId } returns 1L }
+                val epic =
+                    mockk<EpicResponse> {
+                        every { members } returns listOf(EpicMemberResponse(userId = 7L, userName = "철수"))
+                    }
+                every { authorizationService.currentUser() } returns user
+                every { authorizationService.visibleEpicIds(user) } returns listOf(10L)
+                every { epicService.findAll() } returns listOf(epic)
+
+                Then("ChatClarifyException 이 발생하고 form 이 만들어지지 않는다") {
+                    val ex = shouldThrow<ChatClarifyException> { router.route(action) }
+                    ex.message shouldBe "선택한 담당자는 접근 가능한 업무 그룹의 멤버가 아닙니다. 먼저 업무 그룹에 영입한 뒤 할당해주세요."
+                    verify(exactly = 0) { chatDtoMapper.toDto(any()) }
                 }
             }
         }

@@ -3,6 +3,7 @@ package com.pluxity.weekly.chat.service
 import com.pluxity.weekly.auth.authorization.UserType
 import com.pluxity.weekly.auth.user.repository.UserRepository
 import com.pluxity.weekly.chat.dto.Candidate
+import com.pluxity.weekly.chat.dto.CandidateGroup
 import com.pluxity.weekly.chat.dto.ChatActionType
 import com.pluxity.weekly.chat.dto.ChatTarget
 import com.pluxity.weekly.chat.dto.LlmAction
@@ -136,6 +137,22 @@ class SelectFieldResolver(
         return SelectField(field = field, candidates = candidates)
     }
 
+    private fun resolveTaskAssigneeCandidates(): SelectField? {
+        val groups =
+            epicService
+                .findAll()
+                .filter { it.members.isNotEmpty() }
+                .map { epic ->
+                    CandidateGroup(
+                        label = epic.name,
+                        id = epic.id,
+                        candidates = epic.members.map { Candidate(it.userId.toString(), it.userName) },
+                    )
+                }
+        if (groups.isEmpty()) return null
+        return SelectField(field = "assigneeId", groups = groups)
+    }
+
     private fun resolveStatusCandidates(): SelectField {
         val statuses = listOf("TODO", "IN_PROGRESS")
         return SelectField(
@@ -176,6 +193,9 @@ class SelectFieldResolver(
             ChatTarget.TASK -> {
                 if ("epicId" !in existingFields) {
                     result.add(resolveEpicCandidates(emptyList()) ?: return)
+                }
+                if ("assigneeId" !in existingFields) {
+                    resolveTaskAssigneeCandidates()?.let { result.add(it) }
                 }
                 if ("status" !in existingFields) {
                     result.add(resolveStatusCandidates())
