@@ -171,7 +171,7 @@ class TaskServiceTest :
                     verify {
                         eventPublisher.publishEvent(
                             match<TaskAssignedEvent> {
-                                it.userId == 99L && it.taskName == "이벤트 발행 태스크"
+                                it.userId == 99L && it.taskName == "이벤트 발행 태스크" && it.taskId == 200L
                             },
                         )
                     }

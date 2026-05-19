@@ -68,7 +68,7 @@ class TaskService(
             )
         if (newAssigneeId != null) {
             eventPublisher.publishEvent(
-                TaskAssignedEvent(userId = newAssigneeId, taskName = savedTask.name),
+                TaskAssignedEvent(userId = newAssigneeId, taskId = savedTask.requiredId, taskName = savedTask.name),
             )
         }
         return savedTask.requiredId
