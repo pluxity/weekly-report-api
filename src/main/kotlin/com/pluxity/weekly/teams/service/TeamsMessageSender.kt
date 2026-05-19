@@ -5,6 +5,7 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Component
 import org.springframework.web.reactive.function.client.WebClient
+import org.springframework.web.reactive.function.client.WebClientRequestException
 import org.springframework.web.reactive.function.client.WebClientResponseException
 import reactor.util.retry.Retry
 import java.io.IOException
@@ -172,6 +173,7 @@ class TeamsMessageSender(
         private fun Throwable.isRetryable(): Boolean =
             when (this) {
                 is WebClientResponseException -> isTransientHttpStatus(statusCode.value())
+                is WebClientRequestException -> true
                 is IOException -> true
                 is TimeoutException -> true
                 else -> false
