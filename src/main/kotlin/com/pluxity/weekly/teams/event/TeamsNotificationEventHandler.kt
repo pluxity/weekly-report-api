@@ -4,6 +4,7 @@ import com.pluxity.weekly.epic.event.EpicAssignedEvent
 import com.pluxity.weekly.epic.event.EpicUnassignedEvent
 import com.pluxity.weekly.project.event.ProjectPmAssignedEvent
 import com.pluxity.weekly.task.event.TaskApprovedEvent
+import com.pluxity.weekly.task.event.TaskAssignedEvent
 import com.pluxity.weekly.task.event.TaskRejectedEvent
 import com.pluxity.weekly.task.event.TaskReviewRequestedEvent
 import com.pluxity.weekly.teams.converter.TaskReviewCardBuilder
@@ -81,6 +82,15 @@ class TeamsNotificationEventHandler(
             userId = event.userId,
             type = TeamsNotificationType.TASK_APPROVE,
             message = "[승인] '${event.taskName}' 태스크가 승인되었습니다.",
+        )
+    }
+
+    @EventListener
+    fun on(event: TaskAssignedEvent) {
+        publishNotification(
+            userId = event.userId,
+            type = TeamsNotificationType.TASK_ASSIGN,
+            message = "'${event.taskName}' 태스크가 할당되었습니다.",
         )
     }
 
