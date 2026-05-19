@@ -14,6 +14,7 @@ import com.pluxity.weekly.task.dto.dummyTaskUpdateRequest
 import com.pluxity.weekly.task.entity.Task
 import com.pluxity.weekly.task.entity.TaskStatus
 import com.pluxity.weekly.task.entity.dummyTask
+import com.pluxity.weekly.task.event.TaskAssignedEvent
 import com.pluxity.weekly.task.repository.TaskRepository
 import com.pluxity.weekly.test.entity.dummyRole
 import com.pluxity.weekly.test.entity.dummyUser
@@ -26,6 +27,7 @@ import io.mockk.mockk
 import io.mockk.runs
 import io.mockk.slot
 import io.mockk.verify
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.data.repository.findByIdOrNull
 import java.time.LocalDate
 
@@ -37,6 +39,7 @@ class TaskServiceTest :
         val userRepository: UserRepository = mockk()
         val authorizationService: AuthorizationService = mockk()
         val assignmentService: EpicAssignmentService = mockk(relaxed = true)
+        val eventPublisher: ApplicationEventPublisher = mockk(relaxed = true)
         val service =
             TaskService(
                 taskRepository,
@@ -44,6 +47,7 @@ class TaskServiceTest :
                 userRepository,
                 authorizationService,
                 assignmentService,
+                eventPublisher,
             )
 
         val adminUser =
@@ -145,6 +149,64 @@ class TaskServiceTest :
 
                 Then("생성된 태스크의 ID가 반환된다") {
                     result shouldBe 1L
+                }
+            }
+        }
+
+        Given("태스크 생성 시 TaskAssignedEvent 발행") {
+            When("assigneeId 가 현재 사용자가 아닌 다른 사람이면") {
+                val epic = dummyEpic(id = 11L)
+                val otherUser = dummyUser(id = 99L, name = "다른 사람")
+                val request = dummyTaskRequest(epicId = 11L, name = "이벤트 발행 태스크", assigneeId = 99L)
+                val saved = dummyTask(id = 200L, epic = epic, name = "이벤트 발행 태스크").apply { assignee = otherUser }
+
+                every { epicRepository.findByIdOrNull(11L) } returns epic
+                every { taskRepository.existsByEpicIdAndName(11L, request.name) } returns false
+                every { userRepository.findByIdOrNull(99L) } returns otherUser
+                every { taskRepository.save(any<Task>()) } returns saved
+
+                service.create(request)
+
+                Then("TaskAssignedEvent 가 발행된다") {
+                    verify {
+                        eventPublisher.publishEvent(
+                            match<TaskAssignedEvent> {
+                                it.userId == 99L && it.taskName == "이벤트 발행 태스크"
+                            },
+                        )
+                    }
+                }
+            }
+
+            When("assigneeId 가 현재 사용자 본인이면") {
+                val epic = dummyEpic(id = 12L)
+                val request = dummyTaskRequest(epicId = 12L, name = "본인 할당 태스크", assigneeId = 1L)
+                val saved = dummyTask(id = 201L, epic = epic, name = "본인 할당 태스크").apply { assignee = adminUser }
+
+                every { epicRepository.findByIdOrNull(12L) } returns epic
+                every { taskRepository.existsByEpicIdAndName(12L, request.name) } returns false
+                every { taskRepository.save(any<Task>()) } returns saved
+
+                service.create(request)
+
+                Then("TaskAssignedEvent 가 발행되지 않는다") {
+                    verify(exactly = 0) { eventPublisher.publishEvent(any<TaskAssignedEvent>()) }
+                }
+            }
+
+            When("assigneeId 가 null 이면") {
+                val epic = dummyEpic(id = 13L)
+                val request = dummyTaskRequest(epicId = 13L, name = "담당자 없는 태스크", assigneeId = null)
+                val saved = dummyTask(id = 202L, epic = epic, name = "담당자 없는 태스크").apply { assignee = adminUser }
+
+                every { epicRepository.findByIdOrNull(13L) } returns epic
+                every { taskRepository.existsByEpicIdAndName(13L, request.name) } returns false
+                every { taskRepository.save(any<Task>()) } returns saved
+
+                service.create(request)
+
+                Then("TaskAssignedEvent 가 발행되지 않는다") {
+                    verify(exactly = 0) { eventPublisher.publishEvent(any<TaskAssignedEvent>()) }
                 }
             }
         }

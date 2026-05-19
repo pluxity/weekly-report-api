@@ -15,7 +15,9 @@ import com.pluxity.weekly.task.dto.TaskUpdateRequest
 import com.pluxity.weekly.task.dto.toResponse
 import com.pluxity.weekly.task.entity.Task
 import com.pluxity.weekly.task.entity.TaskStatus
+import com.pluxity.weekly.task.event.TaskAssignedEvent
 import com.pluxity.weekly.task.repository.TaskRepository
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -28,6 +30,7 @@ class TaskService(
     private val userRepository: UserRepository,
     private val authorizationService: AuthorizationService,
     private val assignmentService: EpicAssignmentService,
+    private val eventPublisher: ApplicationEventPublisher,
 ) {
     fun findAll(): List<TaskResponse> = search(TaskSearchFilter())
 
@@ -57,8 +60,8 @@ class TaskService(
         ensureUniqueTaskName(request.epicId, request.name)
         val newAssigneeId = request.assigneeId?.takeIf { it != user.requiredId }
         assignmentService.ensureAssigned(user, newAssigneeId, epic)
-        return taskRepository
-            .save(
+        val savedTask =
+            taskRepository.save(
                 Task(
                     epic = epic,
                     name = request.name,
@@ -69,7 +72,16 @@ class TaskService(
                     dueDate = request.dueDate,
                     assignee = newAssigneeId?.let { getUserById(it) } ?: user,
                 ),
-            ).requiredId
+            )
+        if (newAssigneeId != null) {
+            eventPublisher.publishEvent(
+                TaskAssignedEvent(
+                    userId = newAssigneeId,
+                    taskName = savedTask.name,
+                ),
+            )
+        }
+        return savedTask.requiredId
     }
 
     @Transactional
