@@ -51,15 +51,8 @@ class TaskService(
     @Transactional
     fun create(request: TaskRequest): Long {
         val user = authorizationService.currentUser()
-        authorizationService.requireEpicAccess(user, request.epicId)
-        if (request.status != TaskStatus.TODO) {
-            throw CustomException(ErrorCode.INVALID_INITIAL_STATUS, request.status)
-        }
-        val epic = getEpicById(request.epicId)
-        epic.ensureMutable("create task")
-        ensureUniqueTaskName(request.epicId, request.name)
-        val newAssigneeId = request.assigneeId?.takeIf { it != user.requiredId }
-        assignmentService.ensureAssigned(user, newAssigneeId, epic)
+        val epic = validateAndLoadEpic(user, request)
+        val newAssigneeId = resolveAssigneeId(user, request, epic)
         val savedTask =
             taskRepository.save(
                 Task(
@@ -75,10 +68,7 @@ class TaskService(
             )
         if (newAssigneeId != null) {
             eventPublisher.publishEvent(
-                TaskAssignedEvent(
-                    userId = newAssigneeId,
-                    taskName = savedTask.name,
-                ),
+                TaskAssignedEvent(userId = newAssigneeId, taskName = savedTask.name),
             )
         }
         return savedTask.requiredId
@@ -134,6 +124,30 @@ class TaskService(
         taskRepository.restoreById(id)
 
         return findById(id)
+    }
+
+    private fun validateAndLoadEpic(
+        user: User,
+        request: TaskRequest,
+    ): Epic {
+        authorizationService.requireEpicAccess(user, request.epicId)
+        if (request.status != TaskStatus.TODO) {
+            throw CustomException(ErrorCode.INVALID_INITIAL_STATUS, request.status)
+        }
+        val epic = getEpicById(request.epicId)
+        epic.ensureMutable("create task")
+        ensureUniqueTaskName(request.epicId, request.name)
+        return epic
+    }
+
+    private fun resolveAssigneeId(
+        user: User,
+        request: TaskRequest,
+        epic: Epic,
+    ): Long? {
+        val newId = request.assigneeId?.takeIf { it != user.requiredId }
+        assignmentService.ensureAssigned(user, newId, epic)
+        return newId
     }
 
     private fun ensureUniqueTaskName(
