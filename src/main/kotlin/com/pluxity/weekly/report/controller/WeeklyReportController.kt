@@ -3,6 +3,7 @@ package com.pluxity.weekly.report.controller
 import com.pluxity.weekly.core.response.DataResponseBody
 import com.pluxity.weekly.core.response.ErrorResponseBody
 import com.pluxity.weekly.report.dto.WeeklyReportResponse
+import com.pluxity.weekly.report.dto.WeeklyReportSummaryResponse
 import com.pluxity.weekly.report.service.WeeklyReportService
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
@@ -29,13 +30,13 @@ class WeeklyReportController(
     @Operation(
         summary = "주간보고 목록 조회",
         description = """
-주간보고를 조회합니다. 조회 권한은 다음과 같습니다.
-- ADMIN: 전체 팀 조회 가능
-- Leader: 본인이 team.leaderId인 팀만 조회 가능
-- 그 외: 403
-- teamId 미지정 시 권한 범위 내 모든 팀
-- weekStart / weekEnd: 검색 범위의 시작/종료 주차(해당 주 월요일). inclusive. 둘 다 생략 가능, weekStart만 → 이후 전체, weekEnd만 → 이전 전체.
-""",
+        주간보고를 조회합니다. 조회 권한은 다음과 같습니다.
+        - ADMIN: 전체 팀 조회 가능
+        - Leader: 본인이 team.leaderId인 팀만 조회 가능
+        - 그 외: 403
+        - teamId 미지정 시 권한 범위 내 모든 팀
+        - weekStart / weekEnd: 검색 범위의 시작/종료 주차(해당 주 월요일). inclusive. 둘 다 생략 가능, weekStart만 → 이후 전체, weekEnd만 → 이전 전체.
+        """,
     )
     @ApiResponses(
         value = [
@@ -83,4 +84,36 @@ class WeeklyReportController(
     fun findById(
         @PathVariable id: Long,
     ): ResponseEntity<DataResponseBody<WeeklyReportResponse>> = ResponseEntity.ok(DataResponseBody(service.findById(id)))
+
+    @Operation(
+        summary = "주간보고 요약 조회 (팀 × 주차의 작성 상태)",
+        description = """
+        풀 데이터 없이 메타만 내려주는 경량 응답. 대시보드 초기 로딩에 사용.
+
+        용도:
+        - 팀 리스트에서 미작성/지각 팀 뱃지
+
+        권한은 목록 조회와 동일 (ADMIN 전체, Leader 본인 팀만).
+        """,
+    )
+    @ApiResponses(
+        value = [
+            ApiResponse(responseCode = "200", description = "조회 성공"),
+            ApiResponse(
+                responseCode = "403",
+                description = "권한 없음",
+                content = [Content(mediaType = "application/json", schema = Schema(implementation = ErrorResponseBody::class))],
+            ),
+        ],
+    )
+    @GetMapping("/summary")
+    fun findSummary(
+        @Parameter(description = "검색 범위 시작 주차 (해당 주 월요일, ISO yyyy-MM-dd, inclusive)", example = "2026-05-18")
+        @RequestParam(required = false)
+        @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) weekStart: LocalDate?,
+        @Parameter(description = "검색 범위 종료 주차 (해당 주 월요일, ISO yyyy-MM-dd, inclusive)", example = "2026-06-15")
+        @RequestParam(required = false)
+        @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) weekEnd: LocalDate?,
+    ): ResponseEntity<DataResponseBody<List<WeeklyReportSummaryResponse>>> =
+        ResponseEntity.ok(DataResponseBody(service.findSummary(weekStart, weekEnd)))
 }

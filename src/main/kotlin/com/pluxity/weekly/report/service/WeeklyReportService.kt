@@ -6,6 +6,7 @@ import com.pluxity.weekly.report.dto.MatchedAgainstPrev
 import com.pluxity.weekly.report.dto.MatchedPair
 import com.pluxity.weekly.report.dto.ReportItem
 import com.pluxity.weekly.report.dto.WeeklyReportResponse
+import com.pluxity.weekly.report.dto.WeeklyReportSummaryResponse
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDate
@@ -20,6 +21,37 @@ class WeeklyReportService {
     ): List<WeeklyReportResponse> = listOf(sampleResponse())
 
     fun findById(id: Long): WeeklyReportResponse = sampleResponse().copy(id = id)
+
+    fun findSummary(
+        weekStart: LocalDate?,
+        weekEnd: LocalDate?,
+    ): List<WeeklyReportSummaryResponse> =
+        listOf(
+            WeeklyReportSummaryResponse(
+                teamId = 10L,
+                weekStart = LocalDate.of(2026, 5, 11),
+                exists = true,
+                baseResponse =
+                    BaseResponse(
+                        createdAt = "2026-05-16T18:42:00",
+                        createdBy = "sample.user",
+                        updatedAt = "2026-05-16T18:42:00",
+                        updatedBy = "sample.user",
+                    ),
+            ),
+            WeeklyReportSummaryResponse(
+                teamId = 11L,
+                weekStart = LocalDate.of(2026, 5, 11),
+                exists = false,
+                baseResponse =
+                    BaseResponse(
+                        createdAt = "",
+                        createdBy = "",
+                        updatedAt = "",
+                        updatedBy = "",
+                    ),
+            ),
+        )
 
     // TODO: entity/repository 도입 후 실제 조회 로직 + 권한 가드 구현
     private fun sampleResponse(): WeeklyReportResponse =
