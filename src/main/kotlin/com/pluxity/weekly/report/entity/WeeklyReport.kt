@@ -19,10 +19,14 @@ import java.time.LocalDate
     ],
 )
 class WeeklyReport(
-    @Column(name = "team_id", nullable = false)
-    var teamId: Long,
+    @Column(name = "team_id")
+    var teamId: Long?,
+    @Column(name = "team_name_raw", nullable = false, length = 255)
+    var teamNameRaw: String,
     @Column(name = "week_start", nullable = false)
     var weekStart: LocalDate,
+    @Column(name = "week_label", length = 100)
+    var weekLabel: String?,
     @Column(name = "raw_content", columnDefinition = "TEXT", nullable = false)
     var rawContent: String,
     @JdbcTypeCode(SqlTypes.JSON)

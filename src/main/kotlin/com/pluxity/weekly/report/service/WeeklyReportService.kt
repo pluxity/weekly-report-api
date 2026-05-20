@@ -27,7 +27,9 @@ class WeeklyReportService {
             id = 1L,
             teamId = 10L,
             teamName = "개발팀",
+            teamNameRaw = "본부A 개발팀",
             weekStart = LocalDate.of(2026, 5, 11),
+            weekLabel = "5월 2주(05/11~05/15)",
             rawContent =
                 """
                 주간업무보고
