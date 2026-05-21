@@ -3,8 +3,12 @@ package com.pluxity.weekly.report.entity
 import com.pluxity.weekly.core.entity.IdentityIdEntity
 import com.pluxity.weekly.report.dto.FormattedReport
 import com.pluxity.weekly.report.dto.MatchedAgainstPrev
+import com.pluxity.weekly.team.entity.Team
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
+import jakarta.persistence.FetchType
+import jakarta.persistence.JoinColumn
+import jakarta.persistence.ManyToOne
 import jakarta.persistence.Table
 import jakarta.persistence.UniqueConstraint
 import org.hibernate.annotations.JdbcTypeCode
@@ -19,8 +23,9 @@ import java.time.LocalDate
     ],
 )
 class WeeklyReport(
-    @Column(name = "team_id")
-    var teamId: Long?,
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "team_id", nullable = false)
+    var team: Team,
     @Column(name = "team_name_raw", nullable = false, length = 255)
     var teamNameRaw: String,
     @Column(name = "week_start", nullable = false)
@@ -35,17 +40,4 @@ class WeeklyReport(
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "matched_against_prev", columnDefinition = "jsonb")
     var matchedAgainstPrev: MatchedAgainstPrev? = null,
-) : IdentityIdEntity() {
-    fun update(
-        rawContent: String? = null,
-        formatted: FormattedReport? = null,
-    ) {
-        rawContent?.let { this.rawContent = it }
-        formatted?.let { this.formatted = it }
-        this.matchedAgainstPrev = null
-    }
-
-    fun updateMatching(matchedAgainstPrev: MatchedAgainstPrev) {
-        this.matchedAgainstPrev = matchedAgainstPrev
-    }
-}
+) : IdentityIdEntity()
