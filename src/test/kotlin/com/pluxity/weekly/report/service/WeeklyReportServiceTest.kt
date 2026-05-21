@@ -261,5 +261,40 @@ class WeeklyReportServiceTest :
                     exception.code shouldBe ErrorCode.PERMISSION_DENIED
                 }
             }
+
+            When("비월요일 날짜를 입력하면") {
+                // 5/13 (수) → 5/11 (월), 5/20 (수) → 5/18 (월) 로 정규화돼야 함
+                val inputStart = LocalDate.of(2026, 5, 13)
+                val inputEnd = LocalDate.of(2026, 5, 20)
+                val expectedStart = LocalDate.of(2026, 5, 11)
+                val expectedEnd = LocalDate.of(2026, 5, 18)
+
+                every { authorizationService.currentUser() } returns adminUser
+                every { authorizationService.requireAdminOrLeader(adminUser) } just runs
+                every { authorizationService.visibleTeamIds(adminUser) } returns null
+                every { teamRepository.findAll() } returns listOf(team10)
+                every { weeklyReportRepository.findSummaryRows(expectedStart, expectedEnd) } returns emptyList()
+
+                val result = service.findSummary(inputStart, inputEnd)
+
+                Then("월요일로 정규화된 주차 슬롯이 반환된다") {
+                    result.size shouldBe 2
+                    result.map { it.weekStart } shouldBe listOf(expectedStart, expectedEnd)
+                }
+            }
+
+            When("시작일이 종료일보다 늦으면") {
+                val laterStart = LocalDate.of(2026, 6, 1)
+                val earlierEnd = LocalDate.of(2026, 5, 18)
+
+                every { authorizationService.currentUser() } returns adminUser
+                every { authorizationService.requireAdminOrLeader(adminUser) } just runs
+
+                val result = service.findSummary(laterStart, earlierEnd)
+
+                Then("빈 응답이 반환된다") {
+                    result shouldBe emptyList()
+                }
+            }
         }
     })

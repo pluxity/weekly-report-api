@@ -12,7 +12,9 @@ import com.pluxity.weekly.team.repository.TeamRepository
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import java.time.DayOfWeek
 import java.time.LocalDate
+import java.time.temporal.TemporalAdjusters
 
 @Service
 @Transactional(readOnly = true)
@@ -71,6 +73,10 @@ class WeeklyReportService(
         val user = authorizationService.currentUser()
         authorizationService.requireAdminOrLeader(user)
 
+        val normalizedStart = weekStart.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+        val normalizedEnd = weekEnd.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+        if (normalizedStart.isAfter(normalizedEnd)) return emptyList()
+
         val visibleTeams = authorizationService.visibleTeamIds(user)
         val teams =
             if (visibleTeams == null) {
@@ -78,10 +84,10 @@ class WeeklyReportService(
             } else {
                 teamRepository.findAllById(visibleTeams)
             }
-        val weeks = generateMondays(weekStart, weekEnd)
+        val weeks = generateMondays(normalizedStart, normalizedEnd)
         val rowsByKey =
             weeklyReportRepository
-                .findSummaryRows(weekStart, weekEnd)
+                .findSummaryRows(normalizedStart, normalizedEnd)
                 .associateBy { it.teamId to it.weekStart }
 
         return teams.flatMap { team ->
