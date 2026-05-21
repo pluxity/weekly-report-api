@@ -108,12 +108,12 @@ class WeeklyReportController(
     )
     @GetMapping("/summary")
     fun findSummary(
-        @Parameter(description = "검색 범위 시작 주차 (해당 주 월요일, ISO yyyy-MM-dd, inclusive)", example = "2026-05-18")
-        @RequestParam(required = false)
-        @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) weekStart: LocalDate?,
-        @Parameter(description = "검색 범위 종료 주차 (해당 주 월요일, ISO yyyy-MM-dd, inclusive)", example = "2026-06-15")
-        @RequestParam(required = false)
-        @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) weekEnd: LocalDate?,
+        @Parameter(description = "검색 범위 시작 주차 (해당 주 월요일, ISO yyyy-MM-dd, inclusive). 필수.", example = "2026-05-18")
+        @RequestParam
+        @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) weekStart: LocalDate,
+        @Parameter(description = "검색 범위 종료 주차 (해당 주 월요일, ISO yyyy-MM-dd, inclusive). 필수.", example = "2026-06-15")
+        @RequestParam
+        @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) weekEnd: LocalDate,
     ): ResponseEntity<DataResponseBody<List<WeeklyReportSummaryResponse>>> =
         ResponseEntity.ok(DataResponseBody(service.findSummary(weekStart, weekEnd)))
 }

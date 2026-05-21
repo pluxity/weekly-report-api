@@ -2,6 +2,8 @@ package com.pluxity.weekly.report.dto
 
 import com.fasterxml.jackson.annotation.JsonUnwrapped
 import com.pluxity.weekly.core.response.BaseResponse
+import com.pluxity.weekly.core.response.toBaseResponse
+import com.pluxity.weekly.report.entity.WeeklyReport
 import io.swagger.v3.oas.annotations.media.Schema
 import java.time.LocalDate
 
@@ -9,10 +11,10 @@ import java.time.LocalDate
 data class WeeklyReportResponse(
     @field:Schema(description = "ID", example = "1")
     val id: Long,
-    @field:Schema(description = "팀 ID (LLM이 team_name_raw → teams.name 매칭 실패 시 null)", example = "10")
-    val teamId: Long?,
-    @field:Schema(description = "teams 테이블에서 매칭된 정식 팀명. 매칭 실패 시 null", example = "개발팀")
-    val teamName: String?,
+    @field:Schema(description = "팀 ID. 주간보고는 항상 팀에 종속됨", example = "10")
+    val teamId: Long,
+    @field:Schema(description = "팀명 (teams.name)", example = "개발팀")
+    val teamName: String,
     @field:Schema(description = "LLM이 원문에서 추출한 팀명 원본 (항상 보존, 매칭 실패 시 표시용)", example = "본부A 개발팀")
     val teamNameRaw: String,
     @field:Schema(description = "주차 시작일 (해당 주 월요일로 정규화)", example = "2026-05-18")
@@ -31,3 +33,17 @@ data class WeeklyReportResponse(
     @field:JsonUnwrapped
     val baseResponse: BaseResponse,
 )
+
+fun WeeklyReport.toResponse(): WeeklyReportResponse =
+    WeeklyReportResponse(
+        id = this.requiredId,
+        teamId = this.team.requiredId,
+        teamName = this.team.name,
+        teamNameRaw = this.teamNameRaw,
+        weekStart = this.weekStart,
+        weekLabel = this.weekLabel,
+        rawContent = this.rawContent,
+        formatted = this.formatted,
+        matchedAgainstPrev = this.matchedAgainstPrev,
+        baseResponse = this.toBaseResponse(),
+    )

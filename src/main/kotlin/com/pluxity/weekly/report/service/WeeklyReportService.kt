@@ -1,118 +1,80 @@
 package com.pluxity.weekly.report.service
 
-import com.pluxity.weekly.core.response.BaseResponse
-import com.pluxity.weekly.report.dto.FormattedReport
-import com.pluxity.weekly.report.dto.MatchedAgainstPrev
-import com.pluxity.weekly.report.dto.MatchedPair
-import com.pluxity.weekly.report.dto.ReportItem
+import com.pluxity.weekly.chat.dto.WeeklyReportSearchFilter
+import com.pluxity.weekly.core.constant.ErrorCode
+import com.pluxity.weekly.core.exception.CustomException
 import com.pluxity.weekly.report.dto.WeeklyReportResponse
 import com.pluxity.weekly.report.dto.WeeklyReportSummaryResponse
+import com.pluxity.weekly.report.dto.toResponse
+import com.pluxity.weekly.report.repository.WeeklyReportRepository
+import com.pluxity.weekly.team.repository.TeamRepository
+import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDate
 
 @Service
 @Transactional(readOnly = true)
-class WeeklyReportService {
+class WeeklyReportService(
+    private val weeklyReportRepository: WeeklyReportRepository,
+    private val teamRepository: TeamRepository,
+) {
     fun findAll(
         teamId: Long?,
         weekStart: LocalDate?,
         weekEnd: LocalDate?,
-    ): List<WeeklyReportResponse> = listOf(sampleResponse())
+    ): List<WeeklyReportResponse> {
+        // TODO: 권한 가드 — ADMIN 전체 / Leader 본인 팀만
+        val filter = WeeklyReportSearchFilter(teamId = teamId, weekStart = weekStart, weekEnd = weekEnd)
+        return weeklyReportRepository.findByFilter(filter).map { it.toResponse() }
+    }
 
-    fun findById(id: Long): WeeklyReportResponse = sampleResponse().copy(id = id)
+    fun findById(id: Long): WeeklyReportResponse {
+        val report =
+            weeklyReportRepository.findByIdOrNull(id)
+                ?: throw CustomException(ErrorCode.NOT_FOUND_WEEKLY_REPORT, id)
+        return report.toResponse()
+    }
 
+    /**
+     * 팀 × 주차 슬롯을 앱에서 생성하고, 실제 작성된 보고는 projection으로 lookup.
+     */
     fun findSummary(
-        weekStart: LocalDate?,
-        weekEnd: LocalDate?,
-    ): List<WeeklyReportSummaryResponse> =
-        listOf(
-            WeeklyReportSummaryResponse(
-                teamId = 10L,
-                weekStart = LocalDate.of(2026, 5, 11),
-                exists = true,
-                baseResponse =
-                    BaseResponse(
-                        createdAt = "2026-05-16T18:42:00",
-                        createdBy = "sample.user",
-                        updatedAt = "2026-05-16T18:42:00",
-                        updatedBy = "sample.user",
-                    ),
-            ),
-            WeeklyReportSummaryResponse(
-                teamId = 11L,
-                weekStart = LocalDate.of(2026, 5, 11),
-                exists = false,
-                baseResponse =
-                    BaseResponse(
-                        createdAt = "",
-                        createdBy = "",
-                        updatedAt = "",
-                        updatedBy = "",
-                    ),
-            ),
-        )
+        weekStart: LocalDate,
+        weekEnd: LocalDate,
+    ): List<WeeklyReportSummaryResponse> {
+        val teams = teamRepository.findAll()
+        val weeks = generateMondays(weekStart, weekEnd)
+        val rowsByKey =
+            weeklyReportRepository
+                .findSummaryRows(weekStart, weekEnd)
+                .associateBy { it.teamId to it.weekStart }
 
-    // TODO: entity/repository 도입 후 실제 조회 로직 + 권한 가드 구현
-    private fun sampleResponse(): WeeklyReportResponse =
-        WeeklyReportResponse(
-            id = 1L,
-            teamId = 10L,
-            teamName = "개발팀",
-            teamNameRaw = "본부A 개발팀",
-            weekStart = LocalDate.of(2026, 5, 11),
-            weekLabel = "5월 2주(05/11~05/15)",
-            rawContent =
-                """
-                주간업무보고
-                보고 기간 금주: 2026.05.11 ~ 05.15
+        return teams.flatMap { team ->
+            val teamId = team.requiredId
+            weeks.map { week ->
+                val row = rowsByKey[teamId to week]
+                WeeklyReportSummaryResponse(
+                    teamId = teamId,
+                    weekStart = week,
+                    exists = row != null,
+                    createdAt = row?.createdAt,
+                    createdBy = row?.createdBy,
+                )
+            }
+        }
+    }
 
-                홍길동
-                금주 (05/11 ~ 05/15)
-                프로젝트 | 업무 내용 | 진행률
-                ProductA v1.0 | #95 메인 페이지 구현 | 100%
-                """.trimIndent(),
-            formatted =
-                FormattedReport(
-                    thisWeek =
-                        listOf(
-                            ReportItem(
-                                assignee = "홍길동",
-                                category = "ProductA v1.0",
-                                text = "#95 메인 페이지 구현",
-                                progress = "100%",
-                                dueDate = null,
-                            ),
-                        ),
-                    nextWeek =
-                        listOf(
-                            ReportItem(
-                                assignee = "홍길동",
-                                category = "ProductB",
-                                text = "신규 모듈 검토",
-                                progress = null,
-                                dueDate = LocalDate.of(2026, 5, 22),
-                            ),
-                        ),
-                ),
-            matchedAgainstPrev =
-                MatchedAgainstPrev(
-                    matched =
-                        listOf(
-                            MatchedPair(
-                                prev = "#95 메인 페이지 구현",
-                                curr = "#95 메인 페이지 구현 완료",
-                            ),
-                        ),
-                    missing = listOf("로그인 모듈 리팩토링"),
-                    new = listOf("신규 모듈 검토"),
-                ),
-            baseResponse =
-                BaseResponse(
-                    createdAt = "2026-05-20T14:30:00",
-                    createdBy = "sample.user",
-                    updatedAt = "2026-05-20T14:30:00",
-                    updatedBy = "sample.user",
-                ),
-        )
+    private fun generateMondays(
+        start: LocalDate,
+        end: LocalDate,
+    ): List<LocalDate> {
+        val list = mutableListOf<LocalDate>()
+        var current = start
+        while (!current.isAfter(end)) {
+            list.add(current)
+            current = current.plusWeeks(1)
+        }
+        return list
+    }
 }

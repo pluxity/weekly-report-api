@@ -57,6 +57,8 @@ enum class ErrorCode(
     CHAT_RESOLVE_INVALID(HttpStatus.BAD_REQUEST, "%s"),
     CHAT_ALREADY_PROCESSING(HttpStatus.TOO_MANY_REQUESTS, "이전 요청을 처리 중입니다. 잠시 후 다시 시도해주세요."),
 
+    NOT_FOUND_WEEKLY_REPORT(HttpStatus.NOT_FOUND, "ID가 %s인 주간보고를 찾을 수 없습니다."),
+
     // ── Common (DB / Request) ──
     DUPLICATE_RESOURCE_ID(HttpStatus.BAD_REQUEST, "중복된 리소스 ID가 포함되어 있습니다."),
     REFERENCED_RESOURCE_NOT_FOUND(HttpStatus.BAD_REQUEST, "참조 대상이 존재하지 않습니다."),
