@@ -23,5 +23,4 @@ interface WeeklyReportRepository :
         @Param("weekStart") weekStart: LocalDate,
         @Param("weekEnd") weekEnd: LocalDate,
     ): List<WeeklyReportSummaryRow>
-
 }

@@ -7,4 +7,11 @@ interface TeamRepository :
     JpaRepository<Team, Long>,
     TeamCustomRepository {
     fun existsByLeaderId(leaderId: Long): Boolean
+
+    fun findByLeaderId(leaderId: Long): List<Team>
+
+    fun existsByIdAndLeaderId(
+        id: Long,
+        leaderId: Long,
+    ): Boolean
 }

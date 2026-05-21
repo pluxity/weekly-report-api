@@ -10,6 +10,7 @@ import com.pluxity.weekly.epic.repository.EpicRepository
 import com.pluxity.weekly.project.entity.Project
 import com.pluxity.weekly.project.repository.ProjectRepository
 import com.pluxity.weekly.task.entity.Task
+import com.pluxity.weekly.team.repository.TeamRepository
 import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.stereotype.Service
 
@@ -18,6 +19,7 @@ class AuthorizationService(
     private val userService: UserService,
     private val projectRepository: ProjectRepository,
     private val epicRepository: EpicRepository,
+    private val teamRepository: TeamRepository,
 ) {
     fun currentUser(): User {
         val authentication =
@@ -37,6 +39,12 @@ class AuthorizationService(
     fun requireAdminOrPm(user: User) {
         if (user.hasRole(UserType.ADMIN)) return
         if (user.isProjectManager()) return
+        throw CustomException(ErrorCode.PERMISSION_DENIED)
+    }
+
+    fun requireAdminOrLeader(user: User) {
+        if (user.hasRole(UserType.ADMIN)) return
+        if (user.hasRole(UserType.TEAM_LEADER)) return
         throw CustomException(ErrorCode.PERMISSION_DENIED)
     }
 
@@ -173,6 +181,22 @@ class AuthorizationService(
         if (user.hasRole(UserType.ADMIN)) return null
         if (user.isProjectManager()) return null
         return user.requiredId
+    }
+
+    /** 사용자가 볼 수 있는 팀 ID. null=전체(Admin), Leader는 본인이 leader인 팀들 */
+    fun visibleTeamIds(user: User): List<Long>? {
+        if (user.hasRole(UserType.ADMIN)) return null
+        return teamRepository.findByLeaderId(user.requiredId).map { it.requiredId }
+    }
+
+    /** ADMIN 또는 해당 팀의 leader만 허용 — 주간보고 팀별 조회 */
+    fun requireTeamAccess(
+        user: User,
+        teamId: Long,
+    ) {
+        if (user.hasRole(UserType.ADMIN)) return
+        if (teamRepository.existsByIdAndLeaderId(teamId, user.requiredId)) return
+        throw CustomException(ErrorCode.PERMISSION_DENIED)
     }
 
     fun User.hasRole(userType: UserType): Boolean = userRoles.any { it.role.name.equals(userType.roleName, ignoreCase = true) }

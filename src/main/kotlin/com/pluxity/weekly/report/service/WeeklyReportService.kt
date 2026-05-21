@@ -1,5 +1,6 @@
 package com.pluxity.weekly.report.service
 
+import com.pluxity.weekly.auth.authorization.AuthorizationService
 import com.pluxity.weekly.chat.dto.WeeklyReportSearchFilter
 import com.pluxity.weekly.core.constant.ErrorCode
 import com.pluxity.weekly.core.exception.CustomException
@@ -18,14 +19,33 @@ import java.time.LocalDate
 class WeeklyReportService(
     private val weeklyReportRepository: WeeklyReportRepository,
     private val teamRepository: TeamRepository,
+    private val authorizationService: AuthorizationService,
 ) {
     fun findAll(
         teamId: Long?,
         weekStart: LocalDate?,
         weekEnd: LocalDate?,
     ): List<WeeklyReportResponse> {
-        // TODO: 권한 가드 — ADMIN 전체 / Leader 본인 팀만
-        val filter = WeeklyReportSearchFilter(teamId = teamId, weekStart = weekStart, weekEnd = weekEnd)
+        val user = authorizationService.currentUser()
+        authorizationService.requireAdminOrLeader(user)
+
+        val visibleTeams = authorizationService.visibleTeamIds(user)
+        val filter =
+            when {
+                teamId != null -> {
+                    authorizationService.requireTeamAccess(user, teamId)
+                    WeeklyReportSearchFilter(teamId = teamId, weekStart = weekStart, weekEnd = weekEnd)
+                }
+                visibleTeams == null -> {
+                    // ADMIN, teamId 미지정 → 전체
+                    WeeklyReportSearchFilter(weekStart = weekStart, weekEnd = weekEnd)
+                }
+                else -> {
+                    // Leader, teamId 미지정 → 본인 팀들로 제한
+                    WeeklyReportSearchFilter(teamIds = visibleTeams, weekStart = weekStart, weekEnd = weekEnd)
+                }
+            }
+
         return weeklyReportRepository.findByFilter(filter).map { it.toResponse() }
     }
 
@@ -33,17 +53,31 @@ class WeeklyReportService(
         val report =
             weeklyReportRepository.findByIdOrNull(id)
                 ?: throw CustomException(ErrorCode.NOT_FOUND_WEEKLY_REPORT, id)
+
+        val user = authorizationService.currentUser()
+        authorizationService.requireTeamAccess(user, report.team.requiredId)
+
         return report.toResponse()
     }
 
     /**
      * 팀 × 주차 슬롯을 앱에서 생성하고, 실제 작성된 보고는 projection으로 lookup.
+     * ADMIN은 전체 팀, Leader는 본인 팀들만 그리드에 노출.
      */
     fun findSummary(
         weekStart: LocalDate,
         weekEnd: LocalDate,
     ): List<WeeklyReportSummaryResponse> {
-        val teams = teamRepository.findAll()
+        val user = authorizationService.currentUser()
+        authorizationService.requireAdminOrLeader(user)
+
+        val visibleTeams = authorizationService.visibleTeamIds(user)
+        val teams =
+            if (visibleTeams == null) {
+                teamRepository.findAll()
+            } else {
+                teamRepository.findAllById(visibleTeams)
+            }
         val weeks = generateMondays(weekStart, weekEnd)
         val rowsByKey =
             weeklyReportRepository
