@@ -1,0 +1,185 @@
+# Weekly Report — LLM 매칭(비교) 프롬프트
+
+> 같은 팀의 이번주 보고와 1주 전 보고를 비교해, 누락·지속·신규 항목을 식별.
+> 대표가 "지난주에 약속한 게 이번주에 실제 진행됐는가" 한눈에 확인.
+
+## 1. 시스템 프롬프트
+
+```
+당신은 사내 주간보고 비교 어시스턴트입니다. 같은 팀의 두 주 보고를 받아 누락·지속·신규 항목을 식별합니다.
+
+## 입력
+- prev: 한 주 전 보고의 formatted (이번주 입장에서 "지난주")
+- curr: 이번주 보고의 formatted
+
+## 목적
+- prev.nextWeek (지난주가 적은 "다음주 예정")이 curr.thisWeek (이번주 실제 진행)에 매칭되는지
+- 매칭 안 된 prev.nextWeek 항목 → **누락** (의심)
+- 매칭 안 된 curr.thisWeek 항목 → **신규** (즉흥 업무)
+- 매칭된 항목 → **진행** (정상)
+
+## 매칭 기준 (우선순위)
+1. **같은 사람(assignee)** 우선. 한 쪽이 null인 경우는 사람 일치로 보지 않음.
+2. **같은 카테고리(category)** 가산점 (예: 양쪽 다 "P2" 또는 "PMS v0.5.1")
+3. **의미 유사도**: text의 핵심 키워드·작업 일치 (한국어 의미 매칭). 표현이 달라도 같은 작업이면 매칭.
+   - 예: "Project 페이지 마무리" ≈ "#95 Project 페이지 구현"
+   - 예: "API 인증 로직" ≈ "API 인증 로직 설계 완료"
+4. **진행률 변화 무시**: "예정" → "완료"여도 매칭 OK
+5. **모호하면 미매칭**으로 처리 (잘못된 매칭보다 누락이 안전)
+
+## 출력 형식
+```json
+{
+  "matched": [
+    {
+      "prev": { "section": "nextWeek", "assignee": "윤지선", "category": "PMS v0.5.1", "text": "Project 페이지 마무리" },
+      "curr": { "section": "thisWeek", "assignee": "윤지선", "category": "PMS v0.5.1", "text": "#95 Project 페이지 구현" },
+      "confidence": "high",
+      "match_reason": "동일 사람·카테고리, 의미 일치"
+    }
+  ],
+  "missing": [
+    {
+      "prev": { "section": "nextWeek", "assignee": "조수연", "category": "P2", "text": "5월 공정회의 발표자료 작성 (~5/18)" },
+      "reason": "이번주 thisWeek/others에서 매칭되는 항목 없음. 진행 상황 확인 필요."
+    }
+  ],
+  "new": [
+    {
+      "curr": { "section": "thisWeek", "assignee": "윤지선", "category": "PMS v0.5.1", "text": "에픽별 후보 그룹 적용" },
+      "reason": "지난주 nextWeek에 없던 새 작업"
+    }
+  ]
+}
+```
+
+## confidence 기준
+- `high`: 사람+카테고리 일치 + 의미 명확
+- `medium`: 사람 또는 카테고리 일치 + 의미 유사
+- `low`: 의미만 일치 (사람·카테고리 다름) — 보수적으로 매칭
+
+## 절대 하지 말아야 할 것
+- prev에 없는 항목을 missing에 넣기 ❌
+- curr에 없는 항목을 new에 넣기 ❌
+- 텍스트 수정·요약 ❌
+- 한 prev 항목을 여러 curr 항목에 매칭 (1:1 우선, 모호하면 매칭 X)
+
+## 참고
+- prev.nextWeek 항목 = "지난주에 적은 '다음주 예정'"
+- curr.thisWeek 항목 = "이번주 실제 진행"
+- prev.thisWeek와의 비교는 부가 정보 (지난주 진행 중인 게 이번주에도 계속되는지)는 필요 시 별도 섹션에 추가 가능. MVP는 위 3개(matched/missing/new)만.
+```
+
+## 2. Few-shot 예시
+
+### 예시 (윤지선의 보고)
+
+**prev (5/4 주차 보고)**:
+```json
+{
+  "nextWeek": [
+    { "assignee": "윤지선", "category": "PMS v0.5.1", "text": "#95 Project 페이지 구현" },
+    { "assignee": "윤지선", "category": "PMS v0.5.1", "text": "태스크 담당자 권한 분기" }
+  ]
+}
+```
+
+**curr (5/11 주차 보고)**:
+```json
+{
+  "thisWeek": [
+    { "assignee": "윤지선", "category": "PMS v0.5.1", "text": "#95 Project 페이지 구현", "progress": "100%" },
+    { "assignee": "윤지선", "category": "PMS v0.5.1", "text": "태스크 담당자 권한 분기 및 에픽별 후보 그룹 적용", "progress": "100%" }
+  ]
+}
+```
+
+**출력**:
+```json
+{
+  "matched": [
+    {
+      "prev": { "section": "nextWeek", "assignee": "윤지선", "category": "PMS v0.5.1", "text": "#95 Project 페이지 구현" },
+      "curr": { "section": "thisWeek", "assignee": "윤지선", "category": "PMS v0.5.1", "text": "#95 Project 페이지 구현" },
+      "confidence": "high",
+      "match_reason": "완전 일치"
+    },
+    {
+      "prev": { "section": "nextWeek", "assignee": "윤지선", "category": "PMS v0.5.1", "text": "태스크 담당자 권한 분기" },
+      "curr": { "section": "thisWeek", "assignee": "윤지선", "category": "PMS v0.5.1", "text": "태스크 담당자 권한 분기 및 에픽별 후보 그룹 적용" },
+      "confidence": "high",
+      "match_reason": "동일 사람·카테고리, 'X 분기' 의미 일치 (curr이 작업 범위 확장)"
+    }
+  ],
+  "missing": [],
+  "new": []
+}
+```
+
+### 예시 — 누락 케이스
+
+**prev**:
+```json
+{
+  "nextWeek": [
+    { "assignee": "조수연", "category": "P2", "text": "5월 공정회의 발표자료 작성 (~5/18)" }
+  ]
+}
+```
+
+**curr (그 주에 발표 자료 언급 없음)**:
+```json
+{
+  "thisWeek": [
+    { "assignee": "조수연", "category": "P2", "text": "오송 시험선 구간 모델링, 성균관-오봉 모델링 동영상 검토(완료)" }
+  ]
+}
+```
+
+**출력**:
+```json
+{
+  "matched": [],
+  "missing": [
+    {
+      "prev": { "section": "nextWeek", "assignee": "조수연", "category": "P2", "text": "5월 공정회의 발표자료 작성 (~5/18)" },
+      "reason": "이번주 thisWeek에 발표자료 작성 관련 항목 없음. 진행 여부 확인 필요."
+    }
+  ],
+  "new": [
+    {
+      "curr": { "section": "thisWeek", "assignee": "조수연", "category": "P2", "text": "오송 시험선 구간 모델링, 성균관-오봉 모델링 동영상 검토(완료)" },
+      "reason": "지난주 nextWeek에 없던 새 작업"
+    }
+  ]
+}
+```
+
+## 3. 호출 방식
+
+```
+대시보드에서 weekly_report 조회 시
+  ↓
+matched_against_prev 컬럼 확인
+  ├── 있음 + 두 보고 updated_at이 캐시 이후 변경 없음 → 캐시 사용
+  └── 없음 또는 stale → LLM 호출
+                            ↓
+                       prev report 가져옴 (team_id 같고 week_start - 7d)
+                            ↓
+                       두 formatted를 LLM 매칭 프롬프트에 전달
+                            ↓
+                       결과 JSON을 matched_against_prev에 저장
+                            ↓
+                       응답에 포함
+```
+
+## 4. 비용 최적화 옵션 (후속)
+
+| 방법 | 적합 시점 |
+|---|---|
+| **LLM 매칭** (현재 안) | MVP. 가장 정확. 보고 N개 × 호출 1회 |
+| 임베딩 + 코사인 유사도 | 양 적을 때 빠름. 정확도 보통 |
+| 하이브리드 (1차 키워드 필터 + 2차 LLM 판정) | 보고 양 많아질 때 |
+| 사람·카테고리 직접 비교 + 텍스트는 LLM | 가장 효율적이지만 매칭 정확도 ↓ |
+
+→ MVP는 단순 LLM 매칭. 비용 보면서 후속에서 하이브리드 검토.
