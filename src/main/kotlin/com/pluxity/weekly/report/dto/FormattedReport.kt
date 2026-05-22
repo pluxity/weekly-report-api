@@ -1,8 +1,11 @@
 package com.pluxity.weekly.report.dto
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties
+import com.fasterxml.jackson.annotation.JsonProperty
 import io.swagger.v3.oas.annotations.media.Schema
 import java.time.LocalDate
 
+@JsonIgnoreProperties(ignoreUnknown = true)
 @Schema(description = "정제된 주간보고 (LLM 분류 결과). 항목 단위로 평탄화, assignee/category 등은 항목 메타.")
 data class FormattedReport(
     @field:Schema(description = "이번주 진행 항목")
@@ -15,6 +18,7 @@ data class FormattedReport(
     val others: List<ReportItem> = emptyList(),
 )
 
+@JsonIgnoreProperties(ignoreUnknown = true)
 @Schema(description = "주간보고 단위 항목. 원문 텍스트는 변질되지 않으며, assignee/category/progress/dueDate는 LLM이 추출한 메타.")
 data class ReportItem(
     @field:Schema(description = "담당자명 (사람 헤더 인식 실패 시 null)", example = "홍길동")
@@ -25,6 +29,7 @@ data class ReportItem(
     val text: String,
     @field:Schema(description = "진행률/상태 원문 표기. 추출 실패 시 null", example = "100%")
     val progress: String?,
+    @param:JsonProperty("due_date")
     @field:Schema(description = "마감일 (텍스트에서 추출 가능 시). 추출 실패 시 null", example = "2026-05-22")
     val dueDate: LocalDate?,
 )
