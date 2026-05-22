@@ -10,6 +10,7 @@ enum class ChatTarget(
     PROJECT("project"),
     TEAM("team"),
     REVIEW("review"),
+    WEEKLY_REPORT("weekly_report"),
     ;
 
     companion object {

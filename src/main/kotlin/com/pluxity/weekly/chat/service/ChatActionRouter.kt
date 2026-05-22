@@ -158,6 +158,6 @@ class ChatActionRouter(
             ChatTarget.TASK -> chatDtoMapper.fromTaskResponse(taskService.findById(id))
             ChatTarget.EPIC -> chatDtoMapper.fromEpicResponse(epicService.findById(id))
             ChatTarget.PROJECT -> chatDtoMapper.fromProjectResponse(projectService.findById(id))
-            ChatTarget.TEAM, ChatTarget.REVIEW -> null
+            ChatTarget.TEAM, ChatTarget.REVIEW, ChatTarget.WEEKLY_REPORT -> null
         }
 }

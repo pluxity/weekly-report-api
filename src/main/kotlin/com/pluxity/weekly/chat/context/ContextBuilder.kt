@@ -8,6 +8,7 @@ import com.pluxity.weekly.chat.dto.ChatTarget
 import com.pluxity.weekly.chat.dto.EpicSearchFilter
 import com.pluxity.weekly.chat.dto.ProjectSearchFilter
 import com.pluxity.weekly.chat.dto.TaskSearchFilter
+import com.pluxity.weekly.chat.exception.ChatClarifyException
 import com.pluxity.weekly.chat.util.ChatScope
 import com.pluxity.weekly.epic.dto.EpicResponse
 import com.pluxity.weekly.epic.entity.EpicStatus
@@ -66,6 +67,7 @@ class ContextBuilder(
                 ChatTarget.EPIC -> buildEpicContext(today, todayDayOfWeek, userRef, excludeDone)
                 ChatTarget.TEAM -> buildTeamContext(today, todayDayOfWeek, userRef)
                 ChatTarget.TASK, ChatTarget.REVIEW -> buildTaskContext(today, todayDayOfWeek, userRef, hasCreateOnly, excludeDone)
+                ChatTarget.WEEKLY_REPORT -> throw ChatClarifyException("주간보고는 아직 지원되지 않습니다.")
             }
 
         return objectMapper.writeValueAsString(context)
