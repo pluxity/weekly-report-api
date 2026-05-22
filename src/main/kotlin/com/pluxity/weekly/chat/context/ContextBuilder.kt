@@ -16,6 +16,8 @@ import com.pluxity.weekly.epic.service.EpicService
 import com.pluxity.weekly.project.service.ProjectService
 import com.pluxity.weekly.task.dto.TaskResponse
 import com.pluxity.weekly.task.service.TaskService
+import com.pluxity.weekly.team.repository.TeamMemberRepository
+import com.pluxity.weekly.team.repository.TeamRepository
 import com.pluxity.weekly.team.service.TeamService
 import org.springframework.data.domain.Sort
 import org.springframework.stereotype.Component
@@ -43,6 +45,8 @@ class ContextBuilder(
     private val epicService: EpicService,
     private val taskService: TaskService,
     private val teamService: TeamService,
+    private val teamRepository: TeamRepository,
+    private val teamMemberRepository: TeamMemberRepository,
     private val authorizationService: AuthorizationService,
     private val objectMapper: ObjectMapper,
 ) {
@@ -67,7 +71,7 @@ class ContextBuilder(
                 ChatTarget.EPIC -> buildEpicContext(today, todayDayOfWeek, userRef, excludeDone)
                 ChatTarget.TEAM -> buildTeamContext(today, todayDayOfWeek, userRef)
                 ChatTarget.TASK, ChatTarget.REVIEW -> buildTaskContext(today, todayDayOfWeek, userRef, hasCreateOnly, excludeDone)
-                ChatTarget.WEEKLY_REPORT -> throw ChatClarifyException("주간보고는 아직 지원되지 않습니다.")
+                ChatTarget.WEEKLY_REPORT -> buildWeeklyReportContext(today, todayDayOfWeek, userRef, user)
             }
 
         return objectMapper.writeValueAsString(context)
@@ -174,6 +178,36 @@ class ContextBuilder(
             teams = teamService.findAll().map { TeamRef(id = it.id, name = it.name) },
             users = findAllUsers(),
         )
+
+    private fun buildWeeklyReportContext(
+        today: String,
+        todayDayOfWeek: String,
+        userRef: UserRef,
+        user: User,
+    ): WeeklyReportContext {
+        val teams = teamRepository.findByLeaderId(user.requiredId)
+        if (teams.isEmpty()) {
+            throw ChatClarifyException("주간보고는 팀 리더만 작성/조회할 수 있습니다.")
+        }
+        val teamWithMembers =
+            teams.map { team ->
+                val members =
+                    teamMemberRepository
+                        .findByTeam(team)
+                        .map { UserRef(id = it.user.requiredId, name = it.user.name) }
+                TeamWithMembers(
+                    id = team.requiredId,
+                    name = team.name,
+                    members = members,
+                )
+            }
+        return WeeklyReportContext(
+            today = today,
+            todayDayOfWeek = todayDayOfWeek,
+            user = userRef,
+            teams = teamWithMembers,
+        )
+    }
 
     private fun groupByProjectWithMembers(epics: List<EpicResponse>): List<ProjectWithEpicsAndMembers> =
         epics
