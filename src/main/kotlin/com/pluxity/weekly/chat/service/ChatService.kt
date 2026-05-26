@@ -91,7 +91,9 @@ class ChatService(
                 actions.map { chatActionRouter.route(it) }
             }
 
-        chatHistoryStore.recordChatTurn(userId, message, intent.target, intent.actions, responses)
+        if (targetType != ChatTarget.WEEKLY_REPORT) {
+            chatHistoryStore.recordChatTurn(userId, message, intent.target, intent.actions, responses)
+        }
         return responses
     }
 }
