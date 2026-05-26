@@ -3,6 +3,7 @@ package com.pluxity.weekly.report.dto
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import com.fasterxml.jackson.annotation.JsonProperty
 import io.swagger.v3.oas.annotations.media.Schema
+import tools.jackson.databind.annotation.JsonDeserialize
 import java.time.LocalDate
 
 @JsonIgnoreProperties(ignoreUnknown = true)
@@ -30,6 +31,7 @@ data class ReportItem(
     @field:Schema(description = "진행률/상태 원문 표기. 추출 실패 시 null", example = "100%")
     val progress: String?,
     @param:JsonProperty("due_date")
-    @field:Schema(description = "마감일 (텍스트에서 추출 가능 시). 추출 실패 시 null", example = "2026-05-22")
+    @param:JsonDeserialize(using = LenientLocalDateDeserializer::class)
+    @field:Schema(description = "마감일 (완전한 YYYY-MM-DD만. 불완전/비표준이면 null)", example = "2026-05-22")
     val dueDate: LocalDate?,
 )

@@ -8,6 +8,8 @@ import com.pluxity.weekly.report.repository.WeeklyReportRepository
 import com.pluxity.weekly.team.entity.Team
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import java.time.DayOfWeek
+import java.time.temporal.TemporalAdjusters
 
 @Service
 @Transactional
@@ -25,10 +27,12 @@ class WeeklyReportWriteService(
         classify: WeeklyReportClassifyResult,
     ): WeeklyReportResponse {
         val teamNameRaw = classify.teamNameRaw ?: team.name
+        // upsert 키 신뢰성: LLM이 월요일이 아닌 날짜를 줘도 그 주 월요일로 정규화 (중복 보고 방지)
+        val weekStart = classify.weekStart.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
         val existing =
             weeklyReportRepository.findByTeamIdAndWeekStart(
                 teamId = team.requiredId,
-                weekStart = classify.weekStart,
+                weekStart = weekStart,
             )
         val saved =
             if (existing != null) {
@@ -41,7 +45,7 @@ class WeeklyReportWriteService(
                     WeeklyReport(
                         team = team,
                         teamNameRaw = teamNameRaw,
-                        weekStart = classify.weekStart,
+                        weekStart = weekStart,
                         rawContent = rawContent,
                         formatted = classify.formatted,
                     ),
