@@ -25,6 +25,7 @@
 
 ## 메타 추출
 - `team`: 보고 시작 부근의 팀명 (예: "경영기획팀", "Vgolf팀", "서비스크리에이티브팀"). 부서·본부 정보가 같이 붙어있으면 마지막 팀 단위만 추출.
+- `team_name_raw`: 원문에 적힌 팀명 표기를 **부서·본부까지 포함해 그대로** (예: "경영전략본부 경영기획팀"). team 매칭이 실패해도 표시·보존용으로 **항상 채움**.
 - `week_start`: 주차의 시작일을 YYYY-MM-DD로 정규화. 연도 표기 없으면 현재 연도 가정.
 
 ## 섹션 분류 규칙
@@ -40,7 +41,6 @@
 - `text`: 원문 항목 본문 (변질 금지)
 - `progress`: 진행률 표기가 있으면 원문 그대로 ("완료", "100%", "80%", "진행중", "5/22 완료 예정", "계속")
 - `due_date`: 텍스트에서 명확한 마감일 추출 가능하면 YYYY-MM-DD ("5/22", "~5/18" 등 → 2026-05-22 형태). 없으면 null.
-- `raw_line`: 디버그용으로 입력 원문의 해당 라인 그대로
 
 ## 출력 형식
 ```json
@@ -55,8 +55,7 @@
         "category": "PMS v0.5.1",
         "text": "#95 Project 페이지 구현",
         "progress": "100%",
-        "due_date": null,
-        "raw_line": "PMS v0.5.1\\t#95 Project 페이지 구현\\t100%"
+        "due_date": null
       }
     ],
     "nextWeek": [ ... ],
@@ -100,12 +99,12 @@
   "week_start": "2026-05-11",
   "formatted": {
     "thisWeek": [
-      { "assignee": "윤승현", "category": "기타", "text": "IR 자료 업데이트 (New버전)", "progress": null, "due_date": null, "raw_line": "- IR 자료 업데이트 (New버전)" },
-      { "assignee": "윤승현", "category": "기타", "text": "혁신시제품 등록 제품 가격 체계 및 포지셔닝 전략 수립", "progress": null, "due_date": null, "raw_line": "- 혁신시제품 등록 제품 가격 체계 및 포지셔닝 전략 수립" }
+      { "assignee": "윤승현", "category": "기타", "text": "IR 자료 업데이트 (New버전)", "progress": null, "due_date": null },
+      { "assignee": "윤승현", "category": "기타", "text": "혁신시제품 등록 제품 가격 체계 및 포지셔닝 전략 수립", "progress": null, "due_date": null }
     ],
     "nextWeek": [
-      { "assignee": "윤승현", "category": "한싱가포르", "text": "용역변경비 변경", "progress": null, "due_date": null, "raw_line": "- 용역변경비 변경" },
-      { "assignee": "윤승현", "category": "기타", "text": "IR 자료 업데이트 (매출 전략 장표)", "progress": null, "due_date": null, "raw_line": "- IR 자료 업데이트 (매출 전략 장표)" }
+      { "assignee": "윤승현", "category": "한싱가포르", "text": "용역변경비 변경", "progress": null, "due_date": null },
+      { "assignee": "윤승현", "category": "기타", "text": "IR 자료 업데이트 (매출 전략 장표)", "progress": null, "due_date": null }
     ],
     "issues": [],
     "others": []
@@ -137,11 +136,11 @@ Safers | 확인 | -
   "week_start": "2026-05-11",
   "formatted": {
     "thisWeek": [
-      { "assignee": "윤지선", "category": "PMS v0.5.1", "text": "#95 Project 페이지 구현", "progress": "100%", "due_date": null, "raw_line": "PMS v0.5.1\\t#95 Project 페이지 구현\\t100%" },
-      { "assignee": "윤지선", "category": "PMS v0.5.1", "text": "태스크 담당자 권한 분기 및 에픽별 후보 그룹 적용", "progress": "100%", "due_date": null, "raw_line": "PMS v0.5.1\\t태스크 담당자 권한 분기 및 에픽별 후보 그룹 적용\\t100%" }
+      { "assignee": "윤지선", "category": "PMS v0.5.1", "text": "#95 Project 페이지 구현", "progress": "100%", "due_date": null },
+      { "assignee": "윤지선", "category": "PMS v0.5.1", "text": "태스크 담당자 권한 분기 및 에픽별 후보 그룹 적용", "progress": "100%", "due_date": null }
     ],
     "nextWeek": [
-      { "assignee": "윤지선", "category": "Safers", "text": "확인", "progress": null, "due_date": null, "raw_line": "Safers\\t확인\\t-" }
+      { "assignee": "윤지선", "category": "Safers", "text": "확인", "progress": null, "due_date": null }
     ],
     "issues": [],
     "others": []
@@ -162,10 +161,10 @@ Safers | 확인 | -
 {
   "formatted": {
     "thisWeek": [
-      { "assignee": null, "category": "스마트 안심공원 DT기반 서비스 플랫폼 고도화", "text": "구현 서비스 시나리오 확정(with 성남시)", "progress": null, "due_date": null, "raw_line": "● 구현 서비스 시나리오 확정(with 성남시)" }
+      { "assignee": null, "category": "스마트 안심공원 DT기반 서비스 플랫폼 고도화", "text": "구현 서비스 시나리오 확정(with 성남시)", "progress": null, "due_date": null }
     ],
     "nextWeek": [
-      { "assignee": null, "category": "스마트 안심공원 DT기반 서비스 플랫폼 고도화", "text": "서비스 시나리오 확정 with 성남시 (~5/22) : 지연 대기 중", "progress": "지연 대기 중", "due_date": "2026-05-22", "raw_line": "● 서비스 시나리오 확정 with 성남시 (~5/22) : 지연 대기 중" }
+      { "assignee": null, "category": "스마트 안심공원 DT기반 서비스 플랫폼 고도화", "text": "서비스 시나리오 확정 with 성남시 (~5/22) : 지연 대기 중", "progress": "지연 대기 중", "due_date": "2026-05-22" }
     ]
   }
 }
