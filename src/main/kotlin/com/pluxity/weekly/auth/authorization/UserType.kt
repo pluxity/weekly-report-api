@@ -6,5 +6,5 @@ enum class UserType(
     ADMIN("ADMIN"),
     PM("PM"),
     PO("PO"),
-    TEAM_LEADER("TEAM_LEADER"),
+    TEAM_LEADER("LEADER"),
 }
