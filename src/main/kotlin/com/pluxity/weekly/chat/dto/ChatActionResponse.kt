@@ -36,8 +36,8 @@ data class ChatReadResponse(
     val teams: List<TeamResponse>? = null,
     @field:Schema(description = "PM 리뷰 대기 목록 (target=review)")
     val pendingReviews: List<PendingReviewResponse>? = null,
-    @field:Schema(description = "주간보고 목록 (target=weekly_report)")
-    val weeklyReports: List<WeeklyReportResponse>? = null,
+    @field:Schema(description = "주간보고 작성 결과 (target=weekly_report)")
+    val weeklyReport: WeeklyReportResponse? = null,
 )
 
 @Schema(description = "미확정 선택 필드")

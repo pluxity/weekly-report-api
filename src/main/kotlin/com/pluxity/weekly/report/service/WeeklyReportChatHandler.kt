@@ -69,7 +69,7 @@ class WeeklyReportChatHandler(
                 action = ChatActionType.CREATE.key,
                 target = ChatTarget.WEEKLY_REPORT.key,
                 id = response.id,
-                readResult = ChatReadResponse(weeklyReports = listOf(response)),
+                readResult = ChatReadResponse(weeklyReport = response),
             ),
         )
     }
