@@ -31,8 +31,6 @@ class WeeklyReport(
     var teamNameRaw: String,
     @Column(name = "week_start", nullable = false)
     var weekStart: LocalDate,
-    @Column(name = "week_label", length = 100)
-    var weekLabel: String?,
     @Column(name = "raw_content", columnDefinition = "TEXT", nullable = false)
     var rawContent: String,
     @Convert(converter = FormattedReportConverter::class)

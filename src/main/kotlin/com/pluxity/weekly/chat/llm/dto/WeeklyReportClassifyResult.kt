@@ -14,8 +14,6 @@ data class WeeklyReportClassifyResult(
     val team: String? = null,
     @param:JsonProperty("team_name_raw")
     val teamNameRaw: String? = null,
-    @param:JsonProperty("week_label")
-    val weekLabel: String? = null,
     @param:JsonProperty("week_start")
     val weekStart: LocalDate,
     val formatted: FormattedReport,

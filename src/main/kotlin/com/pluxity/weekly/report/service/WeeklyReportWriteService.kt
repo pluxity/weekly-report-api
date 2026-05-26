@@ -42,7 +42,6 @@ class WeeklyReportWriteService(
                         team = team,
                         teamNameRaw = teamNameRaw,
                         weekStart = classify.weekStart,
-                        weekLabel = classify.weekLabel,
                         rawContent = rawContent,
                         formatted = classify.formatted,
                     ),
