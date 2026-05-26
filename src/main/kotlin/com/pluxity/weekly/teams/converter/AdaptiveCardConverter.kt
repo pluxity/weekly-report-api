@@ -325,6 +325,7 @@ class AdaptiveCardConverter {
             ChatTarget.TASK -> "태스크"
             ChatTarget.TEAM -> "팀"
             ChatTarget.REVIEW -> "리뷰"
+            ChatTarget.WEEKLY_REPORT -> "주간보고"
             null -> target
         }
 

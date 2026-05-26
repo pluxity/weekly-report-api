@@ -77,7 +77,7 @@ class SelectFieldResolver(
                     }
                 ChatTarget.PROJECT ->
                     projectRepository.findAllById(candidateIds).map { Candidate(it.requiredId.toString(), it.name) }
-                ChatTarget.TEAM, ChatTarget.REVIEW, null -> return null
+                ChatTarget.TEAM, ChatTarget.REVIEW, ChatTarget.WEEKLY_REPORT, null -> return null
             }
         return SelectField(field = "id", candidates = candidates)
     }
@@ -201,7 +201,7 @@ class SelectFieldResolver(
                     result.add(resolveStatusCandidates())
                 }
             }
-            ChatTarget.TEAM, ChatTarget.REVIEW, null -> Unit
+            ChatTarget.TEAM, ChatTarget.REVIEW, ChatTarget.WEEKLY_REPORT, null -> Unit
         }
     }
 }

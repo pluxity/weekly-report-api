@@ -36,6 +36,19 @@ data class TaskCreateContext(
     val projects: List<ProjectWithEpicsAndMembers>,
 ) : ChatContext()
 
+data class WeeklyReportContext(
+    override val today: String,
+    override val todayDayOfWeek: String,
+    override val user: UserRef,
+    val teams: List<TeamWithMembers>,
+) : ChatContext()
+
+data class TeamWithMembers(
+    val id: Long,
+    val name: String,
+    val members: List<UserRef>,
+)
+
 data class ProjectWithEpicsAndMembers(
     val id: Long,
     val name: String,

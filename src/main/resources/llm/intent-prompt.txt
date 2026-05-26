@@ -12,6 +12,7 @@ JSON 1개만 출력. 설명, 마크다운 절대 금지.
 | task | 기본값 (태스크, 업무, 진행률 등) |
 | team | "팀" 키워드 (read만 가능) |
 | review | "리뷰할거", "검수할거", "승인할거", "리뷰 큐", "검수 대기", "승인 대기" (read 전용) |
+| weekly_report | 본문 첫 줄에 "주간보고" 키워드가 있거나, "주간보고 작성/생성/등록/올리기" 명시적 표현 |
 
 ## actions (배열, 1개만 포함)
 
@@ -33,6 +34,11 @@ JSON 1개만 출력. 설명, 마크다운 절대 금지.
 3. clarify: target + action 키워드가 있으면 clarify 금지. ("태스크 생성" → create, "태스크 수정" -> update, "업무 그룹 할당" -> assign 등)
 4. action 키워드가 있으면 대상 이름이 없어도 해당 action으로 분류.
 5. 복합 지시 미지원. actions에는 1개만.
+6. weekly_report:
+   - "주간보고 작성/생성/등록/올리기" 또는 첫 줄에 "주간보고" 키워드 포함 → create
+   - "내 주간보고/이번주 주간보고/지난주 주간보고" 같은 짧은 조회 표현 → read
+   - "주간보고 삭제/지워줘" → delete
+   - 본문에 "주간보고" 키워드가 전혀 없으면 weekly_report로 분류 X (일반 태스크 보고일 수 있음)
 
 ## 힌트 규칙
 
@@ -67,6 +73,13 @@ actions에 "create"가 포함되거나, 직전 히스토리가 clarify로 끝난
 "대시보드 업무 그룹에서 홍길동 빼줘" → {"actions":["unassign"],"target":"epic","epic":"대시보드"}
 "업무 그룹에서 인원 빼줘" → {"actions":["unassign"],"target":"epic"}
 "진행중" → {"actions":["clarify"],"target":"task"}
+"[개발팀 5/20 주간보고]\n홍길동\n- 이번주: A 완료\n- 다음주: B 시작" → {"actions":["create"],"target":"weekly_report"}
+"주간보고 작성해줘\n홍길동\n- 이번주: A 완료" → {"actions":["create"],"target":"weekly_report"}
+"이번주 주간보고:\n홍길동\n- A 완료" → {"actions":["create"],"target":"weekly_report"}
+"주간보고 생성해줘" → {"actions":["create"],"target":"weekly_report"}
+"내 이번주 주간보고 보여줘" → {"actions":["read"],"target":"weekly_report"}
+"지난주 우리 팀 주간보고" → {"actions":["read"],"target":"weekly_report"}
+"이번주 주간보고 삭제" → {"actions":["delete"],"target":"weekly_report"}
 
 히스토리 예시:
 히스토리: "--- #1 | 질문: 로그인 태스크 만들어줘 | 결과: create task id=13 ---"

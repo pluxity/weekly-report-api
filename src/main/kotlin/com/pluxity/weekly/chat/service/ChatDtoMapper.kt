@@ -22,7 +22,7 @@ class ChatDtoMapper {
             ChatTarget.PROJECT -> toProjectDto(action)
             ChatTarget.EPIC -> toEpicDto(action)
             ChatTarget.TASK -> toTaskDto(action)
-            ChatTarget.TEAM, ChatTarget.REVIEW, null -> null
+            ChatTarget.TEAM, ChatTarget.REVIEW, ChatTarget.WEEKLY_REPORT, null -> null
         }
     }
 

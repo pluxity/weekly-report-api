@@ -9,6 +9,11 @@ import java.time.LocalDate
 interface WeeklyReportRepository :
     JpaRepository<WeeklyReport, Long>,
     WeeklyReportCustomRepository {
+    fun findByTeamIdAndWeekStart(
+        teamId: Long,
+        weekStart: LocalDate,
+    ): WeeklyReport?
+
     @Query(
         """
         SELECT w.team.id AS teamId,

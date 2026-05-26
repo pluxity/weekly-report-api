@@ -50,6 +50,7 @@ class ChatReadHandler(
                 ChatReadResponse(
                     pendingReviews = taskReviewService.findPendingReviews(),
                 )
+            ChatTarget.WEEKLY_REPORT -> ChatReadResponse()
         }
     }
 

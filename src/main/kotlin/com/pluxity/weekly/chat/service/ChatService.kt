@@ -29,6 +29,7 @@ class ChatService(
     private val objectMapper: ObjectMapper,
     private val redisTemplate: RedisTemplate<String, Any>,
     private val authorizationService: AuthorizationService,
+    private val weeklyReportChatHandler: com.pluxity.weekly.report.service.WeeklyReportChatHandler,
 ) {
     companion object {
         private val RELEASE_LOCK_SCRIPT =
@@ -76,13 +77,19 @@ class ChatService(
         val context = contextBuilder.build(targetType, actionTypes)
         log.info { "context:\n${objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(objectMapper.readTree(context))}" }
 
-        // 2차: LlmAction 생성
-        val actionMessages = promptBuilder.buildActionMessages(message, intent, context)
-        val actions = llmService.generate(actionMessages).take(1)
-        log.info { "LLM 응답 액션:\n${objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(actions)}" }
+        // weekly_report는 일반 LlmAction 흐름을 우회하고 별도 핸들러로
+        val responses =
+            if (targetType == ChatTarget.WEEKLY_REPORT) {
+                weeklyReportChatHandler.handle(intent, message, context)
+            } else {
+                // 2차: LlmAction 생성
+                val actionMessages = promptBuilder.buildActionMessages(message, intent, context)
+                val actions = llmService.generate(actionMessages).take(1)
+                log.info { "LLM 응답 액션:\n${objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(actions)}" }
 
-        // LlmAction → ChatActionResponse 변환
-        val responses = actions.map { chatActionRouter.route(it) }
+                // LlmAction → ChatActionResponse 변환
+                actions.map { chatActionRouter.route(it) }
+            }
 
         chatHistoryStore.recordChatTurn(userId, message, intent.target, intent.actions, responses)
         return responses

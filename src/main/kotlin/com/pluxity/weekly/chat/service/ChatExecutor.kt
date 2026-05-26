@@ -62,7 +62,7 @@ class ChatExecutor(
             ChatTarget.PROJECT -> projectService.delete(id)
             ChatTarget.EPIC -> epicService.delete(id)
             ChatTarget.TASK -> taskService.delete(id)
-            ChatTarget.TEAM, ChatTarget.REVIEW, null -> Unit
+            ChatTarget.TEAM, ChatTarget.REVIEW, ChatTarget.WEEKLY_REPORT, null -> Unit
         }
         return id
     }

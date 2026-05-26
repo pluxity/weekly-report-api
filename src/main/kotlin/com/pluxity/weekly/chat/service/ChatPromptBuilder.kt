@@ -1,5 +1,6 @@
 package com.pluxity.weekly.chat.service
 
+import com.pluxity.weekly.chat.dto.ChatTarget
 import com.pluxity.weekly.chat.llm.dto.IntentResult
 import com.pluxity.weekly.chat.llm.dto.Message
 import org.springframework.core.io.ClassPathResource
@@ -18,6 +19,10 @@ class ChatPromptBuilder(
         ClassPathResource("llm/intent-prompt.txt").getContentAsString(Charsets.UTF_8)
     }
 
+    private val weeklyReportClassifyPrompt: String by lazy {
+        ClassPathResource("llm/weekly-report-classify-prompt.txt").getContentAsString(Charsets.UTF_8)
+    }
+
     fun buildIntentMessages(
         message: String,
         history: List<Message>,
@@ -34,12 +39,20 @@ class ChatPromptBuilder(
         intent: IntentResult,
         context: String,
     ): List<Message> {
-        val intentJson = objectMapper.writeValueAsString(intent)
-        val userMessage = "[INTENT]\n$intentJson\n[/INTENT]\n\n[CONTEXT]\n$context\n[/CONTEXT]\n\n$message"
-        return listOf(
-            Message(role = "system", content = systemPrompt),
-            Message(role = "user", content = userMessage),
-        )
+        val target = ChatTarget.fromOrNull(intent.target)
+        return if (target == ChatTarget.WEEKLY_REPORT) {
+            listOf(
+                Message(role = "system", content = weeklyReportClassifyPrompt),
+                Message(role = "user", content = "[CONTEXT]\n$context\n[/CONTEXT]\n\n$message"),
+            )
+        } else {
+            val intentJson = objectMapper.writeValueAsString(intent)
+            val userMessage = "[INTENT]\n$intentJson\n[/INTENT]\n\n[CONTEXT]\n$context\n[/CONTEXT]\n\n$message"
+            listOf(
+                Message(role = "system", content = systemPrompt),
+                Message(role = "user", content = userMessage),
+            )
+        }
     }
 
     private fun appendHistory(
