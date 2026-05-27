@@ -13,7 +13,7 @@ import java.time.temporal.TemporalAdjusters
  */
 fun resolveWeekStart(
     week: String?,
-    today: LocalDate = LocalDate.now(),
+    today: LocalDate = LocalDate.now(java.time.ZoneId.of("Asia/Seoul")),
 ): LocalDate {
     val thisMonday = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
     return when (week?.trim()?.lowercase()) {

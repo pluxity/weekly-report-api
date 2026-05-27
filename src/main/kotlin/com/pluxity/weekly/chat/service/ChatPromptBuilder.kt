@@ -30,7 +30,7 @@ class ChatPromptBuilder(
         message: String,
         history: List<Message>,
     ): List<Message> {
-        val today = LocalDate.now()
+        val today = LocalDate.now(java.time.ZoneId.of("Asia/Seoul"))
         val dayKo = today.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.KOREAN)
         val withToday = "$intentPrompt\n\n## 오늘 날짜\n$today ($dayKo)"
         val prompt = appendHistory(withToday, history)

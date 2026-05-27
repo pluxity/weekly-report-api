@@ -45,6 +45,10 @@ class WeeklyReportChatHandler(
     }
 
     private fun handleRead(intent: IntentResult): List<ChatActionResponse> {
+        val user = authorizationService.currentUser()
+        teamRepository.findByLeaderId(user.requiredId).firstOrNull()
+            ?: throw ChatClarifyException("주간보고는 팀 리더만 조회할 수 있습니다.")
+
         val report = weeklyReportService.findForChat(intent.week)
         return listOf(
             ChatActionResponse(
