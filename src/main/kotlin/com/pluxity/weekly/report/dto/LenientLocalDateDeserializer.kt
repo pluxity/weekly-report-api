@@ -13,7 +13,6 @@ import java.time.format.DateTimeParseException
  */
 class LenientLocalDateDeserializer : ValueDeserializer<LocalDate?>() {
     override fun deserialize(
-        
         p: JsonParser,
         ctxt: DeserializationContext,
     ): LocalDate? {
