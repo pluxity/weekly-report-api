@@ -23,7 +23,7 @@ class WeeklyReportChatHandler(
     private val teamRepository: TeamRepository,
     private val promptBuilder: ChatPromptBuilder,
     private val llmService: LlmService,
-    private val weeklyReportWriteService: WeeklyReportWriteService,
+    private val weeklyReportService: WeeklyReportService,
 ) {
     fun handle(
         intent: IntentResult,
@@ -38,10 +38,41 @@ class WeeklyReportChatHandler(
 
         return when (action) {
             ChatActionType.CREATE -> handleCreate(message, context, intent)
-            ChatActionType.READ -> emptyList() // Phase 4 후속
-            ChatActionType.DELETE -> emptyList() // Phase 3 후속
+            ChatActionType.READ -> handleRead(intent)
+            ChatActionType.DELETE -> handleDelete(intent)
             else -> throw ChatClarifyException("주간보고는 작성/조회/삭제만 가능합니다.")
         }
+    }
+
+    private fun handleRead(intent: IntentResult): List<ChatActionResponse> {
+        val report = weeklyReportService.findForChat(intent.week)
+        return listOf(
+            ChatActionResponse(
+                action = ChatActionType.READ.key,
+                target = ChatTarget.WEEKLY_REPORT.key,
+                readResult = ChatReadResponse(weeklyReport = report),
+            ),
+        )
+    }
+
+    private fun handleDelete(intent: IntentResult): List<ChatActionResponse> {
+        val user = authorizationService.currentUser()
+        val team =
+            teamRepository.findByLeaderId(user.requiredId).firstOrNull()
+                ?: throw ChatClarifyException("주간보고는 팀 리더만 삭제할 수 있습니다.")
+
+        val weekStart = resolveWeekStart(intent.week)
+        val deletedId =
+            weeklyReportService.delete(team, weekStart)
+                ?: throw ChatClarifyException("해당 주차에 삭제할 주간보고가 없습니다.")
+
+        return listOf(
+            ChatActionResponse(
+                action = ChatActionType.DELETE.key,
+                target = ChatTarget.WEEKLY_REPORT.key,
+                id = deletedId,
+            ),
+        )
     }
 
     private fun handleCreate(
@@ -62,7 +93,7 @@ class WeeklyReportChatHandler(
         val team = teams.first()
 
         // UPSERT
-        val response = weeklyReportWriteService.upsertFromClassify(team, message, classify)
+        val response = weeklyReportService.upsertFromClassify(team, message, classify)
 
         return listOf(
             ChatActionResponse(

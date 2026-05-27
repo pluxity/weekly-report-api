@@ -7,4 +7,5 @@ data class IntentResult(
     val project: String? = null,
     val epic: String? = null,
     val name: String? = null,
+    val week: String? = null,
 )
