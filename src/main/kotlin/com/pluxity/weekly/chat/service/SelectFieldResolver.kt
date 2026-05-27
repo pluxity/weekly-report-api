@@ -153,8 +153,12 @@ class SelectFieldResolver(
         return SelectField(field = "assigneeId", groups = groups)
     }
 
-    private fun resolveStatusCandidates(): SelectField {
-        val statuses = listOf("TODO", "IN_PROGRESS")
+    private fun resolveStatusCandidates(target: ChatTarget): SelectField {
+        val statuses =
+            when (target) {
+                ChatTarget.PROJECT, ChatTarget.EPIC -> listOf("TODO", "IN_PROGRESS", "DONE")
+                else -> listOf("TODO", "IN_PROGRESS")
+            }
         return SelectField(
             field = "status",
             candidates = statuses.map { Candidate(it, it) },
@@ -176,7 +180,7 @@ class SelectFieldResolver(
                     result.add(resolveUserCandidates("pmId", listOf("PM", "PO")))
                 }
                 if ("status" !in existingFields) {
-                    result.add(resolveStatusCandidates())
+                    result.add(resolveStatusCandidates(ChatTarget.PROJECT))
                 }
             }
             ChatTarget.EPIC -> {
@@ -187,7 +191,7 @@ class SelectFieldResolver(
                     result.add(resolveUserCandidates("userIds"))
                 }
                 if ("status" !in existingFields) {
-                    result.add(resolveStatusCandidates())
+                    result.add(resolveStatusCandidates(ChatTarget.EPIC))
                 }
             }
             ChatTarget.TASK -> {
@@ -198,7 +202,7 @@ class SelectFieldResolver(
                     resolveTaskAssigneeCandidates()?.let { result.add(it) }
                 }
                 if ("status" !in existingFields) {
-                    result.add(resolveStatusCandidates())
+                    result.add(resolveStatusCandidates(ChatTarget.TASK))
                 }
             }
             ChatTarget.TEAM, ChatTarget.REVIEW, null -> Unit
