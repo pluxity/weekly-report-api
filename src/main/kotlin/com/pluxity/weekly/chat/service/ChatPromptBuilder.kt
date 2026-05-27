@@ -6,6 +6,9 @@ import com.pluxity.weekly.chat.llm.dto.Message
 import org.springframework.core.io.ClassPathResource
 import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
+import java.time.LocalDate
+import java.time.format.TextStyle
+import java.util.Locale
 
 @Component
 class ChatPromptBuilder(
@@ -27,7 +30,10 @@ class ChatPromptBuilder(
         message: String,
         history: List<Message>,
     ): List<Message> {
-        val prompt = appendHistory(intentPrompt, history)
+        val today = LocalDate.now(java.time.ZoneId.of("Asia/Seoul"))
+        val dayKo = today.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.KOREAN)
+        val withToday = "$intentPrompt\n\n## 오늘 날짜\n$today ($dayKo)"
+        val prompt = appendHistory(withToday, history)
         return listOf(
             Message(role = "system", content = prompt),
             Message(role = "user", content = message),

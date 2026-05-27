@@ -16,6 +16,7 @@ import io.mockk.every
 import io.mockk.just
 import io.mockk.mockk
 import io.mockk.runs
+import io.mockk.verify
 import org.springframework.data.repository.findByIdOrNull
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -180,6 +181,84 @@ class WeeklyReportServiceTest :
 
                 Then("PERMISSION_DENIED 예외가 발생한다") {
                     exception.code shouldBe ErrorCode.PERMISSION_DENIED
+                }
+            }
+        }
+
+        Given("findForChat") {
+            every { authorizationService.currentUser() } returns leaderUser
+
+            When("리더 팀에 해당 주차 보고가 있으면") {
+                every { teamRepository.findByLeaderId(2L) } returns listOf(team10)
+                every { weeklyReportRepository.findByTeamIdAndWeekStart(10L, any()) } returns
+                    dummyWeeklyReport(id = 1L, team = team10)
+
+                val result = service.findForChat("this")
+
+                Then("해당 팀 보고 단건이 반환된다") {
+                    result?.teamId shouldBe 10L
+                }
+            }
+
+            When("해당 주차 보고가 없으면") {
+                every { teamRepository.findByLeaderId(2L) } returns listOf(team10)
+                every { weeklyReportRepository.findByTeamIdAndWeekStart(10L, any()) } returns null
+
+                val result = service.findForChat("last")
+
+                Then("null이 반환된다") {
+                    result shouldBe null
+                }
+            }
+
+            When("leader인 팀이 없으면") {
+                every { teamRepository.findByLeaderId(2L) } returns emptyList()
+
+                val result = service.findForChat("this")
+
+                Then("null이 반환된다") {
+                    result shouldBe null
+                }
+            }
+
+            When("다중 팀 리더면 첫 팀 보고를 사용한다") {
+                val team30 = dummyTeam(id = 30L, name = "QA팀", leaderId = 2L)
+                every { teamRepository.findByLeaderId(2L) } returns listOf(team10, team30)
+                every { weeklyReportRepository.findByTeamIdAndWeekStart(10L, any()) } returns
+                    dummyWeeklyReport(id = 1L, team = team10)
+
+                val result = service.findForChat("this")
+
+                Then("첫 팀(team10) 보고가 반환된다") {
+                    result?.teamId shouldBe 10L
+                }
+            }
+        }
+
+        Given("delete") {
+            val weekStart = LocalDate.of(2026, 5, 25)
+
+            When("해당 (팀, 주차) 보고가 존재하면") {
+                val report = dummyWeeklyReport(id = 5L, team = team10, weekStart = weekStart)
+                every { weeklyReportRepository.findByTeamIdAndWeekStart(10L, weekStart) } returns report
+                every { weeklyReportRepository.delete(report) } just runs
+
+                val result = service.delete(team10, weekStart)
+
+                Then("삭제하고 id를 반환한다") {
+                    result shouldBe 5L
+                    verify(exactly = 1) { weeklyReportRepository.delete(report) }
+                }
+            }
+
+            When("해당 (팀, 주차) 보고가 없으면") {
+                every { weeklyReportRepository.findByTeamIdAndWeekStart(10L, weekStart) } returns null
+
+                val result = service.delete(team10, weekStart)
+
+                Then("null을 반환하고 삭제를 호출하지 않는다") {
+                    result shouldBe null
+                    verify(exactly = 0) { weeklyReportRepository.delete(any()) }
                 }
             }
         }
