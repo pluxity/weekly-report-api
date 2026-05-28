@@ -96,5 +96,6 @@ actions에 "create"가 포함되거나, 직전 히스토리가 clarify로 끝난
 "그거 삭제해줘" → {"actions":["delete"],"target":"task","id":13}
 
 출력: {"actions":[".."],"target":".."}
-id는 히스토리 참조 시에만 포함.
+id는 히스토리 참조 시에만, 실제 정수(예: 13)로만 포함. id를 모르면 필드 자체를 생략.
+"pending", "none", "" 같은 문자열 placeholder 절대 금지.
 week는 weekly_report read/delete에서 주차 표현이 있을 때만 포함.
