@@ -3,6 +3,8 @@ package com.pluxity.weekly.report.service
 import com.pluxity.weekly.auth.authorization.AuthorizationService
 import com.pluxity.weekly.core.constant.ErrorCode
 import com.pluxity.weekly.core.exception.CustomException
+import com.pluxity.weekly.report.dto.FormattedReport
+import com.pluxity.weekly.report.dto.ReportItem
 import com.pluxity.weekly.report.entity.dummyWeeklyReport
 import com.pluxity.weekly.report.repository.WeeklyReportRepository
 import com.pluxity.weekly.report.repository.WeeklyReportSummaryRow
@@ -231,6 +233,54 @@ class WeeklyReportServiceTest :
 
                 Then("첫 팀(team10) 보고가 반환된다") {
                     result?.teamId shouldBe 10L
+                }
+            }
+        }
+
+        Given("findPrevWeekNextItems") {
+            // 이번주 월요일 5/25 기준 → 지난주 월요일 5/18 조회
+            val prevMonday = LocalDate.of(2026, 5, 18)
+
+            When("지난주 보고가 있으면 그 보고의 nextWeek 항목을 반환한다") {
+                val prev =
+                    dummyWeeklyReport(
+                        id = 9L,
+                        team = team10,
+                        weekStart = prevMonday,
+                        formatted =
+                            FormattedReport(
+                                nextWeek = listOf(ReportItem("홍길동", "PMS", "API 설계", null, null)),
+                            ),
+                    )
+                every { weeklyReportRepository.findByTeamIdAndWeekStart(10L, prevMonday) } returns prev
+
+                val result = service.findPrevWeekNextItems(team10, LocalDate.of(2026, 5, 25))
+
+                Then("nextWeek 항목이 반환된다") {
+                    result.size shouldBe 1
+                    result[0].text shouldBe "API 설계"
+                }
+            }
+
+            When("지난주 보고가 없으면 빈 리스트") {
+                every { weeklyReportRepository.findByTeamIdAndWeekStart(10L, prevMonday) } returns null
+
+                val result = service.findPrevWeekNextItems(team10, LocalDate.of(2026, 5, 25))
+
+                Then("빈 리스트가 반환된다") {
+                    result shouldBe emptyList()
+                }
+            }
+
+            When("비월요일 currWeekStart를 줘도 그 주 월요일 기준 지난주를 조회한다") {
+                // 5/27(수) → 이번주 월 5/25 → 지난주 월 5/18
+                every { weeklyReportRepository.findByTeamIdAndWeekStart(10L, prevMonday) } returns null
+
+                val result = service.findPrevWeekNextItems(team10, LocalDate.of(2026, 5, 27))
+
+                Then("5/18로 조회되어 빈 리스트") {
+                    result shouldBe emptyList()
+                    verify { weeklyReportRepository.findByTeamIdAndWeekStart(10L, prevMonday) }
                 }
             }
         }

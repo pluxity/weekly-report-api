@@ -8,14 +8,20 @@ import com.pluxity.weekly.chat.dto.ChatTarget
 import com.pluxity.weekly.chat.exception.ChatClarifyException
 import com.pluxity.weekly.chat.llm.LlmService
 import com.pluxity.weekly.chat.llm.dto.IntentResult
+import com.pluxity.weekly.chat.llm.dto.WeeklyReportClassifyResult
 import com.pluxity.weekly.chat.service.ChatPromptBuilder
+import com.pluxity.weekly.report.dto.MatchedAgainstPrev
+import com.pluxity.weekly.team.entity.Team
 import com.pluxity.weekly.team.repository.TeamRepository
+import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.stereotype.Component
+
+private val log = KotlinLogging.logger {}
 
 /**
  * weekly_report target 전용 chat 흐름 핸들러.
  * 일반 chat 흐름(LlmAction → ChatActionRouter)을 우회하고
- * classify LLM → WriteService 즉시 upsert.
+ * classify LLM → 즉시 upsert. create 시 지난주 보고와 매칭(LLM)도 수행.
  */
 @Component
 class WeeklyReportChatHandler(
@@ -96,8 +102,9 @@ class WeeklyReportChatHandler(
         }
         val team = teams.first()
 
-        // UPSERT
-        val response = weeklyReportService.upsertFromClassify(team, message, classify)
+        // 매칭은 tx 밖에서 best-effort 계산 → upsert에 전달 (실패해도 보고 저장은 성공)
+        val matched = matchAgainstPrev(team, classify)
+        val response = weeklyReportService.upsertFromClassify(team, message, classify, matched)
 
         return listOf(
             ChatActionResponse(
@@ -107,5 +114,27 @@ class WeeklyReportChatHandler(
                 readResult = ChatReadResponse(weeklyReport = response),
             ),
         )
+    }
+
+    /**
+     * 지난주 보고의 nextWeek와 이번주 thisWeek를 LLM으로 매칭.
+     * tx 밖에서 호출 (LLM 콜이 DB 트랜잭션을 점유하지 않도록).
+     * 지난주 보고 없음 / 매칭 실패 → null (보고 저장은 그대로 진행, best-effort).
+     */
+    private fun matchAgainstPrev(
+        team: Team,
+        classify: WeeklyReportClassifyResult,
+    ): MatchedAgainstPrev? {
+        val prevNextWeek = weeklyReportService.findPrevWeekNextItems(team, classify.weekStart)
+        if (prevNextWeek.isEmpty()) return null
+        val prevById = numberItems(prevNextWeek, "P")
+        val currById = numberItems(classify.formatted.thisWeek, "C")
+        return try {
+            val raw = llmService.matchWeeklyReport(promptBuilder.buildMatchMessages(prevById, currById))
+            enrichMatched(raw, prevById, currById)
+        } catch (e: Exception) {
+            log.warn(e) { "주간보고 매칭 실패 (team=${team.requiredId}) — 매칭 없이 저장" }
+            null
+        }
     }
 }

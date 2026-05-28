@@ -15,6 +15,7 @@ import com.pluxity.weekly.chat.llm.dto.OllamaOptions
 import com.pluxity.weekly.chat.llm.dto.OpenAiChatRequest
 import com.pluxity.weekly.chat.llm.dto.OpenAiChatResponse
 import com.pluxity.weekly.chat.llm.dto.WeeklyReportClassifyResult
+import com.pluxity.weekly.chat.llm.dto.WeeklyReportMatchResult
 import com.pluxity.weekly.config.WebClientFactory
 import com.pluxity.weekly.core.constant.ErrorCode
 import com.pluxity.weekly.core.exception.CustomException
@@ -119,6 +120,24 @@ class LlmService(
             }
         }
         log.error(lastException) { "LLM classify $MAX_RETRIES 회 재시도 실패" }
+        throw CustomException(ErrorCode.LLM_SERVICE_UNAVAILABLE)
+    }
+
+    fun matchWeeklyReport(messages: List<Message>): WeeklyReportMatchResult {
+        var lastException: Exception? = null
+        repeat(MAX_RETRIES) { attempt ->
+            try {
+                val content = callLlm(messages)
+                log.info { "llm match response : $content" }
+                return parseMatch(content)
+            } catch (e: CustomException) {
+                throw e
+            } catch (e: Exception) {
+                lastException = e
+                log.warn { "LLM match 호출 실패 (시도 ${attempt + 1}/$MAX_RETRIES): ${e.message}" }
+            }
+        }
+        log.error(lastException) { "LLM match $MAX_RETRIES 회 재시도 실패" }
         throw CustomException(ErrorCode.LLM_SERVICE_UNAVAILABLE)
     }
 
@@ -247,6 +266,19 @@ class LlmService(
             objectMapper.readValue(json, WeeklyReportClassifyResult::class.java)
         } catch (e: Exception) {
             log.error(e) { "LLM classify 응답 JSON 파싱 실패: $json" }
+            throw CustomException(ErrorCode.LLM_INVALID_RESPONSE)
+        }
+    }
+
+    private fun parseMatch(raw: String): WeeklyReportMatchResult {
+        val json = stripCodeFence(raw).trim()
+        if (json.isBlank()) {
+            throw CustomException(ErrorCode.LLM_INVALID_RESPONSE)
+        }
+        return try {
+            objectMapper.readValue(json, WeeklyReportMatchResult::class.java)
+        } catch (e: Exception) {
+            log.error(e) { "LLM match 응답 JSON 파싱 실패: $json" }
             throw CustomException(ErrorCode.LLM_INVALID_RESPONSE)
         }
     }

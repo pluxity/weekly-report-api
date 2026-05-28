@@ -3,6 +3,7 @@ package com.pluxity.weekly.chat.service
 import com.pluxity.weekly.chat.dto.ChatTarget
 import com.pluxity.weekly.chat.llm.dto.IntentResult
 import com.pluxity.weekly.chat.llm.dto.Message
+import com.pluxity.weekly.report.dto.ReportItem
 import org.springframework.core.io.ClassPathResource
 import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
@@ -24,6 +25,10 @@ class ChatPromptBuilder(
 
     private val weeklyReportClassifyPrompt: String by lazy {
         ClassPathResource("llm/weekly-report-classify-prompt.txt").getContentAsString(Charsets.UTF_8)
+    }
+
+    private val weeklyReportMatchPrompt: String by lazy {
+        ClassPathResource("llm/weekly-report-match-prompt.txt").getContentAsString(Charsets.UTF_8)
     }
 
     fun buildIntentMessages(
@@ -59,6 +64,28 @@ class ChatPromptBuilder(
                 Message(role = "user", content = userMessage),
             )
         }
+    }
+
+    /**
+     * 매칭용: numberItems로 한 번 부여된 id→항목 맵을 받아 "id [담당자] 내용"으로 출력.
+     * LLM은 id 쌍만 반환하고, 같은 맵으로 enrichMatched가 복원한다 (번호 부여는 호출 측 1회).
+     */
+    fun buildMatchMessages(
+        prevById: Map<String, ReportItem>,
+        currById: Map<String, ReportItem>,
+    ): List<Message> {
+        val userMessage =
+            buildString {
+                appendLine("[지난주 예정]")
+                prevById.forEach { (id, item) -> appendLine("$id [${item.assignee ?: "?"}] ${item.text}") }
+                appendLine()
+                appendLine("[이번주 진행]")
+                currById.forEach { (id, item) -> appendLine("$id [${item.assignee ?: "?"}] ${item.text}") }
+            }
+        return listOf(
+            Message(role = "system", content = weeklyReportMatchPrompt),
+            Message(role = "user", content = userMessage.trimEnd()),
+        )
     }
 
     private fun appendHistory(

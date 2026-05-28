@@ -5,6 +5,8 @@ import com.pluxity.weekly.chat.dto.WeeklyReportSearchFilter
 import com.pluxity.weekly.chat.llm.dto.WeeklyReportClassifyResult
 import com.pluxity.weekly.core.constant.ErrorCode
 import com.pluxity.weekly.core.exception.CustomException
+import com.pluxity.weekly.report.dto.MatchedAgainstPrev
+import com.pluxity.weekly.report.dto.ReportItem
 import com.pluxity.weekly.report.dto.WeeklyReportResponse
 import com.pluxity.weekly.report.dto.WeeklyReportSummaryResponse
 import com.pluxity.weekly.report.dto.toResponse
@@ -63,18 +65,39 @@ class WeeklyReportService(
             ?.toResponse()
     }
 
+    /**
+     * 매칭용: 1주 전 보고의 nextWeek 항목(=지난주가 적은 "이번주 예정")을 반환. 없으면 빈 리스트.
+     * formatted는 @Convert 컬럼이라 lazy 이슈 없음. LLM 콜은 호출 측(핸들러)에서 tx 밖으로.
+     */
+    fun findPrevWeekNextItems(
+        team: Team,
+        currWeekStart: LocalDate,
+    ): List<ReportItem> {
+        val prevMonday =
+            currWeekStart
+                .with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+                .minusWeeks(1)
+        return weeklyReportRepository
+            .findByTeamIdAndWeekStart(team.requiredId, prevMonday)
+            ?.formatted
+            ?.nextWeek
+            .orEmpty()
+    }
+
     // ── 쓰기 (클래스 기본은 readOnly라 메서드에서 read-write로 오버라이드) ──
 
     /**
      * chat 라우터에서 LLM 분류 결과를 받아 즉시 저장 (UPSERT).
      * 같은 team_id + week_start가 있으면 update, 없으면 신규 save.
      * teamNameRaw는 LLM이 추출 못한 경우 context의 team.name으로 fallback.
+     * matched는 호출 측에서 tx 밖에서 계산한 매칭 결과 (best-effort, 실패 시 null).
      */
     @Transactional
     fun upsertFromClassify(
         team: Team,
         rawContent: String,
         classify: WeeklyReportClassifyResult,
+        matched: MatchedAgainstPrev? = null,
     ): WeeklyReportResponse {
         val teamNameRaw = classify.teamNameRaw ?: team.name
         // upsert 키 신뢰성: LLM이 월요일이 아닌 날짜를 줘도 그 주 월요일로 정규화 (중복 보고 방지)
@@ -88,7 +111,7 @@ class WeeklyReportService(
             if (existing != null) {
                 existing.rawContent = rawContent
                 existing.formatted = classify.formatted
-                existing.matchedAgainstPrev = null // 내용 변경 → 매칭 캐시 무효화
+                existing.matchedAgainstPrev = matched // 재작성 시 재계산된 매칭으로 갱신 (없으면 null)
                 existing
             } else {
                 weeklyReportRepository.save(
@@ -98,6 +121,7 @@ class WeeklyReportService(
                         weekStart = weekStart,
                         rawContent = rawContent,
                         formatted = classify.formatted,
+                        matchedAgainstPrev = matched,
                     ),
                 )
             }
