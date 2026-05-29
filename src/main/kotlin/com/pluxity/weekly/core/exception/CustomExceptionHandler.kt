@@ -77,7 +77,11 @@ class CustomExceptionHandler {
                             .toString(),
                     error = e.code.getCodeName(),
                 ),
-            ).also { log.error(e) { "CustomException: ${e.message}" } }
+            ).also {
+                log.error(e) {
+                    "CustomException: [${e.code.getCodeName()}] ${e.message} | params=${e.params.contentToString()}"
+                }
+            }
 
     @ExceptionHandler(EntityNotFoundException::class)
     fun handleEntityNotFoundException(e: EntityNotFoundException): ResponseEntity<ErrorResponseBody> =
@@ -118,7 +122,7 @@ class CustomExceptionHandler {
 
         val fieldErrors = e.bindingResult.fieldErrors
         val errorMessage =
-            fieldErrors.joinToString { error: FieldError -> "$error.field: $error.defaultMessage" }
+            fieldErrors.joinToString { error: FieldError -> "${error.field}: ${error.defaultMessage}" }
 
         return ResponseEntity(
             ErrorResponseBody(
