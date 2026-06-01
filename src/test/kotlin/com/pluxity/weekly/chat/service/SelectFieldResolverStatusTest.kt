@@ -60,11 +60,9 @@ class SelectFieldResolverStatusTest :
                 },
             )
 
-        fun statusField(action: LlmAction): SelectField? =
-            resolver.resolve(action).firstOrNull { it.field == "status" }
+        fun statusField(action: LlmAction): SelectField? = resolver.resolve(action).firstOrNull { it.field == "status" }
 
-        fun statusNames(action: LlmAction): List<String> =
-            statusField(action)?.candidates?.map { it.id } ?: emptyList()
+        fun statusNames(action: LlmAction): List<String> = statusField(action)?.candidates?.map { it.id } ?: emptyList()
 
         Given("PROJECT 대상") {
             When("CREATE 액션") {
@@ -131,4 +129,3 @@ class SelectFieldResolverStatusTest :
             }
         }
     })
-
