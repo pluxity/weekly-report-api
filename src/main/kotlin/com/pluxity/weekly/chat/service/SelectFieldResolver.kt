@@ -8,11 +8,14 @@ import com.pluxity.weekly.chat.dto.ChatActionType
 import com.pluxity.weekly.chat.dto.ChatTarget
 import com.pluxity.weekly.chat.dto.LlmAction
 import com.pluxity.weekly.chat.dto.SelectField
+import com.pluxity.weekly.epic.entity.EpicStatus
 import com.pluxity.weekly.epic.repository.EpicRepository
 import com.pluxity.weekly.epic.service.EpicAssignmentService
 import com.pluxity.weekly.epic.service.EpicService
+import com.pluxity.weekly.project.entity.ProjectStatus
 import com.pluxity.weekly.project.repository.ProjectRepository
 import com.pluxity.weekly.project.service.ProjectService
+import com.pluxity.weekly.task.entity.TaskStatus
 import com.pluxity.weekly.task.repository.TaskRepository
 import org.springframework.data.domain.Sort
 import org.springframework.stereotype.Component
@@ -153,23 +156,46 @@ class SelectFieldResolver(
         return SelectField(field = "assigneeId", groups = groups)
     }
 
-    private fun resolveStatusCandidates(target: ChatTarget): SelectField {
-        val statuses =
+    private fun resolveStatusCandidates(
+        target: ChatTarget,
+        actionType: ChatActionType,
+    ): SelectField {
+        val names: List<String> =
             when (target) {
-                ChatTarget.PROJECT, ChatTarget.EPIC -> listOf("TODO", "IN_PROGRESS", "DONE")
-                else -> listOf("TODO", "IN_PROGRESS")
+                ChatTarget.PROJECT -> projectStatuses(actionType)
+                ChatTarget.EPIC -> epicStatuses(actionType)
+                ChatTarget.TASK -> taskStatuses(actionType)
+                else -> emptyList()
             }
-        return SelectField(
-            field = "status",
-            candidates = statuses.map { Candidate(it, it) },
-        )
+        return SelectField(field = "status", candidates = names.map { Candidate(it, it) })
     }
+
+    private fun projectStatuses(actionType: ChatActionType): List<String> =
+        when (actionType) {
+            ChatActionType.CREATE -> ProjectStatus.initStates
+            ChatActionType.UPDATE -> ProjectStatus.transitionStates
+            else -> emptyList()
+        }.map { it.name }
+
+    private fun epicStatuses(actionType: ChatActionType): List<String> =
+        when (actionType) {
+            ChatActionType.CREATE -> EpicStatus.initStates
+            ChatActionType.UPDATE -> EpicStatus.transitionStates
+            else -> emptyList()
+        }.map { it.name }
+
+    private fun taskStatuses(actionType: ChatActionType): List<String> =
+        when (actionType) {
+            ChatActionType.CREATE -> TaskStatus.initStates
+            ChatActionType.UPDATE -> TaskStatus.transitionStates
+            else -> emptyList()
+        }.map { it.name }
 
     private fun addSelectFields(
         action: LlmAction,
         result: MutableList<SelectField>,
     ) {
-        val type = ChatActionType.fromOrNull(action.action)
+        val type = ChatActionType.fromOrNull(action.action) ?: return
         if (type != ChatActionType.CREATE && type != ChatActionType.UPDATE) return
 
         val existingFields = result.map { it.field }.toSet()
@@ -180,7 +206,7 @@ class SelectFieldResolver(
                     result.add(resolveUserCandidates("pmId", listOf("PM", "PO")))
                 }
                 if ("status" !in existingFields) {
-                    result.add(resolveStatusCandidates(ChatTarget.PROJECT))
+                    result.add(resolveStatusCandidates(ChatTarget.PROJECT, type))
                 }
             }
             ChatTarget.EPIC -> {
@@ -191,7 +217,7 @@ class SelectFieldResolver(
                     result.add(resolveUserCandidates("userIds"))
                 }
                 if ("status" !in existingFields) {
-                    result.add(resolveStatusCandidates(ChatTarget.EPIC))
+                    result.add(resolveStatusCandidates(ChatTarget.EPIC, type))
                 }
             }
             ChatTarget.TASK -> {
@@ -202,7 +228,7 @@ class SelectFieldResolver(
                     resolveTaskAssigneeCandidates()?.let { result.add(it) }
                 }
                 if ("status" !in existingFields) {
-                    result.add(resolveStatusCandidates(ChatTarget.TASK))
+                    result.add(resolveStatusCandidates(ChatTarget.TASK, type))
                 }
             }
             ChatTarget.TEAM, ChatTarget.REVIEW, ChatTarget.WEEKLY_REPORT, null -> Unit
