@@ -92,7 +92,7 @@ class ChatService(
             }
 
         if (targetType != ChatTarget.WEEKLY_REPORT) {
-            chatHistoryStore.recordChatTurn(userId, message, intent.target, intent.actions, responses)
+            chatHistoryStore.recordChatTurn(userId, message, targetType.key, actionTypes.map { it.key }, responses)
         }
         return responses
     }
