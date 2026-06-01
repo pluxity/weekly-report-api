@@ -1,8 +1,8 @@
 package com.pluxity.weekly.chat.llm.dto
 
 data class IntentResult(
-    val actions: List<String>,
-    val target: String,
+    val action: String? = null,
+    val target: String? = null,
     val id: Long? = null,
     val project: String? = null,
     val epic: String? = null,

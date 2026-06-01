@@ -52,25 +52,25 @@ class ContextBuilder(
 ) {
     fun build(
         target: ChatTarget,
-        actions: List<ChatActionType>,
+        action: ChatActionType?,
     ): String {
         val user = authorizationService.currentUser()
 
-        authorizationService.checkChatPermission(user, target, actions)
+        authorizationService.checkChatPermission(user, target, action)
 
         val today = LocalDate.now().toString()
         val todayDayOfWeek = LocalDate.now().dayOfWeek.getDisplayName(TextStyle.FULL, Locale.KOREAN)
         val userRef = UserRef(id = user.requiredId, name = user.name)
 
-        val hasCreateOnly = ChatActionType.CREATE in actions && ChatActionType.UPDATE !in actions
-        val excludeDone = ChatActionType.UPDATE in actions || ChatActionType.DELETE in actions
+        val isCreate = action == ChatActionType.CREATE
+        val excludeDone = action == ChatActionType.UPDATE || action == ChatActionType.DELETE
 
         val context: ChatContext =
             when (target) {
                 ChatTarget.PROJECT -> buildProjectContext(today, todayDayOfWeek, userRef, excludeDone)
                 ChatTarget.EPIC -> buildEpicContext(today, todayDayOfWeek, userRef, excludeDone)
                 ChatTarget.TEAM -> buildTeamContext(today, todayDayOfWeek, userRef)
-                ChatTarget.TASK, ChatTarget.REVIEW -> buildTaskContext(today, todayDayOfWeek, userRef, hasCreateOnly, excludeDone)
+                ChatTarget.TASK, ChatTarget.REVIEW -> buildTaskContext(today, todayDayOfWeek, userRef, isCreate, excludeDone)
                 ChatTarget.WEEKLY_REPORT -> buildWeeklyReportContext(today, todayDayOfWeek, userRef, user)
             }
 

@@ -37,8 +37,7 @@ class WeeklyReportChatHandler(
         context: String,
     ): List<ChatActionResponse> {
         val action =
-            intent.actions
-                .firstOrNull()
+            intent.action
                 ?.let { ChatActionType.fromOrNull(it) }
                 ?: throw ChatClarifyException("주간보고 action을 결정할 수 없습니다.")
 

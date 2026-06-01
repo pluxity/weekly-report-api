@@ -50,7 +50,7 @@ class User(
     }
 
     fun addRoles(roles: List<Role>) {
-        val duplicateRoles = roles.filter { this.hasRole(it) }
+        val duplicateRoles = roles.filter { role -> userRoles.any { it.role.id == role.id } }
 
         if (duplicateRoles.isNotEmpty()) {
             val duplicateNames = duplicateRoles.joinToString(", ") { it.name }
@@ -61,7 +61,7 @@ class User(
     }
 
     fun addRole(role: Role) {
-        if (hasRole(role)) throw CustomException(ErrorCode.DUPLICATE_ROLE, role.name)
+        if (userRoles.any { it.role.id == role.id }) throw CustomException(ErrorCode.DUPLICATE_ROLE, role.name)
         val userRole = UserRole(user = this, role = role)
         this.userRoles.add(userRole)
     }
@@ -88,8 +88,6 @@ class User(
     }
 
     fun getRoles(): List<Role> = userRoles.map { it.role }
-
-    fun hasRole(role: Role): Boolean = userRoles.any { it.role.id == role.id }
 
     fun changeName(name: String) {
         this.name = name

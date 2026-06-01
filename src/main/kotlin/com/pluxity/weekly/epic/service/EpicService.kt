@@ -44,7 +44,7 @@ class EpicService(
     fun create(request: EpicRequest): Long {
         val user = authorizationService.currentUser()
         authorizationService.requireEpicManage(user, request.projectId)
-        if (request.status == EpicStatus.DONE) {
+        if (request.status !in EpicStatus.initStates) {
             throw CustomException(ErrorCode.INVALID_INITIAL_STATUS, request.status)
         }
         val project = getProjectById(request.projectId)
