@@ -81,6 +81,9 @@ class LlmService(
             } catch (e: Exception) {
                 lastException = e
                 log.warn { "Intent 추출 실패 (시도 ${attempt + 1}/$MAX_RETRIES): ${e.message}" }
+                if (attempt < MAX_RETRIES - 1) {
+                    Thread.sleep(retryBackoffMs(attempt))
+                }
             }
         }
         log.error(lastException) { "Intent 추출 $MAX_RETRIES 회 재시도 실패" }
@@ -320,6 +323,10 @@ class LlmService(
 
     companion object {
         private const val MAX_RETRIES = 3
+        private const val INITIAL_BACKOFF_MS = 1000L
+
+        // 1s, 2s, 4s 지수 증가
+        private fun retryBackoffMs(attempt: Int): Long = INITIAL_BACKOFF_MS shl attempt
 
         fun stripCodeFence(raw: String): String {
             val trimmed = raw.trim()
