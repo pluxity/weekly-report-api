@@ -69,12 +69,12 @@ class ChatService(
         // 1차: 의도 추출 (히스토리 포함)
         val intentMessages = promptBuilder.buildIntentMessages(message, history)
         val intent = llmService.extractIntent(intentMessages)
-        log.info { "1차 의도 추출 - action: ${intent.actions}, target: ${intent.target}, id: ${intent.id}, response: $intent" }
+        log.info { "1차 의도 추출 - action: ${intent.action}, target: ${intent.target}, id: ${intent.id}, response: $intent" }
 
         // target별+action별+권한별 context 조회
         val targetType = ChatTarget.fromOrNull(intent.target) ?: ChatTarget.TASK
-        val actionTypes = intent.actions.mapNotNull { ChatActionType.fromOrNull(it) }
-        val context = contextBuilder.build(targetType, actionTypes)
+        val actionType = ChatActionType.fromOrNull(intent.action)
+        val context = contextBuilder.build(targetType, actionType)
         log.info { "context:\n${objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(objectMapper.readTree(context))}" }
 
         // weekly_report는 일반 LlmAction 흐름을 우회하고 별도 핸들러로
@@ -92,7 +92,7 @@ class ChatService(
             }
 
         if (targetType != ChatTarget.WEEKLY_REPORT) {
-            chatHistoryStore.recordChatTurn(userId, message, targetType.key, actionTypes.map { it.key }, responses)
+            chatHistoryStore.recordChatTurn(userId, message, targetType.key, actionType?.key, responses)
         }
         return responses
     }

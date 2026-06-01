@@ -46,7 +46,7 @@ tests:
     assert:
       - type: is-json
       - type: javascript
-        value: "JSON.parse(output).actions.includes('create') && JSON.parse(output).target === 'project'"
+        value: "JSON.parse(output).action === 'create' && JSON.parse(output).target === 'project'"
 
   - description: "[intent] 이름 포함 프로젝트 생성"
     vars:
@@ -57,7 +57,7 @@ tests:
       - type: javascript
         value: |
           const o = JSON.parse(output);
-          return o.actions.includes('create') && o.target === 'project' && o.name === 'PMS';
+          return o.action === 'create' && o.target === 'project' && o.name === 'PMS';
 
   - description: "[intent] 태스크 생성"
     vars:
@@ -66,7 +66,7 @@ tests:
     assert:
       - type: is-json
       - type: javascript
-        value: "JSON.parse(output).actions.includes('create') && JSON.parse(output).target === 'task'"
+        value: "JSON.parse(output).action === 'create' && JSON.parse(output).target === 'task'"
 
   - description: "[intent] 업무 그룹 생성"
     vars:
@@ -75,7 +75,7 @@ tests:
     assert:
       - type: is-json
       - type: javascript
-        value: "JSON.parse(output).actions.includes('create') && JSON.parse(output).target === 'epic'"
+        value: "JSON.parse(output).action === 'create' && JSON.parse(output).target === 'epic'"
 
   ## read
   - description: "[intent] 태스크 조회"
@@ -85,7 +85,7 @@ tests:
     assert:
       - type: is-json
       - type: javascript
-        value: "JSON.parse(output).actions.includes('read') && JSON.parse(output).target === 'task'"
+        value: "JSON.parse(output).action === 'read' && JSON.parse(output).target === 'task'"
 
   - description: "[intent] 리뷰 대기 조회"
     vars:
@@ -94,7 +94,7 @@ tests:
     assert:
       - type: is-json
       - type: javascript
-        value: "JSON.parse(output).actions.includes('read') && JSON.parse(output).target === 'review'"
+        value: "JSON.parse(output).action === 'read' && JSON.parse(output).target === 'review'"
 
   ## review_request
   - description: "[intent] 완료 → review_request"
@@ -104,7 +104,7 @@ tests:
     assert:
       - type: is-json
       - type: javascript
-        value: "JSON.parse(output).actions.includes('review_request') && JSON.parse(output).target === 'task'"
+        value: "JSON.parse(output).action === 'review_request' && JSON.parse(output).target === 'task'"
 
   - description: "[intent] 검수 요청"
     vars:
@@ -113,7 +113,7 @@ tests:
     assert:
       - type: is-json
       - type: javascript
-        value: "JSON.parse(output).actions.includes('review_request') && JSON.parse(output).target === 'task'"
+        value: "JSON.parse(output).action === 'review_request' && JSON.parse(output).target === 'task'"
 
   ## update
   - description: "[intent] 태스크 수정"
@@ -123,7 +123,7 @@ tests:
     assert:
       - type: is-json
       - type: javascript
-        value: "JSON.parse(output).actions.includes('update') && JSON.parse(output).target === 'task'"
+        value: "JSON.parse(output).action === 'update' && JSON.parse(output).target === 'task'"
 
   ## delete
   - description: "[intent] 프로젝트 삭제"
@@ -133,7 +133,7 @@ tests:
     assert:
       - type: is-json
       - type: javascript
-        value: "JSON.parse(output).actions.includes('delete') && JSON.parse(output).target === 'project'"
+        value: "JSON.parse(output).action === 'delete' && JSON.parse(output).target === 'project'"
 
   ## assign / unassign
   - description: "[intent] 업무 그룹 배정"
@@ -143,7 +143,7 @@ tests:
     assert:
       - type: is-json
       - type: javascript
-        value: "JSON.parse(output).actions.includes('assign') && JSON.parse(output).target === 'epic'"
+        value: "JSON.parse(output).action === 'assign' && JSON.parse(output).target === 'epic'"
 
   - description: "[intent] 업무 그룹 배정 해제"
     vars:
@@ -152,7 +152,7 @@ tests:
     assert:
       - type: is-json
       - type: javascript
-        value: "JSON.parse(output).actions.includes('unassign') && JSON.parse(output).target === 'epic'"
+        value: "JSON.parse(output).action === 'unassign' && JSON.parse(output).target === 'epic'"
 
   ## review_request - 다른 트리거 워드
   - description: "[intent] 끝냈어 → review_request"
@@ -162,7 +162,7 @@ tests:
     assert:
       - type: is-json
       - type: javascript
-        value: "JSON.parse(output).actions.includes('review_request') && JSON.parse(output).target === 'task'"
+        value: "JSON.parse(output).action === 'review_request' && JSON.parse(output).target === 'task'"
 
   - description: "[intent] 다 했어 → review_request"
     vars:
@@ -171,7 +171,7 @@ tests:
     assert:
       - type: is-json
       - type: javascript
-        value: "JSON.parse(output).actions.includes('review_request') && JSON.parse(output).target === 'task'"
+        value: "JSON.parse(output).action === 'review_request' && JSON.parse(output).target === 'task'"
 
   ## create with hint
   - description: "[intent] 업무 그룹에 태스크 추가 → create + hint"
@@ -183,7 +183,7 @@ tests:
       - type: javascript
         value: |
           const o = JSON.parse(output);
-          return o.actions.includes('create') && o.target === 'task' && o.epic === '백엔드';
+          return o.action === 'create' && o.target === 'task' && o.epic === '백엔드';
 
   ## clarify
   - description: "[intent] 모호한 입력 → clarify"
@@ -193,7 +193,7 @@ tests:
     assert:
       - type: is-json
       - type: javascript
-        value: "JSON.parse(output).actions.includes('clarify')"
+        value: "JSON.parse(output).action === 'clarify'"
 
   ## team
   - description: "[intent] 팀 조회"
@@ -203,7 +203,7 @@ tests:
     assert:
       - type: is-json
       - type: javascript
-        value: "JSON.parse(output).actions.includes('read') && JSON.parse(output).target === 'team'"
+        value: "JSON.parse(output).action === 'read' && JSON.parse(output).target === 'team'"
 
   # ──────────────────────────────────────
   # intent-prompt history tests
@@ -213,53 +213,53 @@ tests:
   - description: "[intent-history] 아까 만든거 수정 → update + id 참조"
     vars:
       userMessage: "아까 만든거 마감일을 금요일로"
-      history: "--- 히스토리 #1 | 질문: 로그인 태스크 만들어줘 | target: task | actions: [create] | 결과: create task id=13 ---"
+      history: "--- 히스토리 #1 | 질문: 로그인 태스크 만들어줘 | target: task | action: create | 결과: create task id=13 ---"
     prompts: [intent]
     assert:
       - type: is-json
       - type: javascript
         value: |
           const o = JSON.parse(output);
-          return o.actions.includes('update') && o.target === 'task' && o.id === 13;
+          return o.action === 'update' && o.target === 'task' && o.id === 13;
 
   ## 히스토리 참조 - 이전 create 결과의 id를 이어받아 delete
   - description: "[intent-history] 그거 삭제 → delete + id 참조"
     vars:
       userMessage: "그거 삭제해줘"
-      history: "--- 히스토리 #1 | 질문: 로그인 태스크 만들어줘 | target: task | actions: [create] | 결과: create task id=13 ---"
+      history: "--- 히스토리 #1 | 질문: 로그인 태스크 만들어줘 | target: task | action: create | 결과: create task id=13 ---"
     prompts: [intent]
     assert:
       - type: is-json
       - type: javascript
         value: |
           const o = JSON.parse(output);
-          return o.actions.includes('delete') && o.target === 'task' && o.id === 13;
+          return o.action === 'delete' && o.target === 'task' && o.id === 13;
 
   ## 히스토리 참조 - read 결과에서 target 이어받기
   - description: "[intent-history] 그중에 진행중인 것만 → read + target 이어받기"
     vars:
       userMessage: "그중에 진행중인 것만"
-      history: "--- 히스토리 #1 | 질문: 내 태스크 보여줘 | target: task | actions: [read] | 결과: read task 5건 ---"
+      history: "--- 히스토리 #1 | 질문: 내 태스크 보여줘 | target: task | action: read | 결과: read task 5건 ---"
     prompts: [intent]
     assert:
       - type: is-json
       - type: javascript
         value: |
           const o = JSON.parse(output);
-          return o.actions.includes('read') && o.target === 'task';
+          return o.action === 'read' && o.target === 'task';
 
   ## 히스토리 참조 - 업무 그룹 read 후 태스크 create
   - description: "[intent-history] 거기에 태스크 추가 → create task + epic hint"
     vars:
       userMessage: "거기에 태스크 추가해줘"
-      history: "--- 히스토리 #1 | 질문: 백엔드 업무 그룹 보여줘 | target: epic | actions: [read] | 결과: read epic 3건 ---"
+      history: "--- 히스토리 #1 | 질문: 백엔드 업무 그룹 보여줘 | target: epic | action: read | 결과: read epic 3건 ---"
     prompts: [intent]
     assert:
       - type: is-json
       - type: javascript
         value: |
           const o = JSON.parse(output);
-          return o.actions.includes('create') && o.target === 'task';
+          return o.action === 'create' && o.target === 'task';
 
   # ──────────────────────────────────────
   # system-prompt tests (fixture: 스마트팩토리/모바일POS/사내포털)
@@ -269,7 +269,7 @@ tests:
   - description: "[system] MQTT 브로커 설정 완료 → review_request id=1001"
     vars:
       userMessage: "MQTT 브로커 설정 완료"
-      intent: '{"actions":["review_request"],"target":"task"}'
+      intent: '{"action":"review_request","target":"task"}'
     prompts: [system]
     assert:
       - type: is-json
@@ -283,7 +283,7 @@ tests:
   - description: "[system] 리포트 생성 완료 → missing_fields (동명)"
     vars:
       userMessage: "리포트 생성 완료"
-      intent: '{"actions":["review_request"],"target":"task"}'
+      intent: '{"action":"review_request","target":"task"}'
     prompts: [system]
     assert:
       - type: is-json
@@ -298,7 +298,7 @@ tests:
   - description: "[system] 내 태스크 조회 → assignee_id=3"
     vars:
       userMessage: "내 태스크 보여줘"
-      intent: '{"actions":["read"],"target":"task"}'
+      intent: '{"action":"read","target":"task"}'
     prompts: [system]
     assert:
       - type: is-json
@@ -312,7 +312,7 @@ tests:
   - description: "[system] 리뷰할거 → read review"
     vars:
       userMessage: "리뷰할거 보여줘"
-      intent: '{"actions":["read"],"target":"review"}'
+      intent: '{"action":"read","target":"review"}'
     prompts: [system]
     assert:
       - type: is-json
@@ -326,7 +326,7 @@ tests:
   - description: "[system] 결제 모듈에 태스크 추가 → epic_id=201"
     vars:
       userMessage: "결제 모듈에 PG사 연동 추가해줘"
-      intent: '{"actions":["create"],"target":"task","epic":"결제 모듈","name":"PG사 연동"}'
+      intent: '{"action":"create","target":"task","epic":"결제 모듈","name":"PG사 연동"}'
     prompts: [system]
     assert:
       - type: is-json
@@ -340,7 +340,7 @@ tests:
   - description: "[system] 카드 결제 연동 90% → update id=2001"
     vars:
       userMessage: "카드 결제 연동 90%"
-      intent: '{"actions":["update"],"target":"task"}'
+      intent: '{"action":"update","target":"task"}'
     prompts: [system]
     assert:
       - type: is-json
@@ -354,7 +354,7 @@ tests:
   - description: "[system] 바코드 생성 삭제 → delete id=2009"
     vars:
       userMessage: "바코드 생성 삭제해줘"
-      intent: '{"actions":["delete"],"target":"task"}'
+      intent: '{"action":"delete","target":"task"}'
     prompts: [system]
     assert:
       - type: is-json
@@ -368,7 +368,7 @@ tests:
   - description: "[system] 태스크 수정해줘 → missing_fields"
     vars:
       userMessage: "태스크 수정해줘"
-      intent: '{"actions":["update"],"target":"task"}'
+      intent: '{"action":"update","target":"task"}'
     prompts: [system]
     assert:
       - type: is-json
@@ -382,7 +382,7 @@ tests:
   - description: "[system] 센서 연동 업무 그룹에 김민지 할당 → assign"
     vars:
       userMessage: "센서 연동 업무 그룹에 김민지 할당해줘"
-      intent: '{"actions":["assign"],"target":"epic"}'
+      intent: '{"action":"assign","target":"epic"}'
     prompts: [system]
     assert:
       - type: is-json
@@ -396,7 +396,7 @@ tests:
   - description: "[system] 업무 그룹 만들어줘 → create, name 없음"
     vars:
       userMessage: "업무 그룹 만들어줘"
-      intent: '{"actions":["create"],"target":"epic"}'
+      intent: '{"action":"create","target":"epic"}'
     prompts: [system]
     assert:
       - type: is-json
@@ -410,7 +410,7 @@ tests:
   - description: "[system] 대시보드에 태스크 추가 → epic_id는 102 또는 202"
     vars:
       userMessage: "대시보드에 태스크 추가해줘"
-      intent: '{"actions":["create"],"target":"task","epic":"대시보드"}'
+      intent: '{"action":"create","target":"task","epic":"대시보드"}'
     prompts: [system]
     assert:
       - type: is-json
@@ -424,7 +424,7 @@ tests:
   - description: "[system] 데이터 파싱 모듈 마감일 4월 25일 → date"
     vars:
       userMessage: "데이터 파싱 모듈 마감일 4월 25일로 변경"
-      intent: '{"actions":["update"],"target":"task"}'
+      intent: '{"action":"update","target":"task"}'
     prompts: [system]
     assert:
       - type: is-json
@@ -438,7 +438,7 @@ tests:
   - description: "[system] 영수증 출력 시작 → IN_PROGRESS, progress=10"
     vars:
       userMessage: "영수증 출력 시작"
-      intent: '{"actions":["update"],"target":"task"}'
+      intent: '{"action":"update","target":"task"}'
     prompts: [system]
     assert:
       - type: is-json
@@ -452,7 +452,7 @@ tests:
   - description: "[system] 리뷰 요청해줘 → missing_fields"
     vars:
       userMessage: "리뷰 요청해줘"
-      intent: '{"actions":["review_request"],"target":"task"}'
+      intent: '{"action":"review_request","target":"task"}'
     prompts: [system]
     assert:
       - type: is-json
@@ -466,7 +466,7 @@ tests:
   - description: "[system] 스마트팩토리 진행중인 태스크 → filters"
     vars:
       userMessage: "스마트팩토리 진행중인 태스크 보여줘"
-      intent: '{"actions":["read"],"target":"task"}'
+      intent: '{"action":"read","target":"task"}'
     prompts: [system]
     assert:
       - type: is-json
@@ -480,7 +480,7 @@ tests:
   - description: "[system] 모바일 POS에 배송 업무 그룹 추가 → project_id=2"
     vars:
       userMessage: "모바일 POS에 배송 업무 그룹 추가해줘"
-      intent: '{"actions":["create"],"target":"epic","project":"모바일 POS","name":"배송"}'
+      intent: '{"action":"create","target":"epic","project":"모바일 POS","name":"배송"}'
     prompts: [system]
     assert:
       - type: is-json
@@ -494,7 +494,7 @@ tests:
   - description: "[system] CONTEXT에 없는 항목 → clarify"
     vars:
       userMessage: "잠자기 완료"
-      intent: '{"actions":["review_request"],"target":"task"}'
+      intent: '{"action":"review_request","target":"task"}'
     prompts: [system]
     assert:
       - type: is-json
@@ -508,7 +508,7 @@ tests:
   - description: "[system] 복수 미확정 → missing_fields는 id 1개만"
     vars:
       userMessage: "대시보드 업무 그룹에 할당해줘"
-      intent: '{"actions":["assign"],"target":"epic"}'
+      intent: '{"action":"assign","target":"epic"}'
     prompts: [system]
     assert:
       - type: is-json
@@ -531,7 +531,7 @@ tests:
     vars:
       contextFile: context-task-create.json
       userMessage: "센서 연동에 알람 규칙 추가, 담당자 김민지"
-      intent: '{"actions":["create"],"target":"task","epic":"센서 연동","name":"알람 규칙"}'
+      intent: '{"action":"create","target":"task","epic":"센서 연동","name":"알람 규칙"}'
     prompts: [system]
     assert:
       - type: is-json
@@ -547,7 +547,7 @@ tests:
     vars:
       contextFile: context-task-create.json
       userMessage: "센서 연동에 알람 규칙 추가"
-      intent: '{"actions":["create"],"target":"task","epic":"센서 연동","name":"알람 규칙"}'
+      intent: '{"action":"create","target":"task","epic":"센서 연동","name":"알람 규칙"}'
     prompts: [system]
     assert:
       - type: is-json
@@ -562,7 +562,7 @@ tests:
     vars:
       contextFile: context-task-create.json
       userMessage: "결제 모듈에 환불 처리 추가, 담당자 김민지"
-      intent: '{"actions":["create"],"target":"task","epic":"결제 모듈","name":"환불 처리"}'
+      intent: '{"action":"create","target":"task","epic":"결제 모듈","name":"환불 처리"}'
     prompts: [system]
     assert:
       - type: is-json
@@ -577,7 +577,7 @@ tests:
     vars:
       contextFile: context-task-create.json
       userMessage: "센서 연동에 API 설계 추가, 담당자 박서준"
-      intent: '{"actions":["create"],"target":"task","epic":"센서 연동","name":"API 설계"}'
+      intent: '{"action":"create","target":"task","epic":"센서 연동","name":"API 설계"}'
     prompts: [system]
     assert:
       - type: is-json
@@ -592,7 +592,7 @@ tests:
     vars:
       contextFile: context-task-create.json
       userMessage: "API 설계 만들어줘, 담당자 최우석"
-      intent: '{"actions":["create"],"target":"task","name":"API 설계"}'
+      intent: '{"action":"create","target":"task","name":"API 설계"}'
     prompts: [system]
     assert:
       - type: is-json
@@ -601,4 +601,3 @@ tests:
           const arr = JSON.parse(output);
           const o = arr[0];
           return o.action === 'create' && o.target === 'task' && o.assignee_id === 7;
-

@@ -58,7 +58,7 @@ class ChatHistoryStore(
         userId: String,
         message: String,
         target: String,
-        actions: List<String>,
+        action: String?,
         responses: List<ChatActionResponse>,
     ) {
         val summary = buildActionSummary(responses)
@@ -66,7 +66,7 @@ class ChatHistoryStore(
         save(
             userId,
             "system",
-            "--- 히스토리 #$turnNumber | 질문: $message | target: $target | actions: $actions | 결과: $summary ---",
+            "--- 히스토리 #$turnNumber | 질문: $message | target: $target | action: ${action ?: "-"} | 결과: $summary ---",
         )
     }
 
@@ -81,7 +81,7 @@ class ChatHistoryStore(
         save(
             userId,
             "system",
-            "--- 히스토리 #$turnNumber | resolved | target: ${target ?: "-"} | actions: [$action] | 결과: $summary ---",
+            "--- 히스토리 #$turnNumber | resolved | target: ${target ?: "-"} | action: $action | 결과: $summary ---",
         )
     }
 

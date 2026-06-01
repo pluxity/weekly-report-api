@@ -135,13 +135,12 @@ class AuthorizationService(
     fun checkChatPermission(
         user: User,
         target: ChatTarget,
-        actions: List<ChatActionType>,
+        action: ChatActionType?,
     ) {
-        val hasMutation = actions.any { it.isMutating }
-        if (!hasMutation) return
+        if (action?.isMutating != true) return
 
         when (target) {
-            ChatTarget.PROJECT -> if (ChatActionType.CREATE in actions) requireAdmin(user) else requireAdminOrPm(user)
+            ChatTarget.PROJECT -> if (action == ChatActionType.CREATE) requireAdmin(user) else requireAdminOrPm(user)
             ChatTarget.EPIC -> requireAdminOrPm(user)
             else -> Unit
         }

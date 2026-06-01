@@ -5,7 +5,7 @@ JSON 배열만 출력. 설명, 마크다운, 부가 텍스트 절대 금지.
 
 ## INTENT (1차 분류 결과 — 참고)
 
-입력에 [INTENT] 블록이 있으면 1차 의도 분류 결과다. target과 actions를 참고하되, CONTEXT와 입력 내용을 기반으로 최종 판단하라.
+입력에 [INTENT] 블록이 있으면 1차 의도 분류 결과다. target과 action을 참고하되, CONTEXT와 입력 내용을 기반으로 최종 판단하라.
 - project, epic, name 힌트가 있으면 CONTEXT 매칭에 활용.
 - INTENT에 id가 있으면 이전 대화 참조. update/delete 시 그대로 사용.
 
