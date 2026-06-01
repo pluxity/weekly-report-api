@@ -44,9 +44,11 @@ class SecurityConfig(
                     .requestMatchers(
                         *buildPermitPaths(),
                     ).permitAll()
-                    .requestMatchers(HttpMethod.GET)
-                    .permitAll()
                     .requestMatchers("/auth/**")
+                    .permitAll()
+                    .requestMatchers("/users/**")
+                    .authenticated()
+                    .requestMatchers(HttpMethod.GET)
                     .permitAll()
                     .anyRequest()
                     .authenticated()
