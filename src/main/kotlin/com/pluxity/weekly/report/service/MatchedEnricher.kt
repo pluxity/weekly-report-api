@@ -39,12 +39,12 @@ fun enrichMatched(
         if (pair.prev in usedPrev || pair.curr in usedCurr) continue // 1:1 보장
         usedPrev += pair.prev
         usedCurr += pair.curr
-        matched += MatchedPair(assignee = prevItem.assignee, prev = prevItem.text, curr = currItem.text)
+        matched += MatchedPair(assignee = prevItem.assignee, prev = prevItem.text.orEmpty(), curr = currItem.text.orEmpty())
     }
 
     // 매칭 안 된 나머지를 소스에서 직접 파생 (LinkedHashMap이라 입력 순서 유지)
-    val missing = prevById.filterKeys { it !in usedPrev }.values.map { MatchedItem(it.assignee, it.text) }
-    val new = currById.filterKeys { it !in usedCurr }.values.map { MatchedItem(it.assignee, it.text) }
+    val missing = prevById.filterKeys { it !in usedPrev }.values.map { MatchedItem(it.assignee, it.text.orEmpty()) }
+    val new = currById.filterKeys { it !in usedCurr }.values.map { MatchedItem(it.assignee, it.text.orEmpty()) }
 
     return MatchedAgainstPrev(matched = matched, missing = missing, new = new)
 }

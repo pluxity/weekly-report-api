@@ -26,8 +26,8 @@ data class ReportItem(
     val assignee: String?,
     @field:Schema(description = "카테고리 (사업/프로젝트명/태그). 추출 실패 시 null", example = "ProductA v1.0")
     val category: String?,
-    @field:Schema(description = "항목 본문 (원문 보존)", example = "#95 메인 페이지 구현")
-    val text: String,
+    @field:Schema(description = "항목 본문 (원문 보존). LLM이 빈 카테고리 헤더를 항목으로 내보내면 null", example = "#95 메인 페이지 구현")
+    val text: String? = null,
     @field:Schema(description = "진행률/상태 원문 표기. 추출 실패 시 null", example = "100%")
     val progress: String?,
     @param:JsonProperty("due_date")
