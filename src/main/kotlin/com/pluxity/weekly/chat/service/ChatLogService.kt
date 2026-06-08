@@ -1,6 +1,7 @@
 package com.pluxity.weekly.chat.service
 
 import com.pluxity.weekly.chat.entity.ChatLog
+import com.pluxity.weekly.chat.llm.dto.TokenUsage
 import com.pluxity.weekly.chat.repository.ChatLogRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.stereotype.Service
@@ -41,6 +42,26 @@ data class ChatLogData(
     var actionInputTokens: Int = 0,
     var actionOutputTokens: Int = 0,
 ) {
+    /** 1차(의도 추출) 결과·토큰 기록 */
+    fun recordIntent(
+        intentJson: String,
+        usage: TokenUsage,
+    ) {
+        intentResult = intentJson
+        intentInputTokens = usage.promptTokens
+        intentOutputTokens = usage.completionTokens
+    }
+
+    /** 2차(액션 생성/weekly) 결과·토큰 기록. weekly 는 본문 미저장이라 actionJson 생략 */
+    fun recordAction(
+        usage: TokenUsage,
+        actionJson: String? = null,
+    ) {
+        actionInputTokens = usage.promptTokens
+        actionOutputTokens = usage.completionTokens
+        actionResult = actionJson
+    }
+
     fun toEntity(): ChatLog =
         ChatLog(
             userId = userId,
