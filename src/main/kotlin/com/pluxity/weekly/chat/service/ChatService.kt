@@ -30,6 +30,7 @@ class ChatService(
     private val redisTemplate: RedisTemplate<String, Any>,
     private val authorizationService: AuthorizationService,
     private val weeklyReportChatHandler: com.pluxity.weekly.report.service.WeeklyReportChatHandler,
+    private val chatLogService: ChatLogService,
 ) {
     companion object {
         private val RELEASE_LOCK_SCRIPT =
@@ -50,7 +51,7 @@ class ChatService(
         }
 
         try {
-            return processChat(message, userId.toString())
+            return processChat(message, userId)
         } finally {
             redisTemplate.execute(RELEASE_LOCK_SCRIPT, listOf(lockKey), lockValue)
         }
@@ -58,42 +59,64 @@ class ChatService(
 
     private fun processChat(
         message: String,
-        userId: String,
+        userId: Long,
     ): List<ChatActionResponse> {
-        // 히스토리 로드
-        val history = chatHistoryStore.load(userId)
-        if (history.isNotEmpty()) {
-            log.info { "히스토리 (${history.size}건):\n${history.joinToString("\n") { it.content }}" }
-        }
+        val userKey = userId.toString()
+        // 단계별로 채워 finally 에서 1회 저장 (디버깅용 로그)
+        val logData = ChatLogData(userId = userId, requestMessage = message)
 
-        // 1차: 의도 추출 (히스토리 포함)
-        val intentMessages = promptBuilder.buildIntentMessages(message, history)
-        val intent = llmService.extractIntent(intentMessages)
-        log.info { "1차 의도 추출 - action: ${intent.action}, target: ${intent.target}, id: ${intent.id}, response: $intent" }
-
-        // target별+action별+권한별 context 조회
-        val targetType = ChatTarget.fromOrNull(intent.target) ?: ChatTarget.TASK
-        val actionType = ChatActionType.fromOrNull(intent.action)
-        val context = contextBuilder.build(targetType, actionType)
-        log.info { "context:\n${objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(objectMapper.readTree(context))}" }
-
-        // weekly_report는 일반 LlmAction 흐름을 우회하고 별도 핸들러로
-        val responses =
-            if (targetType == ChatTarget.WEEKLY_REPORT) {
-                weeklyReportChatHandler.handle(intent, message, context)
-            } else {
-                // 2차: LlmAction 생성
-                val actionMessages = promptBuilder.buildActionMessages(message, intent, context)
-                val actions = llmService.generate(actionMessages).take(1)
-                log.info { "LLM 응답 액션:\n${objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(actions)}" }
-
-                // LlmAction → ChatActionResponse 변환
-                actions.map { chatActionRouter.route(it) }
+        try {
+            // 히스토리 로드
+            val history = chatHistoryStore.load(userKey)
+            if (history.isNotEmpty()) {
+                log.info { "히스토리 (${history.size}건):\n${history.joinToString("\n") { it.content }}" }
             }
 
-        if (targetType != ChatTarget.WEEKLY_REPORT) {
-            chatHistoryStore.recordChatTurn(userId, message, targetType.key, actionType?.key, responses)
+            // 1차: 의도 추출 (히스토리 포함)
+            val intentMessages = promptBuilder.buildIntentMessages(message, history)
+            val intentResult = llmService.extractIntent(intentMessages)
+            val intent = intentResult.value
+            logData.intentResult = objectMapper.writeValueAsString(intent)
+            logData.intentInputTokens = intentResult.usage.promptTokens
+            logData.intentOutputTokens = intentResult.usage.completionTokens
+            log.info { "1차 의도 추출 - action: ${intent.action}, target: ${intent.target}, id: ${intent.id}, response: $intent" }
+
+            // target별+action별+권한별 context 조회
+            val targetType = ChatTarget.fromOrNull(intent.target) ?: ChatTarget.TASK
+            val actionType = ChatActionType.fromOrNull(intent.action)
+            val context = contextBuilder.build(targetType, actionType)
+            log.info { "context:\n${objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(objectMapper.readTree(context))}" }
+
+            // weekly_report는 일반 LlmAction 흐름을 우회하고 별도 핸들러로
+            val responses =
+                if (targetType == ChatTarget.WEEKLY_REPORT) {
+                    weeklyReportChatHandler.handle(intent, message, context)
+                } else {
+                    // 2차: LlmAction 생성
+                    val actionMessages = promptBuilder.buildActionMessages(message, intent, context)
+                    val actionResult = llmService.generate(actionMessages)
+                    logData.actionInputTokens = actionResult.usage.promptTokens
+                    logData.actionOutputTokens = actionResult.usage.completionTokens
+                    val actions = actionResult.value.take(1)
+                    logData.actionResult = objectMapper.writeValueAsString(actions)
+                    log.info { "LLM 응답 액션:\n${objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(actions)}" }
+
+                    // LlmAction → ChatActionResponse 변환
+                    actions.map { chatActionRouter.route(it) }
+                }
+
+            if (targetType != ChatTarget.WEEKLY_REPORT) {
+                chatHistoryStore.recordChatTurn(userKey, message, targetType.key, actionType?.key, responses)
+            }
+
+            logData.success = true
+            return responses
+        } catch (e: Exception) {
+            logData.success = false
+            logData.errorMessage = e.message
+            throw e
+        } finally {
+            chatLogService.record(logData)
         }
-        return responses
     }
 }
