@@ -90,7 +90,10 @@ class ChatService(
             // weekly_report는 일반 LlmAction 흐름을 우회하고 별도 핸들러로
             val responses =
                 if (targetType == ChatTarget.WEEKLY_REPORT) {
-                    weeklyReportChatHandler.handle(intent, message, context)
+                    val weeklyResult = weeklyReportChatHandler.handle(intent, message, context)
+                    logData.actionInputTokens = weeklyResult.usage.promptTokens
+                    logData.actionOutputTokens = weeklyResult.usage.completionTokens
+                    weeklyResult.value
                 } else {
                     // 2차: LlmAction 생성
                     val actionMessages = promptBuilder.buildActionMessages(message, intent, context)

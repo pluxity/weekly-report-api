@@ -108,13 +108,13 @@ class LlmService(
         throw CustomException(ErrorCode.LLM_SERVICE_UNAVAILABLE)
     }
 
-    fun classifyWeeklyReport(messages: List<Message>): WeeklyReportClassifyResult {
+    fun classifyWeeklyReport(messages: List<Message>): LlmResult<WeeklyReportClassifyResult> {
         var lastException: Exception? = null
         repeat(MAX_RETRIES) { attempt ->
             try {
-                val content = callLlm(messages).value
-                log.info { "llm classify response : $content" }
-                return parseClassify(content)
+                val result = callLlm(messages)
+                log.info { "llm classify response : ${result.value}" }
+                return LlmResult(parseClassify(result.value), result.usage)
             } catch (e: CustomException) {
                 throw e
             } catch (e: Exception) {
@@ -126,13 +126,13 @@ class LlmService(
         throw CustomException(ErrorCode.LLM_SERVICE_UNAVAILABLE)
     }
 
-    fun matchWeeklyReport(messages: List<Message>): WeeklyReportMatchResult {
+    fun matchWeeklyReport(messages: List<Message>): LlmResult<WeeklyReportMatchResult> {
         var lastException: Exception? = null
         repeat(MAX_RETRIES) { attempt ->
             try {
-                val content = callLlm(messages).value
-                log.info { "llm match response : $content" }
-                return parseMatch(content)
+                val result = callLlm(messages)
+                log.info { "llm match response : ${result.value}" }
+                return LlmResult(parseMatch(result.value), result.usage)
             } catch (e: CustomException) {
                 throw e
             } catch (e: Exception) {
