@@ -1,5 +1,6 @@
 package com.pluxity.weekly.chat.service
 
+import com.pluxity.weekly.chat.config.LlmProperties
 import com.pluxity.weekly.chat.entity.ChatLog
 import com.pluxity.weekly.chat.llm.dto.TokenUsage
 import com.pluxity.weekly.chat.repository.ChatLogRepository
@@ -19,9 +20,19 @@ private val log = KotlinLogging.logger {}
 @Service
 class ChatLogService(
     private val chatLogRepository: ChatLogRepository,
+    private val llmProperties: LlmProperties,
 ) {
     fun record(data: ChatLogData) {
-        runCatching { chatLogRepository.save(data.toEntity()) }
+        // 단가·모델은 현재 사용 중인 openrouter 설정 기준 (저장 시점 스냅샷)
+        val openrouter = llmProperties.openrouter
+        val cost =
+            ChatLogData.calculateCost(
+                inputTokens = data.totalInputTokens,
+                outputTokens = data.totalOutputTokens,
+                inputPricePerMillion = openrouter.inputPricePerMillion,
+                outputPricePerMillion = openrouter.outputPricePerMillion,
+            )
+        runCatching { chatLogRepository.save(data.toEntity(cost = cost, model = openrouter.model)) }
             .onFailure { e -> log.error(e) { "ChatLog 저장 실패 (무시): userId=${data.userId}" } }
     }
 }
@@ -42,6 +53,9 @@ data class ChatLogData(
     var actionInputTokens: Int = 0,
     var actionOutputTokens: Int = 0,
 ) {
+    val totalInputTokens: Int get() = intentInputTokens + actionInputTokens
+    val totalOutputTokens: Int get() = intentOutputTokens + actionOutputTokens
+
     /** 1차(의도 추출) 결과·토큰 기록 */
     fun recordIntent(
         intentJson: String,
@@ -62,7 +76,10 @@ data class ChatLogData(
         actionResult = actionJson
     }
 
-    fun toEntity(): ChatLog =
+    fun toEntity(
+        cost: BigDecimal,
+        model: String,
+    ): ChatLog =
         ChatLog(
             userId = userId,
             requestMessage = requestMessage,
@@ -74,22 +91,22 @@ data class ChatLogData(
             intentOutputTokens = intentOutputTokens,
             actionInputTokens = actionInputTokens,
             actionOutputTokens = actionOutputTokens,
-            cost = calculateCost(intentInputTokens + actionInputTokens, intentOutputTokens + actionOutputTokens),
+            cost = cost,
+            model = model,
         )
 
     companion object {
-        // OpenRouter 모델 단가 (USD / 1M tokens). TODO: gemini 2.5 flash 고정이라 추후 모델 변경시 설정으로 분리
-        private val INPUT_PRICE_PER_M = BigDecimal("0.30")
-        private val OUTPUT_PRICE_PER_M = BigDecimal("2.50")
         private val ONE_MILLION = BigDecimal(1_000_000)
 
         fun calculateCost(
             inputTokens: Int,
             outputTokens: Int,
+            inputPricePerMillion: BigDecimal,
+            outputPricePerMillion: BigDecimal,
         ): BigDecimal =
             BigDecimal(inputTokens)
-                .multiply(INPUT_PRICE_PER_M)
-                .add(BigDecimal(outputTokens).multiply(OUTPUT_PRICE_PER_M))
+                .multiply(inputPricePerMillion)
+                .add(BigDecimal(outputTokens).multiply(outputPricePerMillion))
                 .divide(ONE_MILLION, 8, RoundingMode.HALF_UP)
     }
 }

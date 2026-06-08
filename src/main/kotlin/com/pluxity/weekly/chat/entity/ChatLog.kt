@@ -36,4 +36,7 @@ class ChatLog(
     // USD. input/output 토큰 × 단가로 산출 (저장 시점 단가 고정)
     @Column(name = "cost", nullable = false, precision = 16, scale = 8)
     val cost: BigDecimal = BigDecimal.ZERO,
+    // cost 산출에 쓰인 모델 (저장 시점 스냅샷 — 단가 이력 추적용)
+    @Column(name = "model", nullable = false, length = 128)
+    val model: String = "",
 ) : IdentityIdEntity()
