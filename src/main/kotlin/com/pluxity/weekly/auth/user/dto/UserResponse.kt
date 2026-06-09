@@ -1,5 +1,6 @@
 package com.pluxity.weekly.auth.user.dto
 
+import com.pluxity.weekly.auth.authorization.UserType
 import com.pluxity.weekly.auth.user.entity.User
 import io.swagger.v3.oas.annotations.media.Schema
 
@@ -21,6 +22,8 @@ data class UserResponse(
     val shouldChangePassword: Boolean,
     @field:Schema(description = "역할 목록")
     val roles: List<RoleResponse>,
+    @field:Schema(description = "대표 역할 (우선순위 ADMIN > PO > PM > LEADER, 없으면 WORKER)", example = "PM")
+    val effectiveRole: String,
 )
 
 fun User.toResponse(): UserResponse =
@@ -33,4 +36,5 @@ fun User.toResponse(): UserResponse =
         email = this.email,
         shouldChangePassword = this.isPasswordChangeRequired(),
         roles = this.userRoles.sortedByDescending { it.role.id }.map { it.role.toResponse() },
+        effectiveRole = UserType.effectiveRoleName(this.userRoles.map { it.role.name.uppercase() }.toSet()),
     )
