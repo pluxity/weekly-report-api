@@ -104,4 +104,21 @@ interface TaskRepository :
     fun restoreByProjectId(
         @Param("projectId") projectId: Long,
     ): Int
+
+    @Query(
+        """
+        SELECT t.epic.project.id AS projectId, AVG(t.progress) AS avgProgress
+        FROM Task t
+        WHERE t.epic.project.id IN :projectIds
+        GROUP BY t.epic.project.id
+        """,
+    )
+    fun findAverageProgressByProjectIds(
+        @Param("projectIds") projectIds: List<Long>,
+    ): List<ProjectProgressRow>
+}
+
+interface ProjectProgressRow {
+    val projectId: Long
+    val avgProgress: Double
 }
