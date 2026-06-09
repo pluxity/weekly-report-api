@@ -8,12 +8,14 @@ import com.pluxity.weekly.chat.llm.dto.GeminiPart
 import com.pluxity.weekly.chat.llm.dto.GeminiRequest
 import com.pluxity.weekly.chat.llm.dto.GeminiResponse
 import com.pluxity.weekly.chat.llm.dto.IntentResult
+import com.pluxity.weekly.chat.llm.dto.LlmResult
 import com.pluxity.weekly.chat.llm.dto.Message
 import com.pluxity.weekly.chat.llm.dto.OllamaChatRequest
 import com.pluxity.weekly.chat.llm.dto.OllamaChatResponse
 import com.pluxity.weekly.chat.llm.dto.OllamaOptions
 import com.pluxity.weekly.chat.llm.dto.OpenAiChatRequest
 import com.pluxity.weekly.chat.llm.dto.OpenAiChatResponse
+import com.pluxity.weekly.chat.llm.dto.TokenUsage
 import com.pluxity.weekly.chat.llm.dto.WeeklyReportClassifyResult
 import com.pluxity.weekly.chat.llm.dto.WeeklyReportMatchResult
 import com.pluxity.weekly.config.WebClientFactory
@@ -27,8 +29,6 @@ import org.springframework.web.reactive.function.client.bodyToMono
 import tools.jackson.databind.ObjectMapper
 
 private val log = KotlinLogging.logger {}
-
-// TODO: 일일 토큰 사용량 제한 및 모니터링 추가
 
 @Service
 class LlmService(
@@ -70,81 +70,46 @@ class LlmService(
         }
     }
 
-    fun extractIntent(messages: List<Message>): IntentResult {
+    fun extractIntent(messages: List<Message>): LlmResult<IntentResult> = callWithRetry(messages, "Intent 추출", ::parseIntent)
+
+    fun generate(messages: List<Message>): LlmResult<List<LlmAction>> = callWithRetry(messages, "LLM 액션 생성", ::parseActions)
+
+    fun classifyWeeklyReport(messages: List<Message>): LlmResult<WeeklyReportClassifyResult> =
+        callWithRetry(messages, "LLM classify", ::parseClassify)
+
+    fun matchWeeklyReport(messages: List<Message>): LlmResult<WeeklyReportMatchResult> = callWithRetry(messages, "LLM match", ::parseMatch)
+
+    /**
+     * LLM 호출 + 재시도 공통 골격. 타입별로 변하는 parse 만 주입받는다.
+     * - CustomException 은 즉시 전파(재시도 안 함)
+     * - 그 외 예외는 MAX_RETRIES 까지 지수 backoff 후 재시도, 모두 실패 시 LLM_SERVICE_UNAVAILABLE
+     */
+    private fun <T> callWithRetry(
+        messages: List<Message>,
+        label: String,
+        parse: (String) -> T,
+    ): LlmResult<T> {
         var lastException: Exception? = null
         repeat(MAX_RETRIES) { attempt ->
             try {
-                val content = callLlm(messages)
-                return parseIntent(content)
+                val result = callLlm(messages)
+                log.info { "$label 응답: ${result.value}" }
+                return LlmResult(parse(result.value), result.usage)
             } catch (e: CustomException) {
                 throw e
             } catch (e: Exception) {
                 lastException = e
-                log.warn { "Intent 추출 실패 (시도 ${attempt + 1}/$MAX_RETRIES): ${e.message}" }
+                log.warn { "$label 실패 (시도 ${attempt + 1}/$MAX_RETRIES): ${e.message}" }
                 if (attempt < MAX_RETRIES - 1) {
                     Thread.sleep(retryBackoffMs(attempt))
                 }
             }
         }
-        log.error(lastException) { "Intent 추출 $MAX_RETRIES 회 재시도 실패" }
+        log.error(lastException) { "$label $MAX_RETRIES 회 재시도 실패" }
         throw CustomException(ErrorCode.LLM_SERVICE_UNAVAILABLE)
     }
 
-    fun generate(messages: List<Message>): List<LlmAction> {
-        var lastException: Exception? = null
-        repeat(MAX_RETRIES) { attempt ->
-            try {
-                val content = callLlm(messages)
-                log.info { "llm response : $content" }
-                return parseActions(content)
-            } catch (e: CustomException) {
-                throw e
-            } catch (e: Exception) {
-                lastException = e
-                log.warn { "LLM 호출 실패 (시도 ${attempt + 1}/$MAX_RETRIES): ${e.message}" }
-            }
-        }
-        log.error(lastException) { "LLM 서비스 $MAX_RETRIES 회 재시도 실패" }
-        throw CustomException(ErrorCode.LLM_SERVICE_UNAVAILABLE)
-    }
-
-    fun classifyWeeklyReport(messages: List<Message>): WeeklyReportClassifyResult {
-        var lastException: Exception? = null
-        repeat(MAX_RETRIES) { attempt ->
-            try {
-                val content = callLlm(messages)
-                log.info { "llm classify response : $content" }
-                return parseClassify(content)
-            } catch (e: CustomException) {
-                throw e
-            } catch (e: Exception) {
-                lastException = e
-                log.warn { "LLM classify 호출 실패 (시도 ${attempt + 1}/$MAX_RETRIES): ${e.message}" }
-            }
-        }
-        log.error(lastException) { "LLM classify $MAX_RETRIES 회 재시도 실패" }
-        throw CustomException(ErrorCode.LLM_SERVICE_UNAVAILABLE)
-    }
-
-    fun matchWeeklyReport(messages: List<Message>): WeeklyReportMatchResult {
-        var lastException: Exception? = null
-        repeat(MAX_RETRIES) { attempt ->
-            try {
-                val content = callLlm(messages)
-                log.info { "llm match response : $content" }
-                return parseMatch(content)
-            } catch (e: CustomException) {
-                throw e
-            } catch (e: Exception) {
-                lastException = e
-                log.warn { "LLM match 호출 실패 (시도 ${attempt + 1}/$MAX_RETRIES): ${e.message}" }
-            }
-        }
-        log.error(lastException) { "LLM match $MAX_RETRIES 회 재시도 실패" }
-        throw CustomException(ErrorCode.LLM_SERVICE_UNAVAILABLE)
-    }
-
-    private fun callLlm(messages: List<Message>): String =
+    private fun callLlm(messages: List<Message>): LlmResult<String> =
         when {
             properties.openrouter.isEnabled -> callOpenRouter(messages)
             properties.gemini.isEnabled -> callGemini(messages)
@@ -152,7 +117,7 @@ class LlmService(
             else -> throw CustomException(ErrorCode.LLM_SERVICE_UNAVAILABLE)
         }
 
-    private fun callOpenRouter(messages: List<Message>): String {
+    private fun callOpenRouter(messages: List<Message>): LlmResult<String> {
         val props = properties.openrouter
         val request =
             OpenAiChatRequest(
@@ -177,14 +142,20 @@ class LlmService(
                 .block()
                 ?: throw CustomException(ErrorCode.LLM_INVALID_RESPONSE)
 
-        return response.choices
-            ?.firstOrNull()
-            ?.message
-            ?.content
-            ?: throw CustomException(ErrorCode.LLM_INVALID_RESPONSE)
+        val content =
+            response.choices
+                ?.firstOrNull()
+                ?.message
+                ?.content
+                ?: throw CustomException(ErrorCode.LLM_INVALID_RESPONSE)
+        val usage =
+            response.usage
+                ?.let { TokenUsage(it.promptTokens, it.completionTokens, it.totalTokens) }
+                ?: TokenUsage()
+        return LlmResult(content, usage)
     }
 
-    private fun callOllama(messages: List<Message>): String {
+    private fun callOllama(messages: List<Message>): LlmResult<String> {
         val props = properties.ollama
         val request =
             OllamaChatRequest(
@@ -209,11 +180,14 @@ class LlmService(
                 .block()
                 ?: throw CustomException(ErrorCode.LLM_INVALID_RESPONSE)
 
-        return response.message?.content
-            ?: throw CustomException(ErrorCode.LLM_INVALID_RESPONSE)
+        val content =
+            response.message?.content
+                ?: throw CustomException(ErrorCode.LLM_INVALID_RESPONSE)
+        // TODO: Ollama 토큰 사용량(prompt_eval_count/eval_count) 추출 — 현재는 OpenRouter만 실값
+        return LlmResult(content)
     }
 
-    private fun callGemini(messages: List<Message>): String {
+    private fun callGemini(messages: List<Message>): LlmResult<String> {
         val props = properties.gemini
         val systemMessage = messages.firstOrNull { it.role == "system" }
         val userMessages = messages.filter { it.role != "system" }
@@ -250,49 +224,27 @@ class LlmService(
                 .block()
                 ?: throw CustomException(ErrorCode.LLM_INVALID_RESPONSE)
 
-        return response
-            .candidates
-            ?.firstOrNull()
-            ?.content
-            ?.parts
-            ?.firstOrNull()
-            ?.text
-            ?: throw CustomException(ErrorCode.LLM_INVALID_RESPONSE)
+        val content =
+            response
+                .candidates
+                ?.firstOrNull()
+                ?.content
+                ?.parts
+                ?.firstOrNull()
+                ?.text
+                ?: throw CustomException(ErrorCode.LLM_INVALID_RESPONSE)
+        // TODO: Gemini 토큰 사용량(usageMetadata) 추출 — 현재는 OpenRouter만 실값
+        return LlmResult(content)
     }
 
-    private fun parseClassify(raw: String): WeeklyReportClassifyResult {
-        val json = stripCodeFence(raw).trim()
-        if (json.isBlank()) {
-            throw CustomException(ErrorCode.LLM_INVALID_RESPONSE)
-        }
-        return try {
-            objectMapper.readValue(json, WeeklyReportClassifyResult::class.java)
-        } catch (e: Exception) {
-            log.error(e) { "LLM classify 응답 JSON 파싱 실패: $json" }
-            throw CustomException(ErrorCode.LLM_INVALID_RESPONSE)
-        }
-    }
+    private fun parseClassify(raw: String): WeeklyReportClassifyResult =
+        decodeJson(raw, "LLM classify") { objectMapper.readValue(it, WeeklyReportClassifyResult::class.java) }
 
-    private fun parseMatch(raw: String): WeeklyReportMatchResult {
-        val json = stripCodeFence(raw).trim()
-        if (json.isBlank()) {
-            throw CustomException(ErrorCode.LLM_INVALID_RESPONSE)
-        }
-        return try {
-            objectMapper.readValue(json, WeeklyReportMatchResult::class.java)
-        } catch (e: Exception) {
-            log.error(e) { "LLM match 응답 JSON 파싱 실패: $json" }
-            throw CustomException(ErrorCode.LLM_INVALID_RESPONSE)
-        }
-    }
+    private fun parseMatch(raw: String): WeeklyReportMatchResult =
+        decodeJson(raw, "LLM match") { objectMapper.readValue(it, WeeklyReportMatchResult::class.java) }
 
-    private fun parseActions(raw: String): List<LlmAction> {
-        val json = stripCodeFence(raw).trim()
-        if (json.isBlank()) {
-            throw CustomException(ErrorCode.LLM_INVALID_RESPONSE)
-        }
-
-        return try {
+    private fun parseActions(raw: String): List<LlmAction> =
+        decodeJson(raw, "LLM 액션") { json ->
             if (json.trimStart().startsWith("[")) {
                 objectMapper.readValue(
                     json,
@@ -301,22 +253,27 @@ class LlmService(
             } else {
                 listOf(objectMapper.readValue(json, LlmAction::class.java))
             }
-        } catch (_: Exception) {
-            log.error { "LLM 응답 JSON 파싱 실패: $json" }
-            throw CustomException(ErrorCode.LLM_INVALID_RESPONSE)
         }
-    }
 
-    internal fun parseIntent(raw: String): IntentResult {
+    internal fun parseIntent(raw: String): IntentResult = decodeJson(raw, "Intent") { objectMapper.readValue(it, IntentResult::class.java) }
+
+    /**
+     * 공통 JSON 파싱 골격: 코드펜스 제거 → blank 검증 → decode. 실패 시 LLM_INVALID_RESPONSE.
+     * 타입별로 변하는 decode 만 주입받는다.
+     */
+    private fun <T> decodeJson(
+        raw: String,
+        label: String,
+        decode: (String) -> T,
+    ): T {
         val json = stripCodeFence(raw).trim()
         if (json.isBlank()) {
             throw CustomException(ErrorCode.LLM_INVALID_RESPONSE)
         }
-
         return try {
-            objectMapper.readValue(json, IntentResult::class.java)
-        } catch (_: Exception) {
-            log.error { "Intent JSON 파싱 실패: $json" }
+            decode(json)
+        } catch (e: Exception) {
+            log.error(e) { "$label JSON 파싱 실패: $json" }
             throw CustomException(ErrorCode.LLM_INVALID_RESPONSE)
         }
     }

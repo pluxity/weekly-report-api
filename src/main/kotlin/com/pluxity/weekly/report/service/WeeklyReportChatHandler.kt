@@ -8,6 +8,7 @@ import com.pluxity.weekly.chat.dto.ChatTarget
 import com.pluxity.weekly.chat.exception.ChatClarifyException
 import com.pluxity.weekly.chat.llm.LlmService
 import com.pluxity.weekly.chat.llm.dto.IntentResult
+import com.pluxity.weekly.chat.llm.dto.LlmResult
 import com.pluxity.weekly.chat.llm.dto.WeeklyReportClassifyResult
 import com.pluxity.weekly.chat.service.ChatPromptBuilder
 import com.pluxity.weekly.report.dto.MatchedAgainstPrev
@@ -35,7 +36,7 @@ class WeeklyReportChatHandler(
         intent: IntentResult,
         message: String,
         context: String,
-    ): List<ChatActionResponse> {
+    ): LlmResult<List<ChatActionResponse>> {
         val action =
             intent.action
                 ?.let { ChatActionType.fromOrNull(it) }
@@ -49,22 +50,25 @@ class WeeklyReportChatHandler(
         }
     }
 
-    private fun handleRead(intent: IntentResult): List<ChatActionResponse> {
+    private fun handleRead(intent: IntentResult): LlmResult<List<ChatActionResponse>> {
         val user = authorizationService.currentUser()
         teamRepository.findByLeaderId(user.requiredId).firstOrNull()
             ?: throw ChatClarifyException("주간보고는 팀 리더만 조회할 수 있습니다.")
 
         val report = weeklyReportService.findForChat(intent.week)
-        return listOf(
-            ChatActionResponse(
-                action = ChatActionType.READ.key,
-                target = ChatTarget.WEEKLY_REPORT.key,
-                readResult = ChatReadResponse(weeklyReport = report),
+        // 조회는 LLM 미사용 → usage 0
+        return LlmResult(
+            listOf(
+                ChatActionResponse(
+                    action = ChatActionType.READ.key,
+                    target = ChatTarget.WEEKLY_REPORT.key,
+                    readResult = ChatReadResponse(weeklyReport = report),
+                ),
             ),
         )
     }
 
-    private fun handleDelete(intent: IntentResult): List<ChatActionResponse> {
+    private fun handleDelete(intent: IntentResult): LlmResult<List<ChatActionResponse>> {
         val user = authorizationService.currentUser()
         val team =
             teamRepository.findByLeaderId(user.requiredId).firstOrNull()
@@ -75,11 +79,14 @@ class WeeklyReportChatHandler(
             weeklyReportService.delete(team, weekStart)
                 ?: throw ChatClarifyException("해당 주차에 삭제할 주간보고가 없습니다.")
 
-        return listOf(
-            ChatActionResponse(
-                action = ChatActionType.DELETE.key,
-                target = ChatTarget.WEEKLY_REPORT.key,
-                id = deletedId,
+        // 삭제는 LLM 미사용 → usage 0
+        return LlmResult(
+            listOf(
+                ChatActionResponse(
+                    action = ChatActionType.DELETE.key,
+                    target = ChatTarget.WEEKLY_REPORT.key,
+                    id = deletedId,
+                ),
             ),
         )
     }
@@ -88,7 +95,7 @@ class WeeklyReportChatHandler(
         message: String,
         context: String,
         intent: IntentResult,
-    ): List<ChatActionResponse> {
+    ): LlmResult<List<ChatActionResponse>> {
         // 2차 LLM: classify (system=classify-prompt, user=context + 본문)
         val messages = promptBuilder.buildActionMessages(message, intent, context)
         val classify = llmService.classifyWeeklyReport(messages)
@@ -102,17 +109,20 @@ class WeeklyReportChatHandler(
         val team = teams.first()
 
         // 매칭은 tx 밖에서 best-effort 계산 → upsert에 전달 (실패해도 보고 저장은 성공)
-        val matched = matchAgainstPrev(team, classify)
-        val response = weeklyReportService.upsertFromClassify(team, message, classify, matched)
+        val matched = matchAgainstPrev(team, classify.value)
+        val response = weeklyReportService.upsertFromClassify(team, message, classify.value, matched.value)
 
-        return listOf(
-            ChatActionResponse(
-                action = ChatActionType.CREATE.key,
-                target = ChatTarget.WEEKLY_REPORT.key,
-                id = response.id,
-                readResult = ChatReadResponse(weeklyReport = response),
-            ),
-        )
+        val responses =
+            listOf(
+                ChatActionResponse(
+                    action = ChatActionType.CREATE.key,
+                    target = ChatTarget.WEEKLY_REPORT.key,
+                    id = response.id,
+                    readResult = ChatReadResponse(weeklyReport = response),
+                ),
+            )
+        // classify + match(조건부) 토큰 합산 → ChatLog action_* 으로 매핑됨
+        return LlmResult(responses, classify.usage + matched.usage)
     }
 
     /**
@@ -123,17 +133,17 @@ class WeeklyReportChatHandler(
     private fun matchAgainstPrev(
         team: Team,
         classify: WeeklyReportClassifyResult,
-    ): MatchedAgainstPrev? {
+    ): LlmResult<MatchedAgainstPrev?> {
         val prevNextWeek = weeklyReportService.findPrevWeekNextItems(team, classify.weekStart)
-        if (prevNextWeek.isEmpty()) return null
+        if (prevNextWeek.isEmpty()) return LlmResult(null)
         val prevById = numberItems(prevNextWeek, "P")
         val currById = numberItems(classify.formatted.thisWeek, "C")
         return try {
             val raw = llmService.matchWeeklyReport(promptBuilder.buildMatchMessages(prevById, currById))
-            enrichMatched(raw, prevById, currById)
+            LlmResult(enrichMatched(raw.value, prevById, currById), raw.usage)
         } catch (e: Exception) {
             log.warn(e) { "주간보고 매칭 실패 (team=${team.requiredId}) — 매칭 없이 저장" }
-            null
+            LlmResult(null)
         }
     }
 }

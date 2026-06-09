@@ -39,6 +39,8 @@ llm:
   openrouter:
     api-key: ${OPENROUTER_API_KEY:}
     model: ${OPENROUTER_MODEL:}
+    input-price-per-million: ${OPENROUTER_INPUT_PRICE:0.30}
+    output-price-per-million: ${OPENROUTER_OUTPUT_PRICE:2.50}
   temperature: 0.1
   timeout-ms: 60000
 
