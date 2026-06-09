@@ -1,0 +1,80 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+# CodeRabbit 설정 — weekly-report-api (Kotlin + Spring Boot + JPA)
+# 스키마: https://docs.coderabbit.ai/reference/configuration
+
+language: ko-KR
+tone_instructions: "간결하고 직접적으로. 근거(WHY)를 함께 제시하고, 단순 취향 차이는 nitpick 으로만 표시한다."
+early_access: false
+
+reviews:
+  # chill = 핵심 위주(노이즈 적음), assertive = nitpick 까지 적극적. 더 빡세게 보려면 assertive 로.
+  profile: chill
+  # 리뷰 결과로 merge 를 막지 않음(코멘트만).
+  request_changes_workflow: false
+  high_level_summary: true
+  review_status: true
+  poem: false
+  collapse_walkthrough: false
+  changed_files_summary: true
+  sequence_diagrams: true
+
+  auto_review:
+    enabled: true
+    auto_incremental_review: true # 커밋 추가 시 증분 리뷰
+    drafts: false # Draft PR 은 리뷰 안 함
+    base_branches:
+      - develop
+      - main
+
+  # 리뷰/요약에서 제외할 경로 (빌드 산출물·바이너리·래퍼·부하테스트 데이터)
+  path_filters:
+    - "!**/build/**"
+    - "!**/.gradle/**"
+    - "!gradle/wrapper/**"
+    - "!**/*.jar"
+    - "!**/*.class"
+    - "!loadtest/users.json"
+
+  # 경로별 리뷰 지침 (이 저장소 컨벤션 주입)
+  path_instructions:
+    - path: "src/main/**/*.kt"
+      instructions: >-
+        Kotlin + Spring Boot + JPA 컨벤션을 따른다. 생성자 주입 사용(field injection 금지),
+        불변 우선(val), DTO 는 data class. 포맷팅은 ktlint(spotless)가 이미 강제하므로 들여쓰기·
+        import 정렬 같은 순수 스타일 nit 은 지적하지 말 것. 대신 다음에 집중한다:
+        null 안정성(불필요한 !! / 플랫폼 타입 누수), 예외는 CustomException + ErrorCode 패턴 준수 여부,
+        트랜잭션 경계(@Transactional 범위·readOnly), JPA N+1 / LAZY 초기화, 외부 호출의 타임아웃·재시도,
+        동시성(블로킹 I/O, 공유 상태). 비즈니스 로직 버그와 경계 조건을 최우선으로 본다.
+    - path: "src/test/**/*.kt"
+      instructions: >-
+        테스트는 Kotest BDD 스타일(BehaviorSpec/DescribeSpec, given-when-then 구조)과 MockK
+        (every/coEvery, verify)를 사용한다. 테스트 설명은 한글. 단언은 kotest-assertions(shouldBe 등).
+        테스트가 실제 동작/경계/예외 경로를 검증하는지, mock 과잉(행위 검증만 하고 결과 검증이 없는지),
+        깨지기 쉬운 단언이 없는지 본다.
+    - path: "src/main/resources/db/migration/*.sql"
+      instructions: >-
+        Flyway 마이그레이션. 파일명 규칙 V{yyyyMMdd}_{seq}__{설명}.sql 준수 여부와,
+        되돌릴 수 없는 파괴적 변경(DROP/NOT NULL 추가/타입 변경)이 기존 데이터에 끼치는 영향,
+        다운타임·락 가능성을 점검한다. 이미 배포된 마이그레이션 파일의 수정 여부도 확인.
+    - path: "**/*.yml"
+      instructions: >-
+        설정 파일. 평문 비밀번호·API 키가 하드코딩되어 커밋되는지, 환경별(local/stage/prod) 값이
+        뒤섞이지 않는지, ${ENV:default} 기본값이 프로덕션에 위험하지 않은지 본다.
+
+  tools:
+    # 스타일은 ktlint(spotless)가 CI 에서 처리하므로 detekt 는 끔(중복·노이즈 방지).
+    detekt:
+      enabled: false
+    # 시크릿 누출 스캔(설정 yml 에 자격증명이 많아 유용).
+    gitleaks:
+      enabled: true
+    # 코드 리뷰에 산문 문법검사는 불필요.
+    languagetool:
+      enabled: false
+
+chat:
+  auto_reply: true
+
+knowledge_base:
+  learnings:
+    scope: auto
