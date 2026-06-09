@@ -24,6 +24,8 @@ llm:
     model: ${OPENROUTER_MODEL:}
     input-price-per-million: ${OPENROUTER_INPUT_PRICE:0.30}
     output-price-per-million: ${OPENROUTER_OUTPUT_PRICE:2.50}
+    site-url: ${OPENROUTER_SITE_URL:http://192.168.10.152:8080}
+    site-name: ${OPENROUTER_SITE_NAME:PMS(local)}
   temperature: 0.1
   timeout-ms: 60000
 

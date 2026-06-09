@@ -34,6 +34,8 @@ data class OpenRouterProperties(
     val model: String = "",
     val inputPricePerMillion: BigDecimal = BigDecimal("0.30"),
     val outputPricePerMillion: BigDecimal = BigDecimal("2.50"),
+    val siteUrl: String = "",
+    val siteName: String = "",
 ) {
     val isEnabled: Boolean
         get() = apiKey.isNotBlank() && model.isNotBlank()

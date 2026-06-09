@@ -135,6 +135,8 @@ class LlmService(
                 .post()
                 .uri("/v1/chat/completions")
                 .header("Authorization", "Bearer ${props.apiKey}")
+                .header("HTTP-Referer", props.siteUrl)
+                .header("X-Title", props.siteName)
                 .contentType(MediaType.APPLICATION_JSON)
                 .bodyValue(request)
                 .retrieve()
