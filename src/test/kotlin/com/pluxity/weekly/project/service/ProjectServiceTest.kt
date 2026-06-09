@@ -13,6 +13,7 @@ import com.pluxity.weekly.project.entity.ProjectStatus
 import com.pluxity.weekly.project.entity.dummyProject
 import com.pluxity.weekly.project.event.ProjectPmAssignedEvent
 import com.pluxity.weekly.project.repository.ProjectRepository
+import com.pluxity.weekly.task.repository.ProjectProgressRow
 import com.pluxity.weekly.task.repository.TaskRepository
 import com.pluxity.weekly.test.entity.dummyRole
 import com.pluxity.weekly.test.entity.dummyUser
@@ -58,6 +59,8 @@ class ProjectServiceTest :
             every { authorizationService.requireProjectManager(any(), any<Project>()) } just runs
             every { authorizationService.requireAdmin(any()) } just runs
             every { authorizationService.visibleProjectIds(any()) } returns null
+            // progress 집계는 케이스별로 덮어쓰며, 기본값은 "태스크 없음"(빈 결과 → 0)
+            every { taskRepository.findAverageProgressByProjectIds(any()) } returns emptyList()
         }
 
         Given("프로젝트 전체 조회") {
@@ -462,4 +465,68 @@ class ProjectServiceTest :
                 }
             }
         }
+
+        Given("프로젝트 진행률(progress) 계산") {
+            And("단건 조회(findById)") {
+                When("하위 태스크 progress 평균이 존재하면") {
+                    val entity = dummyProject(id = 40L, name = "진행률 프로젝트")
+                    every { projectRepository.findByIdOrNull(40L) } returns entity
+                    every { projectRepository.findMembersByProjectIds(listOf(40L)) } returns emptyList()
+                    every { taskRepository.findAverageProgressByProjectIds(listOf(40L)) } returns
+                        listOf(progressRow(40L, 45.9))
+
+                    val result = service.findById(40L)
+
+                    Then("소수점을 버린 정수 progress 가 반환된다") {
+                        result.progress shouldBe 45
+                    }
+                }
+
+                When("하위 태스크가 없으면(집계 결과 없음)") {
+                    val entity = dummyProject(id = 41L, name = "태스크 없는 프로젝트")
+                    every { projectRepository.findByIdOrNull(41L) } returns entity
+                    every { projectRepository.findMembersByProjectIds(listOf(41L)) } returns emptyList()
+                    every { taskRepository.findAverageProgressByProjectIds(listOf(41L)) } returns emptyList()
+
+                    val result = service.findById(41L)
+
+                    Then("progress 는 0 이다") {
+                        result.progress shouldBe 0
+                    }
+                }
+            }
+
+            And("전체 조회(findAll)") {
+                When("일부 프로젝트에만 태스크 평균이 있으면") {
+                    val entities =
+                        listOf(
+                            dummyProject(id = 1L, name = "A"),
+                            dummyProject(id = 2L, name = "B"),
+                            dummyProject(id = 3L, name = "C"),
+                        )
+                    every { projectRepository.findByFilter(any()) } returns entities
+                    every { projectRepository.findMembersByProjectIds(any()) } returns emptyList()
+                    every { userRepository.findAllById(any<List<Long>>()) } returns emptyList()
+                    every { taskRepository.findAverageProgressByProjectIds(listOf(1L, 2L, 3L)) } returns
+                        listOf(progressRow(1L, 80.0), progressRow(3L, 33.7))
+
+                    val result = service.findAll()
+
+                    Then("평균이 있는 프로젝트는 정수 progress, 없는 프로젝트는 0 이다") {
+                        result.first { it.id == 1L }.progress shouldBe 80
+                        result.first { it.id == 2L }.progress shouldBe 0
+                        result.first { it.id == 3L }.progress shouldBe 33
+                    }
+                }
+            }
+        }
     })
+
+private fun progressRow(
+    id: Long,
+    avg: Double,
+): ProjectProgressRow =
+    object : ProjectProgressRow {
+        override val projectId = id
+        override val avgProgress = avg
+    }

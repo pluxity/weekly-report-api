@@ -41,18 +41,23 @@ class ProjectService(
         val projects = projectRepository.findByFilter(scoped)
         if (projects.isEmpty()) return emptyList()
 
+        val projectIds = projects.map { it.requiredId }
         val memberMap =
             projectRepository
-                .findMembersByProjectIds(projects.map { it.requiredId })
+                .findMembersByProjectIds(projectIds)
                 .groupBy { it.projectId }
         val pmNameMap = resolvePmNames(projects.mapNotNull { it.pmId })
-        return projects.map { it.toResponse(memberMap[it.requiredId].orEmpty(), pmNameMap[it.pmId]) }
+        val progressMap = averageProgressByProjectIds(projectIds)
+        return projects.map {
+            it.toResponse(memberMap[it.requiredId].orEmpty(), pmNameMap[it.pmId], progressMap[it.requiredId] ?: 0)
+        }
     }
 
     fun findById(id: Long): ProjectResponse {
         val project = getById(id)
         val pmName = project.pmId?.let { userRepository.findByIdOrNull(it)?.name }
-        return project.toResponse(projectRepository.findMembersByProjectIds(listOf(project.requiredId)), pmName)
+        val progress = averageProgressByProjectIds(listOf(id))[id] ?: 0
+        return project.toResponse(projectRepository.findMembersByProjectIds(listOf(project.requiredId)), pmName, progress)
     }
 
     @Transactional
@@ -159,6 +164,14 @@ class ProjectService(
                 projectName = project.name,
             ),
         )
+    }
+
+    /** 프로젝트별 진행률(전체 태스크 progress 평균, 반올림 절삭). 태스크 없는 프로젝트는 키 없음 → 호출부 0 처리 */
+    private fun averageProgressByProjectIds(projectIds: List<Long>): Map<Long, Int> {
+        if (projectIds.isEmpty()) return emptyMap()
+        return taskRepository
+            .findAverageProgressByProjectIds(projectIds)
+            .associate { it.projectId to it.avgProgress.toInt() }
     }
 
     private fun resolvePmNames(pmIds: List<Long>): Map<Long, String> =

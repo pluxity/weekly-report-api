@@ -28,6 +28,8 @@ data class ProjectResponse(
     val pmName: String?,
     @field:Schema(description = "참여자 목록")
     val members: List<ProjectMemberResponse>,
+    @field:Schema(description = "전체 진행률 (태스크 평균)", example = "45")
+    val progress: Int,
     @field:JsonUnwrapped
     val baseResponse: BaseResponse,
 )
@@ -49,6 +51,7 @@ data class ProjectMemberResponse(
 fun Project.toResponse(
     memberInfos: List<ProjectMemberResponse> = emptyList(),
     pmName: String? = null,
+    progress: Int = 0,
 ): ProjectResponse =
     ProjectResponse(
         id = this.requiredId,
@@ -60,5 +63,6 @@ fun Project.toResponse(
         pmId = this.pmId,
         pmName = pmName,
         members = memberInfos,
+        progress = progress,
         baseResponse = this.toBaseResponse(),
     )
