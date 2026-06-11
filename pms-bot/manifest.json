@@ -1,0 +1,35 @@
+{
+  "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.17/MicrosoftTeams.schema.json",
+  "manifestVersion": "1.17",
+  "version": "1.1.0",
+  "id": "6fd99b45-3d05-450a-9727-797f14b65a90",
+  "developer": {
+    "name": "Pluxity",
+    "websiteUrl": "https://pluxity.com",
+    "privacyUrl": "https://pluxity.com/privacy",
+    "termsOfUseUrl": "https://pluxity.com/terms"
+  },
+  "name": {
+    "short": "PMS Bot",
+    "full": "Pluxity PMS Bot"
+  },
+  "description": {
+    "short": "프로젝트 관리 챗봇",
+    "full": "프로젝트/에픽/태스크를 자연어로 생성, 조회, 수정, 삭제할 수 있는 PMS 챗봇입니다."
+  },
+  "icons": {
+    "color": "color.png",
+    "outline": "outline.png"
+  },
+  "accentColor": "#FFFFFF",
+  "bots": [
+    {
+      "botId": "6fd99b45-3d05-450a-9727-797f14b65a90",
+      "scopes": ["personal", "team", "groupChat"],
+      "supportsFiles": false,
+      "isNotificationOnly": false
+    }
+  ],
+  "permissions": ["identity", "messageTeamMembers"],
+  "validDomains": []
+}
