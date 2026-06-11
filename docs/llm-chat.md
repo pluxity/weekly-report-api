@@ -7,28 +7,32 @@
 
 ```mermaid
 flowchart TD
-    A["POST /chat<br/>{ message }"] --> B["ChatService<br/>사용자별 Redis 분산락 획득<br/>(chat:lock:{userId}, TTL 30s)<br/>ChatLogData 수집 시작"]
-    B --> C["ChatPromptBuilder.buildIntentMessages<br/>+ ChatHistoryStore<br/>(Redis, 최근 10턴, TTL 24h)"]
-    C --> D["LlmService.extractIntent — 1차 LLM 호출<br/>IntentResult { action, target, id }"]
-    D --> E{"target == WEEKLY_REPORT?"}
-
-    E -- 예 --> F["WeeklyReportChatHandler<br/>(classify → match → CRUD)"]
-
-    E -- 아니오 --> G["ChatPromptBuilder.buildActionMessages"]
-    G --> H["LlmService.generate — 2차 LLM 호출<br/>List&lt;LlmAction&gt;"]
-    H --> I{"ChatActionRouter.route"}
-    I -- READ --> J["ChatReadHandler"]
-    I -- "CREATE / UPDATE" --> K["ChatDtoMapper<br/>→ ChatActionResponse"]
-    I -- "DELETE / REVIEW_REQUEST<br/>ASSIGN / UNASSIGN" --> L["ChatExecutor"]
-    I -- CLARIFY --> M["ChatClarifyException"]
-    I -- missingFields --> N["SelectFieldResolver<br/>→ ClarifyStore (Redis, 10m)<br/>→ ChatSelectRequiredException"]
-
-    F --> O["ChatHistoryStore.recordChatTurn<br/>(WEEKLY_REPORT는 기록 제외)<br/>ChatLogService.record → chat_logs 저장<br/>(실패해도 응답에 영향 없음)"]
-    J --> O
-    K --> O
-    L --> O
-    O --> P["List&lt;ChatActionResponse&gt;"]
+    A["POST /chat"] --> B["1차 LLM 호출<br/>의도 추출 (action, target)"]
+    B --> C{"주간보고?"}
+    C -- 예 --> D["WeeklyReportChatHandler"]
+    C -- 아니오 --> E["2차 LLM 호출<br/>액션 JSON 생성"]
+    E --> F["ChatActionRouter<br/>액션별 실행"]
+    F -- "대상 특정 실패" --> G["clarify 응답<br/>(후보 목록 반환)"]
+    F --> H["히스토리 기록"]
+    D --> J["chat_logs 저장"]
+    H --> J
+    J --> I["응답: List&lt;ChatActionResponse&gt;"]
 ```
+
+세부 동작:
+
+- **동시 요청 방지** — 사용자별 Redis 분산락 (`chat:lock:{userId}`, TTL 30s)
+- **히스토리** — 1차 LLM 호출에 최근 10턴 포함 (Redis, TTL 24h). 주간보고 턴은 기록 제외
+- **로그** — 1턴의 실행 기록을 `chat_logs`에 저장. 응답 흐름과 분리되어 저장 실패는 무시
+
+`ChatActionRouter`의 액션별 처리:
+
+| 액션 | 처리 |
+|------|------|
+| READ | `ChatReadHandler` — 조회 후 결과 반환 |
+| CREATE / UPDATE | `ChatDtoMapper` — 폼 조립용 JSON 반환 (실행은 프론트에서) |
+| DELETE / REVIEW_REQUEST / ASSIGN / UNASSIGN | `ChatExecutor` — 즉시 실행 |
+| CLARIFY, 필수 필드 누락 | clarify 응답 → [clarify 흐름](#clarify선택-필요-흐름) |
 
 ## clarify(선택 필요) 흐름
 
