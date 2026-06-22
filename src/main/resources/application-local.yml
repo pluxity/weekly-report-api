@@ -49,6 +49,15 @@ teams:
 domain:
   url: ${API_URL:http://localhost:8080}
 
+jwt:
+  access-token:
+    secret: ${JWT_ACCESS_SECRET:local-dev-access-secret-do-not-use-in-prod-0123456789}
+  refresh-token:
+    secret: ${JWT_REFRESH_SECRET:local-dev-refresh-secret-do-not-use-in-prod-0123456789}
+
+user:
+  init-password: ${USER_INIT_PASSWORD}
+
 logging:
   level:
     com: DEBUG

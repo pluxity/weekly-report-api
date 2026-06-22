@@ -30,11 +30,11 @@ spring:
 jwt:
   access-token:
     name: AccessToken
-    secret: +iBcUJRWGvl+94+ow4nXV1fzWIq4rph8x7MyRmrtWio=
+    secret: ${JWT_ACCESS_SECRET}
     expiration: 36000000
   refresh-token:
     name: RefreshToken
-    secret: gtzRlqF6bIkmOi5i15A9G5xbLdwiAMmZi6JPOeemC1E=
+    secret: ${JWT_REFRESH_SECRET}
     expiration: 864000000
 
 springdoc:
@@ -49,7 +49,7 @@ springdoc:
   default-produces-media-type: application/json
 
 user:
-  init-password: pluxity123!@#
+  init-password: ${USER_INIT_PASSWORD}
   # Teams 자동 가입 시 허용할 회사 이메일 도메인
   allowed-email-domains:
     - pluxity.com

@@ -3,7 +3,7 @@ spring:
     group:
       default: common, local
       local: common, local
-      stage: stage, common
+      stage: common, stage
       prod: common, prod
 
 logging:
