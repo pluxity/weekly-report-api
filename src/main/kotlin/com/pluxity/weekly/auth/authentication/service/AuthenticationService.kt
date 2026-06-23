@@ -77,15 +77,20 @@ class AuthenticationService(
         request: HttpServletRequest,
         response: HttpServletResponse,
     ) {
-        val refreshToken =
-            jwtProvider.getJwtFromRequest(jwtProperties.refreshToken.name, request)
-                ?: throw CustomException(ErrorCode.INVALID_REFRESH_TOKEN)
+        try {
+            val refreshToken =
+                jwtProvider.getJwtFromRequest(jwtProperties.refreshToken.name, request)
+                    ?: throw CustomException(ErrorCode.INVALID_REFRESH_TOKEN)
 
-        jwtProvider.validateRefreshToken(refreshToken)
+            jwtProvider.validateRefreshToken(refreshToken)
 
-        val username = jwtProvider.extractUsername(refreshToken, true)
-        val user = findUserByUsername(username)
-        publishToken(user, request, response)
+            val username = jwtProvider.extractUsername(refreshToken, true)
+            val user = findUserByUsername(username)
+            publishToken(user, request, response)
+        } catch (e: CustomException) {
+            clearAllCookies(request, response)
+            throw e
+        }
     }
 
     private fun validateUserDoesNotExist(username: String) {
