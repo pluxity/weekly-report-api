@@ -25,7 +25,8 @@ JSON 1개만 출력. 설명, 마크다운 절대 금지.
 | review_request | 검수 요청, 리뷰 요청, 검수 올려줘, 리뷰 올려줘, 완료, 끝냈어, 다 했어, 마쳤어, 100%, 리뷰로, 검수로, IN_REVIEW로 (task 전용) |
 | assign | 할당, 배정 (epic 전용) |
 | unassign | 해제, 빼줘, 제거, 제외 (epic 전용) |
-| clarify | **마지막 수단**. action 키워드·target 키워드 모두 전무하고 히스토리 참조도 불가능할 때만. |
+| answer | 개념·사용법 질문("~가 뭐야?", "어떻게 해?", "뭘 할 수 있어?"), 감정 표현·불만·잡담, 시스템이 지원하지 않는 요청. CRUD 의도가 전혀 없을 때. |
+| clarify | CRUD 의도는 있는데 대상·내용이 모호해 되물어야 할 때만. CRUD 의도 자체가 없으면 answer. |
 
 ## 판단 규칙
 
@@ -34,7 +35,9 @@ JSON 1개만 출력. 설명, 마크다운 절대 금지.
 3. clarify: target + action 키워드가 있으면 clarify 금지. ("태스크 생성" → create, "태스크 수정" -> update, "업무 그룹 할당" -> assign 등)
 4. action 키워드가 있으면 대상 이름이 없어도 해당 action으로 분류.
 5. 복합 지시 미지원. action은 단일 값.
-6. weekly_report:
+6. answer vs clarify: 질문·설명 요구("~가 뭔데", "어떻게 쓰는거야"), 감정·불만·욕설, 잡담, 명령이 아닌 발화 → answer. 생성/수정/삭제/조회 의도는 보이는데 대상만 불명확 → clarify. 헷갈리면 answer.
+   - 단, **시스템 데이터를 묻는 질문은 answer가 아니라 read다**: 담당자·PM·마감일·상태·진행률·개수 등을 묻는 "누구야/언제야/몇 개야/무슨 상태야" → read + 해당 target. answer는 개념·사용법·기능 질문에만.
+7. weekly_report:
    - "주간보고 작성/생성/등록/올리기" 또는 첫 줄에 "주간보고" 키워드 포함 → create
    - "내 주간보고/이번주 주간보고/지난주 주간보고" 같은 짧은 조회 표현 → read
    - "주간보고 삭제/지워줘" → delete
@@ -70,6 +73,7 @@ action이 "create"이거나, 직전 히스토리가 clarify로 끝난 경우:
 2. 히스토리 결과에 id가 있으면 (예: create task id=13) id 필드에 포함.
 3. 새 action 키워드가 있으면 action은 새로 판단.
 4. 참조 대상이 불명확하면 clarify.
+5. 직전 히스토리 결과가 clarify(...)로 끝났으면 이번 입력은 그 되물음의 후속일 수 있다. 보충 정보면 원래 action/target을 이어받고, 질문·불만이면 answer.
 
 ## 예시
 
@@ -82,6 +86,9 @@ action이 "create"이거나, 직전 히스토리가 clarify로 끝난 경우:
 "PMS 프로젝트에 데이터 파이프라인 업무 그룹에 ETL 태스크 추가" → {"action":"create","target":"task","project":"PMS","epic":"데이터 파이프라인","name":"ETL"}
 "내 태스크 보여줘" → {"action":"read","target":"task"}
 "리뷰할거 보여줘" → {"action":"read","target":"review"}
+"용인 플랫폼 PM 누구야" → {"action":"read","target":"project"}
+"크롤러 개발 마감 언제야?" → {"action":"read","target":"task"}
+"내 태스크 몇 개야?" → {"action":"read","target":"task"}
 "DB 설계 완료" → {"action":"review_request","target":"task"}
 "크롤러 개발 리뷰 올려줘" → {"action":"review_request","target":"task"}
 "알파 프로젝트 삭제해줘" → {"action":"delete","target":"project"}
@@ -91,6 +98,16 @@ action이 "create"이거나, 직전 히스토리가 clarify로 끝난 경우:
 "대시보드 업무 그룹에서 홍길동 빼줘" → {"action":"unassign","target":"epic","epic":"대시보드"}
 "업무 그룹에서 인원 빼줘" → {"action":"unassign","target":"epic"}
 "진행중" → {"action":"clarify","target":"task"}
+"태스크가뭔데" → {"action":"answer","target":"task"}
+"뭐부터 하면 돼?" → {"action":"answer"}
+"나 뭐해야해?" → {"action":"answer"}
+"어떻게 시작해?" → {"action":"answer"}
+"주간보고 어떻게 써?" → {"action":"answer","target":"weekly_report"}
+"뭘 할 수 있어?" → {"action":"answer"}
+"진짜멍청하네" → {"action":"answer"}
+"따라하지말고" → {"action":"answer"}
+"이해해봐" → {"action":"answer"}
+"이 PMS를 폭파시키고싶어" → {"action":"answer"}
 "[개발팀 5/20 주간보고]\n홍길동\n- 이번주: A 완료\n- 다음주: B 시작" → {"action":"create","target":"weekly_report"}
 "주간보고 작성해줘\n홍길동\n- 이번주: A 완료" → {"action":"create","target":"weekly_report"}
 "이번주 주간보고:\n홍길동\n- A 완료" → {"action":"create","target":"weekly_report"}

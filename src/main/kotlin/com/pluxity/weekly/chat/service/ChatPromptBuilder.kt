@@ -23,6 +23,10 @@ class ChatPromptBuilder(
         ClassPathResource("llm/intent-prompt.txt").getContentAsString(Charsets.UTF_8)
     }
 
+    private val answerPrompt: String by lazy {
+        ClassPathResource("llm/answer-prompt.txt").getContentAsString(Charsets.UTF_8)
+    }
+
     private val weeklyReportClassifyPrompt: String by lazy {
         ClassPathResource("llm/weekly-report-classify-prompt.txt").getContentAsString(Charsets.UTF_8)
     }
@@ -41,6 +45,20 @@ class ChatPromptBuilder(
         val prompt = appendHistory(withToday, history)
         return listOf(
             Message(role = "system", content = prompt),
+            Message(role = "user", content = message),
+        )
+    }
+
+    fun buildAnswerMessages(
+        message: String,
+        history: List<Message>,
+        userName: String,
+        roleNames: List<String>,
+    ): List<Message> {
+        val roles = roleNames.ifEmpty { listOf("일반 팀원 (역할 없음)") }.joinToString(", ")
+        val withUser = "$answerPrompt\n\n## 현재 사용자\n이름: $userName / 역할: $roles"
+        return listOf(
+            Message(role = "system", content = appendHistory(withUser, history)),
             Message(role = "user", content = message),
         )
     }
