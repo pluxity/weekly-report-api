@@ -33,6 +33,18 @@ class ChatController(
         value = [
             ApiResponse(responseCode = "200", description = "처리 성공"),
             ApiResponse(
+                responseCode = "400",
+                description =
+                    "error 필드로 구분: CHAT_CLARIFY = 후보 없음, 메시지만 반환, " +
+                        "CHAT_SELECT_REQUIRED = 후보 선택 필요 (candidates 중 선택하여 /chat/resolve 호출)",
+                content = [
+                    Content(
+                        mediaType = "application/json",
+                        schema = Schema(oneOf = [ErrorResponseBody::class, ClarifyErrorResponseBody::class]),
+                    ),
+                ],
+            ),
+            ApiResponse(
                 responseCode = "503",
                 description = "LLM 서비스 불가",
                 content = [Content(mediaType = "application/json", schema = Schema(implementation = ErrorResponseBody::class))],
@@ -56,11 +68,13 @@ class ChatController(
             ApiResponse(responseCode = "200", description = "처리 성공"),
             ApiResponse(
                 responseCode = "400",
-                description = "추가 clarify 필요시",
+                description =
+                    "error 필드로 구분: CHAT_CLARIFY = 후보 없음, 메시지만 반환, " +
+                        "CHAT_SELECT_REQUIRED = 추가 후보 선택 필요 (candidates 중 선택하여 /chat/resolve 재호출)",
                 content = [
                     Content(
                         mediaType = "application/json",
-                        schema = Schema(ClarifyErrorResponseBody::class),
+                        schema = Schema(oneOf = [ErrorResponseBody::class, ClarifyErrorResponseBody::class]),
                     ),
                 ],
             ),

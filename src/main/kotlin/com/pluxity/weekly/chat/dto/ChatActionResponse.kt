@@ -10,9 +10,17 @@ import io.swagger.v3.oas.annotations.media.Schema
 
 @Schema(description = "채팅 응답")
 data class ChatActionResponse(
-    @field:Schema(description = "액션", example = "create", allowableValues = ["create", "update", "delete", "read", "clarify", "answer"])
+    @field:Schema(
+        description = "액션",
+        example = "create",
+        allowableValues = ["create", "update", "delete", "read", "answer", "review_request", "assign", "unassign"],
+    )
     val action: String,
-    @field:Schema(description = "대상", example = "task", allowableValues = ["project", "epic", "task", "team", "general"])
+    @field:Schema(
+        description = "대상 (answer 액션에서 특정 대상이 없으면 general)",
+        example = "task",
+        allowableValues = ["project", "epic", "task", "team", "review", "weekly_report", "general"],
+    )
     val target: String,
     @field:Schema(description = "사용자에게 보여줄 자연어 응답 (answer 전문 또는 액션 해석 요약)")
     val message: String? = null,
