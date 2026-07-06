@@ -46,7 +46,7 @@ class ChatV2ApiDtoTest :
                 Then("snake_case 필드명으로 출력된다") {
                     json shouldContain "\"tool_calls\""
                     json shouldContain "\"tool_call_id\""
-                    json shouldContain "\"search_tasks\""
+                    json shouldContain "\"search_items\""
                     json shouldContain "\"update_task\""
                     json shouldNotContain "toolCalls"
                     json shouldNotContain "toolCallId"
