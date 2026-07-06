@@ -190,8 +190,8 @@ Output: [{"action":"create","target":"epic","project_id":10,"name":"배포","rep
 [INPUT]업무 그룹 만들어줘[/INPUT]
 Output: [{"action":"create","target":"epic","reply":"새 업무 그룹 생성 폼을 준비했어요. 프로젝트와 이름을 입력해주세요."}]
 
-[INPUT]백엔드 구축 - 신규 태스크 추가해줘[/INPUT]
-Output: [{"action":"create","target":"task","name":"신규 태스크","reply":"'신규 태스크' 태스크 생성 폼을 준비했어요. 업무 그룹 선택 후 저장해주세요."}]
+[INPUT]프론트 구축에 신규 태스크 추가해줘[/INPUT]
+Output: [{"action":"create","target":"task","epic_id":101,"reply":"'프론트 구축' 업무 그룹에 새 태스크 생성 폼을 준비했어요. 태스크 이름을 입력해주세요."}]  ← "신규"는 수식어라 name 생략
 
 --- task create with assignee (CONTEXT: projects[*].epics[*].members) ---
 [CONTEXT]

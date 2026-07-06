@@ -72,8 +72,11 @@ class LlmService(
 
     fun extractIntent(messages: List<Message>): LlmResult<IntentResult> = callWithRetry(messages, "Intent 추출", ::parseIntent)
 
-    /** answer 액션용 자연어 응답. JSON 파싱 없이 평문 그대로 반환한다. */
-    fun answerChat(messages: List<Message>): LlmResult<String> = callWithRetry(messages, "답변 생성") { it.trim() }
+    /** answer 액션용 자연어 응답. 코드펜스 제거 후 평문 그대로 반환하고, 빈 응답은 LLM_INVALID_RESPONSE. */
+    fun answerChat(messages: List<Message>): LlmResult<String> =
+        callWithRetry(messages, "답변 생성") { raw ->
+            stripCodeFence(raw).trim().ifBlank { throw CustomException(ErrorCode.LLM_INVALID_RESPONSE) }
+        }
 
     fun generate(messages: List<Message>): LlmResult<List<LlmAction>> = callWithRetry(messages, "LLM 액션 생성", ::parseActions)
 
