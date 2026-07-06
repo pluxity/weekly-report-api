@@ -19,6 +19,10 @@ import org.springframework.stereotype.Component
 
 private val log = KotlinLogging.logger {}
 
+private const val EMPTY_BODY_GUIDE =
+    "주간보고 본문이 없습니다. 명령과 함께 보고 내용을 붙여서 보내주세요.\n" +
+        "예)\n주간보고 작성해줘\n홍길동\n- 이번주: OO 기능 개발 완료\n- 다음주: OO 테스트 진행"
+
 /**
  * weekly_report target 전용 chat 흐름 핸들러.
  * 일반 chat 흐름(LlmAction → ChatActionRouter)을 우회하고
@@ -103,9 +107,13 @@ class WeeklyReportChatHandler(
         context: String,
         intent: IntentResult,
     ): LlmResult<List<ChatActionResponse>> {
+        // 본문 없이 "주간보고 작성해줘"만 온 경우 LLM 호출 전에 차단
+        requireReportBody(message)
+
         // 2차 LLM: classify (system=classify-prompt, user=context + 본문)
         val messages = promptBuilder.buildActionMessages(message, intent, context)
         val classify = llmService.classifyWeeklyReport(messages)
+        requireClassifiedItems(classify.value)
 
         // 작성자 leader 팀 (다중 팀 leader는 후속 — 일단 첫 팀)
         val user = authorizationService.currentUser()
@@ -131,6 +139,21 @@ class WeeklyReportChatHandler(
             )
         // classify + match(조건부) 토큰 합산 → ChatLog action_* 으로 매핑됨
         return LlmResult(responses, classify.usage + matched.usage)
+    }
+
+    /** 명령 한 줄만 오면 classify LLM이 보고서를 지어내므로(환각) 본문 유무를 먼저 검증한다. */
+    private fun requireReportBody(message: String) {
+        if (message.lines().count { it.isNotBlank() } < 2) {
+            throw ChatClarifyException(EMPTY_BODY_GUIDE)
+        }
+    }
+
+    /** classify가 항목을 하나도 못 뽑았으면 빈 보고서 upsert 대신 본문 안내로 되돌린다. */
+    private fun requireClassifiedItems(classify: WeeklyReportClassifyResult) {
+        val f = classify.formatted
+        if (f.thisWeek.isEmpty() && f.nextWeek.isEmpty() && f.issues.isEmpty() && f.others.isEmpty()) {
+            throw ChatClarifyException("보고 항목을 인식하지 못했습니다. $EMPTY_BODY_GUIDE")
+        }
     }
 
     /**
