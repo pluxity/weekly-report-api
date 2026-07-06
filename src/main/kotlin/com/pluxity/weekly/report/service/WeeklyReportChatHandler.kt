@@ -62,6 +62,12 @@ class WeeklyReportChatHandler(
                 ChatActionResponse(
                     action = ChatActionType.READ.key,
                     target = ChatTarget.WEEKLY_REPORT.key,
+                    message =
+                        if (report != null) {
+                            "요청하신 주간보고를 찾았어요."
+                        } else {
+                            "해당 주차에 작성된 주간보고가 없어요. '주간보고 작성해줘'와 함께 본문을 보내면 등록할 수 있어요."
+                        },
                     readResult = ChatReadResponse(weeklyReport = report),
                 ),
             ),
@@ -85,6 +91,7 @@ class WeeklyReportChatHandler(
                 ChatActionResponse(
                     action = ChatActionType.DELETE.key,
                     target = ChatTarget.WEEKLY_REPORT.key,
+                    message = "해당 주차 주간보고를 삭제했어요.",
                     id = deletedId,
                 ),
             ),
@@ -117,6 +124,7 @@ class WeeklyReportChatHandler(
                 ChatActionResponse(
                     action = ChatActionType.CREATE.key,
                     target = ChatTarget.WEEKLY_REPORT.key,
+                    message = "'${team.name}' 팀 주간보고를 저장했어요. 정리된 내용을 확인해주세요.",
                     id = response.id,
                     readResult = ChatReadResponse(weeklyReport = response),
                 ),

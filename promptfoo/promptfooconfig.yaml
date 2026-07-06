@@ -195,6 +195,89 @@ tests:
       - type: javascript
         value: "JSON.parse(output).action === 'clarify'"
 
+  ## 데이터 질문은 answer가 아니라 read
+  - description: "[intent] PM 누구야 → read project (answer 아님)"
+    vars:
+      userMessage: "용인 플랫폼 PM 누구야"
+    prompts: [intent]
+    assert:
+      - type: is-json
+      - type: javascript
+        value: "JSON.parse(output).action === 'read' && JSON.parse(output).target === 'project'"
+
+  - description: "[intent] 마감 언제야 → read task (answer 아님)"
+    vars:
+      userMessage: "크롤러 개발 마감 언제야?"
+    prompts: [intent]
+    assert:
+      - type: is-json
+      - type: javascript
+        value: "JSON.parse(output).action === 'read' && JSON.parse(output).target === 'task'"
+
+  ## answer
+  - description: "[intent] 개념 질문 → answer"
+    vars:
+      userMessage: "태스크가뭔데"
+    prompts: [intent]
+    assert:
+      - type: is-json
+      - type: javascript
+        value: "JSON.parse(output).action === 'answer'"
+
+  - description: "[intent] 기능 문의 → answer"
+    vars:
+      userMessage: "뭘 할 수 있어?"
+    prompts: [intent]
+    assert:
+      - type: is-json
+      - type: javascript
+        value: "JSON.parse(output).action === 'answer'"
+
+  - description: "[intent] 시작 안내 문의 → answer"
+    vars:
+      userMessage: "뭐부터 하면 돼?"
+    prompts: [intent]
+    assert:
+      - type: is-json
+      - type: javascript
+        value: "JSON.parse(output).action === 'answer'"
+
+  - description: "[intent] 할 일 문의 → answer"
+    vars:
+      userMessage: "나 뭐해야해?"
+    prompts: [intent]
+    assert:
+      - type: is-json
+      - type: javascript
+        value: "JSON.parse(output).action === 'answer'"
+
+  - description: "[intent] 불만·욕설 → answer"
+    vars:
+      userMessage: "진짜멍청하네"
+    prompts: [intent]
+    assert:
+      - type: is-json
+      - type: javascript
+        value: "JSON.parse(output).action === 'answer'"
+
+  - description: "[intent] 지시어성 발화 → answer"
+    vars:
+      userMessage: "따라하지말고"
+    prompts: [intent]
+    assert:
+      - type: is-json
+      - type: javascript
+        value: "JSON.parse(output).action === 'answer'"
+
+  - description: "[intent] 범위 밖 요청 → answer"
+    vars:
+      userMessage: "이 PMS를 폭파시키고싶어"
+    prompts: [intent]
+    assert:
+      - type: is-json
+      - type: javascript
+        value: "JSON.parse(output).action === 'answer'"
+
   ## team
   - description: "[intent] 팀 조회"
     vars:
@@ -462,6 +545,22 @@ tests:
           const o = arr[0];
           return o.action === 'review_request' && o.missing_fields && o.missing_fields.includes('id');
 
+  ## read - 기간 표현은 due_date_from+to 쌍으로 (from 누락 시 과거 마감까지 조회되는 회귀 방지)
+  - description: "[system] 이번주 마감 프로젝트 → due_date_from~to 범위"
+    vars:
+      userMessage: "이번주 마감인 프로젝트 보여줘"
+      intent: '{"action":"read","target":"project"}'
+    prompts: [system]
+    assert:
+      - type: is-json
+      - type: javascript
+        value: |
+          const arr = JSON.parse(output);
+          const o = arr[0];
+          const f = o.filters || {};
+          return o.action === 'read' && o.target === 'project'
+            && f.due_date_from === '2026-04-13' && f.due_date_to === '2026-04-19';
+
   ## read - 필터 조합 (프로젝트 + 상태)
   - description: "[system] 스마트팩토리 진행중인 태스크 → filters"
     vars:
@@ -490,7 +589,7 @@ tests:
           const o = arr[0];
           return o.action === 'create' && o.target === 'epic' && o.project_id === 2 && o.name === '배송';
 
-  ## not found - CONTEXT에 없는 항목은 clarify
+  ## not found - CONTEXT에 없는 항목은 clarify + 다음 행동 안내
   - description: "[system] CONTEXT에 없는 항목 → clarify"
     vars:
       userMessage: "잠자기 완료"
@@ -502,7 +601,94 @@ tests:
         value: |
           const arr = JSON.parse(output);
           const o = arr[0];
-          return o.action === 'clarify' && !!o.message;
+          return o.action === 'clarify' && !!o.message && /보여줘|만들|생성|확인/.test(o.message);
+
+  ## target 정정 - 이름이 프로젝트인데 task 완료로 들어온 경우
+  - description: "[system] 프로젝트명 완료 처리 → update project status=DONE 으로 정정"
+    vars:
+      userMessage: "모바일 POS 완료 처리"
+      intent: '{"action":"review_request","target":"task"}'
+    prompts: [system]
+    assert:
+      - type: is-json
+      - type: javascript
+        value: |
+          const arr = JSON.parse(output);
+          const o = arr[0];
+          return o.action === 'update' && o.target === 'project' && o.id === 2 && o.status === 'DONE';
+
+  ## target 정정 - 이름이 업무 그룹인데 task 완료로 들어온 경우
+  - description: "[system] 에픽명 완료 → update epic status=DONE 으로 정정"
+    vars:
+      userMessage: "센서 연동 끝났어"
+      intent: '{"action":"review_request","target":"task"}'
+    prompts: [system]
+    assert:
+      - type: is-json
+      - type: javascript
+        value: |
+          const arr = JSON.parse(output);
+          const o = arr[0];
+          return o.action === 'update' && o.target === 'epic' && o.id === 101 && o.status === 'DONE';
+
+  ## 대소문자 무시 매칭 (review_request 대상이 소문자로 들어온 경우)
+  - description: "[system] 소문자 태스크명 완료 → 대소문자 무시 매칭"
+    vars:
+      userMessage: "mqtt 브로커 설정 완료"
+      intent: '{"action":"review_request","target":"task"}'
+    prompts: [system]
+    assert:
+      - type: is-json
+      - type: javascript
+        value: |
+          const arr = JSON.parse(output);
+          const o = arr[0];
+          return o.action === 'review_request' && o.id === 1001;
+
+  ## clarify message - 입력 에코 금지
+  - description: "[system] 명령이 아닌 발화 → 입력 에코·not-found 템플릿 금지"
+    vars:
+      userMessage: "이해해봐"
+      intent: '{"action":"clarify","target":"task"}'
+    prompts: [system]
+    assert:
+      - type: is-json
+      - type: javascript
+        value: |
+          const arr = JSON.parse(output);
+          const o = arr[0];
+          return o.action === 'clarify' && !!o.message
+            && o.message.trim() !== '이해해봐'
+            && !o.message.includes("'이해해봐'");
+
+  ## reply - 확정 create 액션에 자연어 응답 포함
+  - description: "[system] create 확정 → reply 포함 (확정값 언급)"
+    vars:
+      userMessage: "결제 모듈에 PG사 연동 추가해줘"
+      intent: '{"action":"create","target":"task","epic":"결제 모듈","name":"PG사 연동"}'
+    prompts: [system]
+    assert:
+      - type: is-json
+      - type: javascript
+        value: |
+          const arr = JSON.parse(output);
+          const o = arr[0];
+          return o.action === 'create' && typeof o.reply === 'string' && o.reply.length > 0
+            && o.reply.includes('PG사 연동');
+
+  ## reply - 확정 read 액션에 자연어 응답 포함
+  - description: "[system] read 확정 → reply 포함"
+    vars:
+      userMessage: "내 태스크 보여줘"
+      intent: '{"action":"read","target":"task"}'
+    prompts: [system]
+    assert:
+      - type: is-json
+      - type: javascript
+        value: |
+          const arr = JSON.parse(output);
+          const o = arr[0];
+          return o.action === 'read' && typeof o.reply === 'string' && o.reply.length > 0;
 
   ## assign - 동명 업무 그룹 + user 미지정 (복수 미확정 → missing_fields는 id 1개만)
   - description: "[system] 복수 미확정 → missing_fields는 id 1개만"

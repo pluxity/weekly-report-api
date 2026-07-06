@@ -10,6 +10,7 @@ enum class ChatActionType(
 ) {
     READ("read", validatesMissingFields = false),
     CLARIFY("clarify"),
+    ANSWER("answer", validatesMissingFields = false),
     CREATE("create", validatesMissingFields = false, isMutating = true),
     UPDATE("update", requiredFields = listOf("id"), isMutating = true),
     DELETE("delete", requiredFields = listOf("id"), isMutating = true),

@@ -40,6 +40,7 @@ class ChatActionRouter(
                 ChatActionResponse(
                     action = type.key,
                     target = target.key,
+                    message = action.reply,
                     readResult = chatReadHandler.handle(action),
                 )
             ChatActionType.CREATE, ChatActionType.UPDATE ->
@@ -52,9 +53,11 @@ class ChatActionRouter(
                 ChatActionResponse(
                     action = type.key,
                     target = target.key,
+                    message = action.reply,
                     id = chatExecutor.execute(action),
                 )
             ChatActionType.CLARIFY -> error("CLARIFY는 validate에서 이미 처리됨")
+            ChatActionType.ANSWER -> error("ANSWER는 ChatService에서 이미 처리됨")
         }
     }
 
@@ -63,8 +66,9 @@ class ChatActionRouter(
         type: ChatActionType,
         target: ChatTarget,
     ) {
-        if (type == ChatActionType.CLARIFY) {
-            throw ChatClarifyException(action.message ?: "좀 더 구체적으로 말씀해주세요.")
+        // ANSWER는 원래 intent 단계에서 분기되지만, 2차 LLM이 출력하면 clarify로 강등해 500을 막는다
+        if (type == ChatActionType.CLARIFY || type == ChatActionType.ANSWER) {
+            throw ChatClarifyException(action.message ?: action.reply ?: "좀 더 구체적으로 말씀해주세요.")
         }
         if (target == ChatTarget.TEAM && type != ChatActionType.READ) {
             throw ChatClarifyException("팀 관리는 웹페이지에서 이용해주세요.")
@@ -144,6 +148,7 @@ class ChatActionRouter(
         return ChatActionResponse(
             action = type.key,
             target = target.key,
+            message = action.reply,
             id = if (type == ChatActionType.UPDATE) action.id else null,
             dto = dto,
             selectFields = selectFields.ifEmpty { null },

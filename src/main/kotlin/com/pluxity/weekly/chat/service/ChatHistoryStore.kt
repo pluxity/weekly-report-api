@@ -70,6 +70,20 @@ class ChatHistoryStore(
         )
     }
 
+    /** clarify/선택 대기 등 응답 없이 끝난 턴 기록. 다음 턴의 LLM이 실패 맥락을 참조할 수 있게 한다. */
+    fun recordFailedTurn(
+        userId: String,
+        message: String,
+        resultSummary: String,
+    ) {
+        val turnNumber = incrementTurn(userId)
+        save(
+            userId,
+            "system",
+            "--- 히스토리 #$turnNumber | 질문: $message | 결과: $resultSummary ---",
+        )
+    }
+
     fun recordResolvedTurn(
         userId: String,
         target: String?,
@@ -104,6 +118,7 @@ class ChatHistoryStore(
                         } ?: 0
                     "read ${r.target} ${count}건"
                 }
+                type == ChatActionType.ANSWER -> "answer('${r.message.orEmpty().take(50)}')"
                 type?.isMutating == true -> "${r.action} ${r.target} id=${r.id ?: "pending"}"
                 else -> "${r.action} ${r.target}"
             }

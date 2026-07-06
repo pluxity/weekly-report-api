@@ -34,6 +34,7 @@ data class LlmAction(
     @param:JsonProperty("remove_user_ids")
     val removeUserIds: List<Long>? = null,
     val message: String? = null,
+    val reply: String? = null,
     @param:JsonProperty("missing_fields")
     val missingFields: List<String>? = null,
     val candidates: List<Long>? = null,

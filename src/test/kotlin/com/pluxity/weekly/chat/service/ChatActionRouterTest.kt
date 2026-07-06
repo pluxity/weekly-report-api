@@ -453,6 +453,54 @@ class ChatActionRouterTest :
             }
         }
 
+        Given("reply 필드") {
+            When("read 액션에 reply 가 있으면") {
+                val action = LlmAction(action = "read", target = "task", reply = "태스크를 조회했어요.")
+                every { chatReadHandler.handle(action) } returns ChatReadResponse(tasks = emptyList())
+
+                val response = router.route(action)
+
+                Then("response.message 로 전달된다") {
+                    response.message shouldBe "태스크를 조회했어요."
+                }
+            }
+
+            When("create 액션에 reply 가 있으면") {
+                val action = LlmAction(action = "create", target = "epic", name = "배포", reply = "'배포' 업무 그룹 생성 폼을 준비했어요.")
+                every { chatDtoMapper.toDto(action) } returns null
+                every { selectFieldResolver.resolve(action) } returns emptyList()
+
+                val response = router.route(action)
+
+                Then("response.message 로 전달된다") {
+                    response.message shouldBe "'배포' 업무 그룹 생성 폼을 준비했어요."
+                }
+            }
+
+            When("delete 액션에 reply 가 있으면") {
+                val action = LlmAction(action = "delete", target = "task", id = 5L, reply = "'DB 설계' 태스크를 삭제했어요.")
+                every { chatExecutor.execute(action) } returns 5L
+
+                val response = router.route(action)
+
+                Then("response.message 로 전달된다") {
+                    response.message shouldBe "'DB 설계' 태스크를 삭제했어요."
+                }
+            }
+        }
+
+        Given("answer 액션") {
+            When("2차 LLM 이 answer 를 출력해 라우팅되면") {
+                val action = LlmAction(action = "answer", target = "task", reply = "태스크는 개별 작업 단위예요.")
+
+                Then("reply 를 message 로 하는 clarify 로 강등된다") {
+                    val ex = shouldThrow<ChatClarifyException> { router.route(action) }
+                    ex.message shouldBe "태스크는 개별 작업 단위예요."
+                    verify(exactly = 0) { chatExecutor.execute(action) }
+                }
+            }
+        }
+
         Given("review_request 액션") {
             When("id 가 있으면") {
                 val action = LlmAction(action = "review_request", target = "task", id = 7L)
