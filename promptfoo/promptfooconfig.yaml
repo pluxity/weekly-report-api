@@ -4,6 +4,10 @@ providers:
   - id: openrouter:google/gemini-2.5-flash
     config:
       apiKey:
+      # OpenRouter 대시보드에서 서버 트래픽과 구분용 (없으면 "unknown"으로 표시)
+      headers:
+        HTTP-Referer: "https://weekly-report-api.local/promptfoo"
+        X-Title: "weekly-report promptfoo"
 
 prompts:
   - id: intent
