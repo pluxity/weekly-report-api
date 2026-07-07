@@ -363,18 +363,15 @@ class EpicServiceTest :
                 }
             }
 
-            When("하위 태스크가 0개인 에픽을 status=DONE 으로 변경하려 하면") {
+            When("하위 태스크가 0개인 에픽을 status=DONE 으로 변경하면") {
                 val entity = dummyEpic(id = 62L, status = EpicStatus.IN_PROGRESS)
                 every { epicRepository.findByIdOrNull(62L) } returns entity
                 every { taskRepository.findByEpicId(62L) } returns emptyList()
 
-                val exception =
-                    shouldThrow<CustomException> {
-                        service.update(62L, dummyEpicUpdateRequest(status = EpicStatus.DONE))
-                    }
+                service.update(62L, dummyEpicUpdateRequest(status = EpicStatus.DONE))
 
-                Then("TASK_NOT_ALL_DONE 예외가 발생한다 (빈 컨테이너 차단)") {
-                    exception.code shouldBe ErrorCode.TASK_NOT_ALL_DONE
+                Then("DONE 으로 변경된다 (빈 컨테이너 허용)") {
+                    entity.status shouldBe EpicStatus.DONE
                 }
             }
         }
