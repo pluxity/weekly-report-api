@@ -47,7 +47,7 @@ class ChatV2ApiDtoTest :
                     json shouldContain "\"tool_calls\""
                     json shouldContain "\"tool_call_id\""
                     json shouldContain "\"search_items\""
-                    json shouldContain "\"update_task\""
+                    json shouldContain "\"aggregate_items\""
                     json shouldNotContain "toolCalls"
                     json shouldNotContain "toolCallId"
                 }
@@ -77,7 +77,7 @@ class ChatV2ApiDtoTest :
                           }]
                         }
                       }],
-                      "usage": {"prompt_tokens": 100, "completion_tokens": 20, "total_tokens": 120}
+                      "usage": {"prompt_tokens": 100, "completion_tokens": 20, "total_tokens": 120, "prompt_tokens_details": {"cached_tokens": 60}}
                     }
                     """.trimIndent()
 
@@ -97,6 +97,7 @@ class ChatV2ApiDtoTest :
                         ?.arguments shouldBe """{"name":"AA"}"""
                     response.usage?.promptTokens shouldBe 100
                     response.usage?.completionTokens shouldBe 20
+                    response.usage?.promptTokensDetails?.cachedTokens shouldBe 60
                 }
             }
 

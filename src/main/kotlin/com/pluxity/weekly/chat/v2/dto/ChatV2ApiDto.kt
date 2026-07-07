@@ -25,6 +25,8 @@ data class ChatV2Response(
     val inputTokens: Int = 0,
     @field:Schema(description = "이번 턴 누적 출력 토큰")
     val outputTokens: Int = 0,
+    @field:Schema(description = "입력 토큰 중 캐시 히트분 (implicit caching 실할인 측정용)")
+    val cachedTokens: Int = 0,
 )
 
 @Schema(description = "tool 실행 1건")
@@ -98,4 +100,11 @@ data class ToolUsage(
     @param:JsonProperty("prompt_tokens") val promptTokens: Int = 0,
     @param:JsonProperty("completion_tokens") val completionTokens: Int = 0,
     @param:JsonProperty("total_tokens") val totalTokens: Int = 0,
+    @param:JsonProperty("prompt_tokens_details") val promptTokensDetails: PromptTokensDetails? = null,
+)
+
+/** 프롬프트 토큰 중 캐시 히트분 — implicit caching 실할인 측정용 (OpenRouter가 제공할 때만 채워짐) */
+@JsonIgnoreProperties(ignoreUnknown = true)
+data class PromptTokensDetails(
+    @param:JsonProperty("cached_tokens") val cachedTokens: Int = 0,
 )

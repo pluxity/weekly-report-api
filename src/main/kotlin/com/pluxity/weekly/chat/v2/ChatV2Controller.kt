@@ -14,13 +14,13 @@ import org.springframework.web.bind.annotation.RestController
 
 @RestController
 @RequestMapping("/chat/v2")
-@Tag(name = "Chat V2 Controller", description = "tool calling 루프 기반 채팅 (PoC — search_tasks/update_task)")
+@Tag(name = "Chat V2 Controller", description = "tool calling 루프 기반 조회 전용 채팅 (검색/상세/집계/리뷰 목록·이력) — CUD는 보드/폼에서")
 class ChatV2Controller(
     private val chatV2Service: ChatV2Service,
 ) {
     @Operation(
-        summary = "채팅 v2 (tool calling PoC)",
-        description = "모델이 태스크 검색/수정 도구를 스스로 호출하며 대화형으로 처리합니다. 응답에 tool 실행 trace 포함.",
+        summary = "채팅 v2 (조회 전용, tool calling)",
+        description = "모델이 검색/상세/집계/리뷰 조회 도구를 스스로 호출하며 대화형으로 답합니다. 변경 작업은 지원하지 않습니다. 응답에 tool 실행 trace 포함.",
     )
     @PostMapping
     fun chat(

@@ -42,7 +42,8 @@ class ChatV2Service(
         val logData = ChatLogData(userId = userId, requestMessage = message)
 
         try {
-            val response = runLoop(message, userId, user.name, logData)
+            val roleNames = user.getRoles().map { it.name }
+            val response = runLoop(message, userId, user.name, roleNames, logData)
             logData.success = true
             return response
         } catch (e: Exception) {
@@ -57,18 +58,27 @@ class ChatV2Service(
         message: String,
         userId: Long,
         userName: String,
+        roleNames: List<String>,
         logData: ChatLogData,
     ): ChatV2Response {
-        val messages = mutableListOf(ToolMessage(role = "system", content = buildSystemPrompt(userName)))
+        val messages = mutableListOf(ToolMessage(role = "system", content = buildSystemPrompt(userName, roleNames)))
         messages += historyStore.load(userId)
         messages += ToolMessage(role = "user", content = message)
 
         val steps = mutableListOf<ChatV2Step>()
         var usage = TokenUsage()
+        var cachedTokens = 0
+        // 이번 턴에서 검색으로 확인된 id만 mutating tool에 허용 (모델의 id 추측 차단)
+        val idRegistry = ChatV2IdRegistry(userId)
 
         repeat(MAX_STEPS) { step ->
             val result = llmClient.call(messages, ChatV2Tools.ALL)
             usage += result.usage
+            cachedTokens += result.cachedTokens
+            log.info {
+                "chat/v2 llm 호출 ${step + 1} — in=${result.usage.promptTokens} (cached=${result.cachedTokens}), " +
+                    "out=${result.usage.completionTokens}"
+            }
             val assistant = result.message
 
             val toolCalls = assistant.toolCalls
@@ -78,19 +88,20 @@ class ChatV2Service(
                         ?: throw CustomException(ErrorCode.LLM_INVALID_RESPONSE)
                 historyStore.appendTurn(userId, message, reply)
                 logData.recordAction(usage, reply)
-                log.info { "chat/v2 완료 — steps=${steps.size}, tokens=${usage.totalTokens}" }
+                log.info { "chat/v2 완료 — steps=${steps.size}, tokens=${usage.totalTokens} (cached=$cachedTokens)" }
                 return ChatV2Response(
                     reply = reply,
                     steps = steps,
                     inputTokens = usage.promptTokens,
                     outputTokens = usage.completionTokens,
+                    cachedTokens = cachedTokens,
                 )
             }
 
             messages += assistant
             toolCalls.forEach { call ->
                 log.info { "chat/v2 step ${step + 1} — ${call.function.name}(${call.function.arguments})" }
-                val toolResult = toolExecutor.execute(call.function.name, call.function.arguments, userId)
+                val toolResult = toolExecutor.execute(call.function.name, call.function.arguments, userId, idRegistry)
                 steps += ChatV2Step(tool = call.function.name, arguments = call.function.arguments, result = toolResult)
                 messages +=
                     ToolMessage(
@@ -106,13 +117,18 @@ class ChatV2Service(
         throw CustomException(ErrorCode.LLM_INVALID_RESPONSE)
     }
 
-    private fun buildSystemPrompt(userName: String): String {
+    private fun buildSystemPrompt(
+        userName: String,
+        roleNames: List<String>,
+    ): String {
         val today = LocalDate.now(ZoneId.of("Asia/Seoul"))
         val dayKo = today.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.KOREAN)
-        return "$systemPrompt\n## 오늘\n$today ($dayKo) / 사용자: $userName"
+        val roles = roleNames.ifEmpty { listOf("일반 팀원 (역할 없음)") }.joinToString(", ")
+        return "$systemPrompt\n## 오늘\n$today ($dayKo) / 사용자: $userName / 역할: $roles"
     }
 
     companion object {
-        private const val MAX_STEPS = 6
+        // 검색→사용자 확인→실행→확인 등 멀티스텝 흐름을 감안한 한도
+        private const val MAX_STEPS = 8
     }
 }

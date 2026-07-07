@@ -36,6 +36,8 @@ class ChatV2LlmClient(
     data class StepResult(
         val message: ToolMessage,
         val usage: TokenUsage,
+        /** 입력 토큰 중 캐시 히트분 (제공사가 안 주면 0) */
+        val cachedTokens: Int = 0,
     )
 
     fun call(
@@ -74,6 +76,7 @@ class ChatV2LlmClient(
             response.usage
                 ?.let { TokenUsage(it.promptTokens, it.completionTokens, it.totalTokens) }
                 ?: TokenUsage()
-        return StepResult(message, usage)
+        val cachedTokens = response.usage?.promptTokensDetails?.cachedTokens ?: 0
+        return StepResult(message, usage, cachedTokens)
     }
 }
