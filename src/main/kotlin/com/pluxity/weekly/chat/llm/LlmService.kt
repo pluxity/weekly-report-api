@@ -95,9 +95,12 @@ class LlmService(
                 val result = callLlm(messages)
                 log.info { "$label 응답: ${result.value}" }
                 return LlmResult(parse(result.value), result.usage)
-            } catch (e: CustomException) {
-                throw e
             } catch (e: Exception) {
+                // LLM_SERVICE_UNAVAILABLE 등 설정·가용성 문제는 재시도해도 소용없어 즉시 전파.
+                // 그 외(LLM_INVALID_RESPONSE = 파싱 실패·빈 응답 포함)는 재샘플링으로 복구 가능 → 재시도.
+                if (e is CustomException && e.code != ErrorCode.LLM_INVALID_RESPONSE) {
+                    throw e
+                }
                 lastException = e
                 log.warn { "$label 실패 (시도 ${attempt + 1}/$MAX_RETRIES): ${e.message}" }
                 if (attempt < MAX_RETRIES - 1) {
