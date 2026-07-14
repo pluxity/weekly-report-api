@@ -18,6 +18,7 @@ object ChatV2Tools {
     const val AGGREGATE_ITEMS = "aggregate_items"
     const val LIST_PENDING_REVIEWS = "list_pending_reviews"
     const val GET_TASK_HISTORY = "get_task_history"
+    const val GET_WEEKLY_REPORT = "get_weekly_report"
 
     private fun tool(
         name: String,
@@ -142,6 +143,11 @@ object ChatV2Tools {
                 description = "태스크의 리뷰 이력 조회 — 리뷰 요청/승인/반려 기록과 반려 사유.",
                 properties = mapOf("task_id" to int("태스크 ID")),
                 required = listOf("task_id"),
+            ),
+            tool(
+                name = GET_WEEKLY_REPORT,
+                description = "내 팀 주간보고 조회 (팀 리더 전용) — 정리된 항목과 지난주 대비 매칭(누락/신규) 포함.",
+                properties = mapOf("week" to str("조회 주차: this(생략 시)/last/YYYY-MM-DD")),
             ),
         )
 }

@@ -3,6 +3,7 @@ package com.pluxity.weekly.chat.v2.dto
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import com.fasterxml.jackson.annotation.JsonInclude
 import com.fasterxml.jackson.annotation.JsonProperty
+import com.pluxity.weekly.report.dto.WeeklyReportResponse
 import io.swagger.v3.oas.annotations.media.Schema
 import jakarta.validation.constraints.NotBlank
 
@@ -36,6 +37,27 @@ data class ChatV2Step(
     val result: String,
 )
 
+// ── /chat/v2/weekly-report 요청/응답 ──
+
+@Schema(description = "주간보고 작성 요청 — 명령 + 보고 본문 붙여넣기")
+data class ChatV2WeeklyReportRequest(
+    @field:Schema(description = "명령과 주간보고 본문", example = "주간보고 작성해줘\n홍길동\n- 이번주: OO 기능 개발 완료")
+    @field:NotBlank
+    val message: String,
+)
+
+@Schema(description = "주간보고 작성 응답")
+data class ChatV2WeeklyReportResponse(
+    @field:Schema(description = "자연어 안내 (저장 완료 또는 본문 보완 안내)")
+    val reply: String,
+    @field:Schema(description = "저장된 주간보고. 안내로 끝난 경우(본문 없음·항목 0·리더 아님) null")
+    val weeklyReport: WeeklyReportResponse? = null,
+    @field:Schema(description = "이번 요청 누적 입력 토큰")
+    val inputTokens: Int = 0,
+    @field:Schema(description = "이번 요청 누적 출력 토큰")
+    val outputTokens: Int = 0,
+)
+
 // ── OpenAI 호환 tool calling wire DTO ──
 // 기존 LlmApiDto의 Message는 content 필수라 tool_calls를 실을 수 없어 v2 전용으로 분리.
 
@@ -45,6 +67,22 @@ data class ToolChatRequest(
     val messages: List<ToolMessage>,
     val temperature: Double,
     val tools: List<ToolDefinition>? = null,
+    @param:JsonProperty("response_format")
+    val responseFormat: ResponseFormat? = null,
+)
+
+/** structured output — 프로바이더가 스키마를 강제해 fence/다중블록 파싱 실패를 원천 차단한다 */
+data class ResponseFormat(
+    val type: String = "json_schema",
+    @param:JsonProperty("json_schema")
+    val jsonSchema: JsonSchemaSpec,
+)
+
+data class JsonSchemaSpec(
+    val name: String,
+    val strict: Boolean = true,
+    /** JSON Schema — Map으로 직렬화 */
+    val schema: Map<String, Any>,
 )
 
 @JsonInclude(JsonInclude.Include.NON_NULL)

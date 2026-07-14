@@ -9,6 +9,7 @@ import com.pluxity.weekly.chat.util.ChatScope
 import com.pluxity.weekly.chat.v2.dto.AggregateItemsArgs
 import com.pluxity.weekly.chat.v2.dto.GetItemDetailsArgs
 import com.pluxity.weekly.chat.v2.dto.GetTaskHistoryArgs
+import com.pluxity.weekly.chat.v2.dto.GetWeeklyReportArgs
 import com.pluxity.weekly.chat.v2.dto.SearchItemsArgs
 import com.pluxity.weekly.chat.v2.dto.SearchUsersArgs
 import com.pluxity.weekly.core.exception.CustomException
@@ -18,10 +19,13 @@ import com.pluxity.weekly.epic.service.EpicService
 import com.pluxity.weekly.project.dto.ProjectResponse
 import com.pluxity.weekly.project.entity.ProjectStatus
 import com.pluxity.weekly.project.service.ProjectService
+import com.pluxity.weekly.report.dto.ReportItem
+import com.pluxity.weekly.report.service.WeeklyReportService
 import com.pluxity.weekly.task.dto.TaskResponse
 import com.pluxity.weekly.task.entity.TaskStatus
 import com.pluxity.weekly.task.service.TaskReviewService
 import com.pluxity.weekly.task.service.TaskService
+import com.pluxity.weekly.team.repository.TeamRepository
 import com.pluxity.weekly.team.service.TeamService
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.data.domain.Sort
@@ -49,6 +53,8 @@ class ChatV2ToolExecutor(
     private val epicService: EpicService,
     private val projectService: ProjectService,
     private val teamService: TeamService,
+    private val teamRepository: TeamRepository,
+    private val weeklyReportService: WeeklyReportService,
     private val userRepository: UserRepository,
     private val objectMapper: ObjectMapper,
 ) {
@@ -66,6 +72,7 @@ class ChatV2ToolExecutor(
                 ChatV2Tools.AGGREGATE_ITEMS -> aggregateItems(argumentsJson, currentUserId, idRegistry)
                 ChatV2Tools.LIST_PENDING_REVIEWS -> listPendingReviews(idRegistry)
                 ChatV2Tools.GET_TASK_HISTORY -> getTaskHistory(argumentsJson, idRegistry)
+                ChatV2Tools.GET_WEEKLY_REPORT -> getWeeklyReport(argumentsJson, currentUserId)
                 else -> errorResult("알 수 없는 도구: $toolName")
             }
         } catch (e: UnrecognizedPropertyException) {
@@ -455,6 +462,55 @@ class ChatV2ToolExecutor(
             }
         return objectMapper.writeValueAsString(mapOf("task_id" to args.taskId, "history" to history))
     }
+
+    /**
+     * 내 팀 주간보고 조회 — v1 handleRead 규칙 재사용 (팀 리더 게이트, week 해석은 findForChat의 resolveWeekStart).
+     * rawContent(원문 전체)는 제외하고 정리된 항목·지난주 매칭만 모델에 준다.
+     */
+    private fun getWeeklyReport(
+        argumentsJson: String,
+        currentUserId: Long,
+    ): String {
+        val args = readArgs<GetWeeklyReportArgs>(argumentsJson)
+        teamRepository.findByLeaderId(currentUserId).firstOrNull()
+            ?: return errorResult("주간보고는 팀 리더만 조회할 수 있습니다.")
+        val report =
+            weeklyReportService.findForChat(args.week)
+                ?: return objectMapper.writeValueAsString(
+                    mapOf("weekly_report" to null, "message" to "해당 주차에 작성된 주간보고가 없습니다."),
+                )
+        val matched =
+            report.matchedAgainstPrev?.let { m ->
+                mapOf(
+                    "matched" to m.matched.map { mapOf("assignee" to it.assignee, "prev" to it.prev, "curr" to it.curr) },
+                    "missing_from_prev_plan" to m.missing.map { mapOf("assignee" to it.assignee, "text" to it.text) },
+                    "new_this_week" to m.new.map { mapOf("assignee" to it.assignee, "text" to it.text) },
+                )
+            }
+        return objectMapper.writeValueAsString(
+            mapOf(
+                "weekly_report" to
+                    mapOf(
+                        "team" to report.teamName,
+                        "week_start" to report.weekStart.toString(),
+                        "this_week" to report.formatted.thisWeek.map(::reportItemMap),
+                        "next_week" to report.formatted.nextWeek.map(::reportItemMap),
+                        "issues" to report.formatted.issues.map(::reportItemMap),
+                        "others" to report.formatted.others.map(::reportItemMap),
+                        "matched_against_prev" to matched,
+                    ),
+            ),
+        )
+    }
+
+    private fun reportItemMap(item: ReportItem): Map<String, Any?> =
+        mapOf(
+            "assignee" to item.assignee,
+            "category" to item.category,
+            "text" to item.text,
+            "progress" to item.progress,
+            "due_date" to item.dueDate?.toString(),
+        )
 
     // ── 공통 ──
 

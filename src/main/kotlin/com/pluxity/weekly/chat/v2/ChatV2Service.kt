@@ -31,6 +31,7 @@ class ChatV2Service(
     private val historyStore: ChatV2HistoryStore,
     private val authorizationService: AuthorizationService,
     private val chatLogService: ChatLogService,
+    private val userLock: ChatV2UserLock,
 ) {
     private val systemPrompt: String by lazy {
         ClassPathResource("llm/chat-v2-prompt.txt").getContentAsString(Charsets.UTF_8)
@@ -39,18 +40,19 @@ class ChatV2Service(
     fun chat(message: String): ChatV2Response {
         val user = authorizationService.currentUser()
         val userId = user.requiredId
-        val logData = ChatLogData(userId = userId, requestMessage = message)
-
-        try {
-            val roleNames = user.getRoles().map { it.name }
-            val response = runLoop(message, userId, user.name, roleNames, logData)
-            logData.success = true
-            return response
-        } catch (e: Exception) {
-            logData.errorMessage = e.message
-            throw e
-        } finally {
-            chatLogService.record(logData)
+        return userLock.withLock(userId) {
+            val logData = ChatLogData(userId = userId, requestMessage = message)
+            try {
+                val roleNames = user.getRoles().map { it.name }
+                val response = runLoop(message, userId, user.name, roleNames, logData)
+                logData.success = true
+                response
+            } catch (e: Exception) {
+                logData.errorMessage = e.message
+                throw e
+            } finally {
+                chatLogService.record(logData)
+            }
         }
     }
 
@@ -112,9 +114,18 @@ class ChatV2Service(
             }
         }
 
+        // 루프 한도 초과 — 에러 대신 graceful 안내 (요청이 소화된 만큼의 trace는 응답에 남긴다)
         log.warn { "chat/v2 루프 한도($MAX_STEPS) 초과 — message=$message" }
-        logData.recordAction(usage)
-        throw CustomException(ErrorCode.LLM_INVALID_RESPONSE)
+        val reply = "요청을 처리하는 단계가 너무 많아 여기서 멈췄어요. 질문을 더 구체적으로 나눠서 다시 시도해주세요."
+        historyStore.appendTurn(userId, message, reply)
+        logData.recordAction(usage, reply)
+        return ChatV2Response(
+            reply = reply,
+            steps = steps,
+            inputTokens = usage.promptTokens,
+            outputTokens = usage.completionTokens,
+            cachedTokens = cachedTokens,
+        )
     }
 
     private fun buildSystemPrompt(

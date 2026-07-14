@@ -66,3 +66,8 @@ data class GetTaskHistoryArgs(
     @param:JsonProperty("task_id")
     val taskId: Long,
 )
+
+data class GetWeeklyReportArgs(
+    /** "this"(기본)/"last"/YYYY-MM-DD — 해석은 서버(resolveWeekStart) */
+    val week: String? = null,
+)

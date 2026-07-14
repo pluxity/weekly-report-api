@@ -1,5 +1,7 @@
 package com.pluxity.weekly.chat.v2
 
+import com.pluxity.weekly.chat.v2.dto.JsonSchemaSpec
+import com.pluxity.weekly.chat.v2.dto.ResponseFormat
 import com.pluxity.weekly.chat.v2.dto.ToolCall
 import com.pluxity.weekly.chat.v2.dto.ToolCallFunction
 import com.pluxity.weekly.chat.v2.dto.ToolChatRequest
@@ -55,6 +57,39 @@ class ChatV2ApiDtoTest :
                 Then("null 필드는 출력에서 제외된다 (content 없는 assistant 메시지 등)") {
                     // assistant 메시지의 content=null이 "content":null 로 나가지 않아야 함
                     json shouldNotContain "\"content\":null"
+                }
+
+                Then("response_format 미지정 시 필드 자체가 출력되지 않는다 (tool calling 요청 불변)") {
+                    json shouldNotContain "response_format"
+                }
+            }
+
+            When("response_format(json_schema)을 포함해 직렬화하면 (structured output 요청)") {
+                val request =
+                    ToolChatRequest(
+                        model = "google/gemini-2.5-flash",
+                        messages = listOf(ToolMessage(role = "user", content = "주간보고 작성해줘")),
+                        temperature = 0.1,
+                        responseFormat =
+                            ResponseFormat(
+                                jsonSchema =
+                                    JsonSchemaSpec(
+                                        name = ChatV2WeeklyReportSchemas.CLASSIFY_NAME,
+                                        schema = ChatV2WeeklyReportSchemas.CLASSIFY,
+                                    ),
+                            ),
+                    )
+
+                val json = objectMapper.writeValueAsString(request)
+
+                Then("OpenRouter wire 포맷(snake_case)으로 출력된다") {
+                    json shouldContain "\"response_format\""
+                    json shouldContain "\"json_schema\""
+                    json shouldContain "\"strict\":true"
+                    json shouldContain "\"weekly_report_classify\""
+                    json shouldContain "\"additionalProperties\":false"
+                    json shouldNotContain "responseFormat"
+                    json shouldNotContain "jsonSchema"
                 }
             }
         }
