@@ -325,18 +325,15 @@ class ProjectServiceTest :
                 }
             }
 
-            When("하위 에픽이 0개인 프로젝트를 status=DONE 으로 변경하려 하면") {
+            When("하위 에픽이 0개인 프로젝트를 status=DONE 으로 변경하면") {
                 val entity = dummyProject(id = 72L, status = ProjectStatus.IN_PROGRESS)
                 every { projectRepository.findByIdOrNull(72L) } returns entity
                 every { epicRepository.findByProjectIdIn(listOf(72L)) } returns emptyList()
 
-                val exception =
-                    shouldThrow<CustomException> {
-                        service.update(72L, dummyProjectUpdateRequest(status = ProjectStatus.DONE))
-                    }
+                service.update(72L, dummyProjectUpdateRequest(status = ProjectStatus.DONE))
 
-                Then("EPIC_NOT_ALL_DONE 예외가 발생한다 (빈 컨테이너 차단)") {
-                    exception.code shouldBe ErrorCode.EPIC_NOT_ALL_DONE
+                Then("DONE 으로 변경된다 (빈 컨테이너 허용)") {
+                    entity.status shouldBe ProjectStatus.DONE
                 }
             }
         }
