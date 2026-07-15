@@ -4,13 +4,11 @@ import com.pluxity.weekly.auth.user.repository.UserRepository
 import com.pluxity.weekly.chat.dto.EpicSearchFilter
 import com.pluxity.weekly.chat.dto.ProjectSearchFilter
 import com.pluxity.weekly.chat.dto.TaskSearchFilter
-import com.pluxity.weekly.chat.dto.TeamSearchFilter
 import com.pluxity.weekly.chat.util.ChatScope
 import com.pluxity.weekly.chat.v2.dto.AggregateItemsArgs
 import com.pluxity.weekly.chat.v2.dto.GetItemDetailsArgs
 import com.pluxity.weekly.chat.v2.dto.GetTaskHistoryArgs
 import com.pluxity.weekly.chat.v2.dto.GetWeeklyReportArgs
-import com.pluxity.weekly.chat.v2.dto.SearchItemsArgs
 import com.pluxity.weekly.chat.v2.dto.SearchUsersArgs
 import com.pluxity.weekly.core.exception.CustomException
 import com.pluxity.weekly.epic.dto.EpicResponse
@@ -26,11 +24,9 @@ import com.pluxity.weekly.task.entity.TaskStatus
 import com.pluxity.weekly.task.service.TaskReviewService
 import com.pluxity.weekly.task.service.TaskService
 import com.pluxity.weekly.team.repository.TeamRepository
-import com.pluxity.weekly.team.service.TeamService
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.data.domain.Sort
 import org.springframework.stereotype.Component
-import tools.jackson.databind.DeserializationFeature
 import tools.jackson.databind.ObjectMapper
 import tools.jackson.databind.exc.UnrecognizedPropertyException
 import java.time.LocalDate
@@ -45,6 +41,9 @@ private val log = KotlinLogging.logger {}
  *
  * 실행 실패는 예외로 터뜨리지 않고 {"error": "..."} 결과로 모델에게 되돌려,
  * 모델이 사용자에게 자연어로 안내하거나 다른 시도를 하게 한다 (agent 패턴).
+ *
+ * god-class 분해 중 — 도구별 로직은 핸들러(예: [SearchItemsHandler])로, 공통 부품은 [ChatV2ToolSupport]로 이동.
+ * execute()는 도구명 → 핸들러/메서드 dispatch만 담당한다.
  */
 @Component
 class ChatV2ToolExecutor(
@@ -52,11 +51,12 @@ class ChatV2ToolExecutor(
     private val taskReviewService: TaskReviewService,
     private val epicService: EpicService,
     private val projectService: ProjectService,
-    private val teamService: TeamService,
     private val teamRepository: TeamRepository,
     private val weeklyReportService: WeeklyReportService,
     private val userRepository: UserRepository,
     private val objectMapper: ObjectMapper,
+    private val support: ChatV2ToolSupport,
+    private val searchItemsHandler: SearchItemsHandler,
 ) {
     fun execute(
         toolName: String,
@@ -66,7 +66,7 @@ class ChatV2ToolExecutor(
     ): String =
         try {
             when (toolName) {
-                ChatV2Tools.SEARCH_ITEMS -> searchItems(argumentsJson, currentUserId, idRegistry)
+                ChatV2Tools.SEARCH_ITEMS -> searchItemsHandler.handle(argumentsJson, currentUserId, idRegistry)
                 ChatV2Tools.SEARCH_USERS -> searchUsers(argumentsJson, idRegistry)
                 ChatV2Tools.GET_ITEM_DETAILS -> getItemDetails(argumentsJson, idRegistry)
                 ChatV2Tools.AGGREGATE_ITEMS -> aggregateItems(argumentsJson, currentUserId, idRegistry)
@@ -86,162 +86,6 @@ class ChatV2ToolExecutor(
             log.warn(e) { "chat/v2 tool 실행 실패: $toolName args=$argumentsJson" }
             errorResult("도구 실행 중 오류가 발생했습니다: ${e.message}")
         }
-
-    // ── 검색 ──
-
-    /**
-     * 태스크·업무 그룹·프로젝트·팀 통합 검색.
-     * 사용자가 타입을 안 붙이고 이름만 말하는 실사용 패턴에 맞춰 3계층을 한 번에 뒤진다 (팀은 명시 시에만).
-     * 이름 매칭은 in-memory 토큰 매칭([ItemNameMatcher]) — "cctv API" ↔ "CCTV 목록 API".
-     * 결과는 타입당 limit건으로 캡하되 totals에 전체 개수를 담아 "잘렸는지"를 모델이 알게 한다.
-     */
-    private fun searchItems(
-        argumentsJson: String,
-        currentUserId: Long,
-        idRegistry: ChatV2IdRegistry,
-    ): String {
-        val args = readArgs<SearchItemsArgs>(argumentsJson)
-        val query = args.query?.trim()?.takeIf { it.isNotBlank() }
-        val type = args.type?.lowercase()
-        val hasFilter =
-            args.status != null || args.assigneeMe == true || args.assigneeId != null ||
-                args.projectId != null || args.epicId != null || args.dueDateFrom != null ||
-                args.dueDateTo != null || args.excludeDone == true
-        if (type == null && query == null && !hasFilter) {
-            return errorResult("query 또는 필터(type/status/assignee_me/assignee_id/기간)를 하나 이상 지정하세요.")
-        }
-        // 검색 필터의 id도 검색으로 확인된 값만 — 지어낸 id로 빈 결과가 나가면 "없다"는 거짓 부정으로 이어진다
-        // (실사례: 알파 프로젝트=10인데 project_id=3으로 검색 → "알파에는 없습니다")
-        validateKnown(idRegistry, ChatV2IdRegistry.USER, args.assigneeId, "assignee_id")?.let { return it }
-        validateKnown(idRegistry, ChatV2IdRegistry.PROJECT, args.projectId, "project_id")?.let { return it }
-        validateKnown(idRegistry, ChatV2IdRegistry.EPIC, args.epicId, "epic_id")?.let { return it }
-
-        val limit = (args.limit ?: DEFAULT_LIMIT).coerceIn(1, MAX_LIMIT)
-
-        if (type == "team") {
-            val matched =
-                teamService
-                    .search(TeamSearchFilter())
-                    .filter { query == null || ItemNameMatcher.matches(query, it.name) }
-            val teams =
-                matched.take(limit).map {
-                    mapOf(
-                        "id" to it.id,
-                        "name" to it.name,
-                        "leader" to it.leaderName,
-                        "members" to it.members.map { m -> m.name },
-                    )
-                }
-            return objectMapper.writeValueAsString(
-                mapOf("teams" to teams, "totals" to mapOf("teams" to matched.size), "truncated" to (matched.size > limit)),
-            )
-        }
-
-        val scopeStart = ChatScope.scopeStartDate()
-        val dueFrom = args.dueDateFrom?.let(LocalDate::parse)
-        val dueTo = args.dueDateTo?.let(LocalDate::parse)
-        val assigneeId = args.assigneeId ?: if (args.assigneeMe == true) currentUserId else null
-        val excludeDone = args.excludeDone ?: false
-
-        // 소속/담당 필터가 있으면 의미 없는 계층은 건너뛴다 (epic_id → 태스크만, 담당자 필터 → 프로젝트 제외)
-        val includeTasks = type == null || type == "task"
-        val includeEpics = (type == null || type == "epic") && args.epicId == null
-        val includeProjects = (type == null || type == "project") && args.epicId == null && assigneeId == null
-
-        val taskMatches =
-            if (includeTasks) {
-                val status = args.status?.let { s -> TaskStatus.entries.find { it.name.equals(s, ignoreCase = true) } }
-                if (args.status != null && status == null) {
-                    emptyList()
-                } else {
-                    taskService
-                        .search(
-                            TaskSearchFilter(
-                                status = status,
-                                epicId = args.epicId,
-                                projectId = args.projectId,
-                                assigneeId = assigneeId,
-                                dueDateFrom = dueFrom,
-                                dueDateTo = dueTo,
-                                excludeDone = excludeDone,
-                                scopeStartDate = scopeStart,
-                            ),
-                        ).filter { query == null || ItemNameMatcher.matches(query, it.name) }
-                }
-            } else {
-                emptyList()
-            }
-
-        val epicMatches =
-            if (includeEpics) {
-                val status = args.status?.let { s -> EpicStatus.entries.find { it.name.equals(s, ignoreCase = true) } }
-                if (args.status != null && status == null) {
-                    emptyList()
-                } else {
-                    epicService
-                        .search(
-                            EpicSearchFilter(
-                                status = status,
-                                projectId = args.projectId,
-                                assigneeId = assigneeId,
-                                dueDateFrom = dueFrom,
-                                dueDateTo = dueTo,
-                                excludeDone = excludeDone,
-                                scopeStartDate = scopeStart,
-                            ),
-                        ).filter { query == null || ItemNameMatcher.matches(query, it.name) }
-                }
-            } else {
-                emptyList()
-            }
-
-        val projectMatches =
-            if (includeProjects) {
-                val status = args.status?.let { s -> ProjectStatus.entries.find { it.name.equals(s, ignoreCase = true) } }
-                if (args.status != null && status == null) {
-                    emptyList()
-                } else {
-                    projectService
-                        .search(
-                            ProjectSearchFilter(
-                                status = status,
-                                dueDateFrom = dueFrom,
-                                dueDateTo = dueTo,
-                                excludeDone = excludeDone,
-                                scopeStartDate = scopeStart,
-                            ),
-                        ).filter { query == null || ItemNameMatcher.matches(query, it.name) }
-                }
-            } else {
-                emptyList()
-            }
-
-        val tasks =
-            sortTasks(taskMatches, args.sort, args.order)
-                .take(limit)
-                .onEach { idRegistry.register(ChatV2IdRegistry.TASK, it.id) }
-                .map(::taskMap)
-        val epics =
-            sortEpics(epicMatches, args.sort, args.order)
-                .take(limit)
-                .onEach { idRegistry.register(ChatV2IdRegistry.EPIC, it.id) }
-                .map(::epicMap)
-        val projects =
-            sortProjects(projectMatches, args.sort, args.order)
-                .take(limit)
-                .onEach { idRegistry.register(ChatV2IdRegistry.PROJECT, it.id) }
-                .map(::projectMap)
-
-        return objectMapper.writeValueAsString(
-            mapOf(
-                "tasks" to tasks,
-                "epics" to epics,
-                "projects" to projects,
-                "totals" to mapOf("tasks" to taskMatches.size, "epics" to epicMatches.size, "projects" to projectMatches.size),
-                "truncated" to (taskMatches.size > limit || epicMatches.size > limit || projectMatches.size > limit),
-            ),
-        )
-    }
 
     private fun searchUsers(
         argumentsJson: String,
@@ -512,111 +356,26 @@ class ChatV2ToolExecutor(
             "due_date" to item.dueDate?.toString(),
         )
 
-    // ── 공통 ──
+    // ── 공용 부품 위임 (god-class 분해 과도기 — 각 메서드가 핸들러로 이동하면 함께 사라진다) ──
 
-    /** 스키마에 없는 인자는 [UnrecognizedPropertyException]으로 실패시킨다 — execute()가 error 결과로 변환. */
-    private inline fun <reified T> readArgs(json: String): T =
-        objectMapper
-            .readerFor(T::class.java)
-            .with(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
-            .readValue(json)
+    private inline fun <reified T> readArgs(json: String): T = support.readArgs(json)
 
-    /**
-     * 모델이 지어낸 id 차단 — 이번 턴 검색 결과에 없던 id는 실행 전에 거부한다.
-     * (프롬프트 규칙만으로는 검색을 건너뛰고 id를 찍는 사례가 실제로 반복 발생)
-     */
     private fun validateKnown(
         idRegistry: ChatV2IdRegistry,
         type: String,
         id: Long?,
         field: String,
-    ): String? {
-        if (id == null || idRegistry.isKnown(type, id)) return null
-        return errorResult(
-            "$field=$id 는 이번 턴에서 검색으로 확인되지 않은 id입니다. " +
-                "search_items/search_users로 먼저 검색해 결과의 id만 사용하세요.",
-        )
-    }
+    ): String? = support.validateKnown(idRegistry, type, id, field)
 
-    private fun <T, R : Comparable<R>> List<T>.sortedByField(
-        order: String?,
-        selector: (T) -> R?,
-    ): List<T> {
-        val comparator = compareBy(nullsLast(naturalOrder<R>()), selector)
-        return sortedWith(if (order == "desc") comparator.reversed() else comparator)
-    }
+    private fun errorResult(message: String): String = support.errorResult(message)
 
-    private fun sortTasks(
-        tasks: List<TaskResponse>,
-        sort: String?,
-        order: String?,
-    ): List<TaskResponse> =
-        when (sort) {
-            "due_date" -> tasks.sortedByField(order) { it.dueDate }
-            "progress" -> tasks.sortedByField(order) { it.progress }
-            "name" -> tasks.sortedByField(order) { it.name }
-            else -> tasks
-        }
+    private fun taskMap(task: TaskResponse): Map<String, Any?> = support.taskMap(task)
 
-    private fun sortEpics(
-        epics: List<EpicResponse>,
-        sort: String?,
-        order: String?,
-    ): List<EpicResponse> =
-        when (sort) {
-            "due_date" -> epics.sortedByField(order) { it.dueDate }
-            "name" -> epics.sortedByField(order) { it.name }
-            else -> epics
-        }
+    private fun epicMap(epic: EpicResponse): Map<String, Any?> = support.epicMap(epic)
 
-    private fun sortProjects(
-        projects: List<ProjectResponse>,
-        sort: String?,
-        order: String?,
-    ): List<ProjectResponse> =
-        when (sort) {
-            "due_date" -> projects.sortedByField(order) { it.dueDate }
-            "progress" -> projects.sortedByField(order) { it.progress }
-            "name" -> projects.sortedByField(order) { it.name }
-            else -> projects
-        }
-
-    private fun taskMap(task: TaskResponse): Map<String, Any?> =
-        mapOf(
-            "id" to task.id,
-            "name" to task.name,
-            "project" to task.projectName,
-            "epic" to task.epicName,
-            "status" to task.status.name,
-            "progress" to task.progress,
-            "due_date" to task.dueDate?.toString(),
-            "assignee" to task.assigneeName,
-        )
-
-    private fun epicMap(epic: EpicResponse): Map<String, Any?> =
-        mapOf(
-            "id" to epic.id,
-            "name" to epic.name,
-            "project" to epic.projectName,
-            "status" to epic.status.name,
-            "due_date" to epic.dueDate?.toString(),
-            "members" to epic.members.map { it.userName },
-        )
-
-    private fun projectMap(project: ProjectResponse): Map<String, Any?> =
-        mapOf(
-            "id" to project.id,
-            "name" to project.name,
-            "status" to project.status.name,
-            "due_date" to project.dueDate?.toString(),
-            "pm" to project.pmName,
-        )
-
-    private fun errorResult(message: String): String = objectMapper.writeValueAsString(mapOf("error" to message))
+    private fun projectMap(project: ProjectResponse): Map<String, Any?> = support.projectMap(project)
 
     companion object {
-        private const val DEFAULT_LIMIT = 10
-        private const val MAX_LIMIT = 30
         private const val MAX_USER_RESULTS = 20
     }
 }
