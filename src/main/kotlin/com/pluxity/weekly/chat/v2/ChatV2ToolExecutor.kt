@@ -6,7 +6,6 @@ import com.pluxity.weekly.chat.dto.ProjectSearchFilter
 import com.pluxity.weekly.chat.dto.TaskSearchFilter
 import com.pluxity.weekly.chat.util.ChatScope
 import com.pluxity.weekly.chat.v2.dto.AggregateItemsArgs
-import com.pluxity.weekly.chat.v2.dto.GetItemDetailsArgs
 import com.pluxity.weekly.chat.v2.dto.GetTaskHistoryArgs
 import com.pluxity.weekly.chat.v2.dto.GetWeeklyReportArgs
 import com.pluxity.weekly.chat.v2.dto.SearchUsersArgs
@@ -57,6 +56,7 @@ class ChatV2ToolExecutor(
     private val objectMapper: ObjectMapper,
     private val support: ChatV2ToolSupport,
     private val searchItemsHandler: SearchItemsHandler,
+    private val getItemDetailsHandler: GetItemDetailsHandler,
 ) {
     fun execute(
         toolName: String,
@@ -68,7 +68,7 @@ class ChatV2ToolExecutor(
             when (toolName) {
                 ChatV2Tools.SEARCH_ITEMS -> searchItemsHandler.handle(argumentsJson, currentUserId, idRegistry)
                 ChatV2Tools.SEARCH_USERS -> searchUsers(argumentsJson, idRegistry)
-                ChatV2Tools.GET_ITEM_DETAILS -> getItemDetails(argumentsJson, idRegistry)
+                ChatV2Tools.GET_ITEM_DETAILS -> getItemDetailsHandler.handle(argumentsJson, idRegistry)
                 ChatV2Tools.AGGREGATE_ITEMS -> aggregateItems(argumentsJson, currentUserId, idRegistry)
                 ChatV2Tools.LIST_PENDING_REVIEWS -> listPendingReviews(idRegistry)
                 ChatV2Tools.GET_TASK_HISTORY -> getTaskHistory(argumentsJson, idRegistry)
@@ -101,7 +101,7 @@ class ChatV2ToolExecutor(
                 .filter { user -> role == null || user.userRoles.any { it.role.name.equals(role, ignoreCase = true) } }
                 .distinctBy { it.requiredId }
                 .take(MAX_USER_RESULTS)
-                .onEach { idRegistry.register(ChatV2IdRegistry.USER, it.requiredId) }
+                .onEach { idRegistry.register(ChatV2EntityType.USER, it.requiredId) }
                 .map {
                     mapOf(
                         "id" to it.requiredId,
@@ -112,49 +112,7 @@ class ChatV2ToolExecutor(
         return objectMapper.writeValueAsString(mapOf("users" to users))
     }
 
-    // ── 상세 / 집계 / 이력 ──
-
-    private fun getItemDetails(
-        argumentsJson: String,
-        idRegistry: ChatV2IdRegistry,
-    ): String {
-        val args = readArgs<GetItemDetailsArgs>(argumentsJson)
-        val type = args.type.lowercase()
-        if (type !in setOf(ChatV2IdRegistry.TASK, ChatV2IdRegistry.EPIC, ChatV2IdRegistry.PROJECT)) {
-            return errorResult("상세 조회할 수 없는 종류: ${args.type} (task/epic/project만 가능)")
-        }
-        validateKnown(idRegistry, type, args.id, "id")?.let { return it }
-        val detail: Map<String, Any?> =
-            when (type) {
-                ChatV2IdRegistry.TASK -> {
-                    val t = taskService.findById(args.id)
-                    taskMap(t) +
-                        mapOf(
-                            "description" to t.description,
-                            "start_date" to t.startDate?.toString(),
-                        )
-                }
-                ChatV2IdRegistry.EPIC -> {
-                    val e = epicService.findById(args.id)
-                    epicMap(e) +
-                        mapOf(
-                            "description" to e.description,
-                            "start_date" to e.startDate?.toString(),
-                        )
-                }
-                else -> {
-                    val p = projectService.findById(args.id)
-                    projectMap(p) +
-                        mapOf(
-                            "description" to p.description,
-                            "start_date" to p.startDate?.toString(),
-                            "progress" to p.progress,
-                            "members" to p.members.map { it.userName },
-                        )
-                }
-            }
-        return objectMapper.writeValueAsString(mapOf(type to detail))
-    }
+    // ── 집계 / 이력 ──
 
     /**
      * 그룹별 개수·평균 진행률 집계. 검색은 타입당 limit건 캡이 있어 "몇 개/얼마나" 질문에 못 쓰므로,
@@ -166,15 +124,37 @@ class ChatV2ToolExecutor(
         idRegistry: ChatV2IdRegistry,
     ): String {
         val args = readArgs<AggregateItemsArgs>(argumentsJson)
-        validateKnown(idRegistry, ChatV2IdRegistry.USER, args.assigneeId, "assignee_id")?.let { return it }
-        validateKnown(idRegistry, ChatV2IdRegistry.PROJECT, args.projectId, "project_id")?.let { return it }
-        validateKnown(idRegistry, ChatV2IdRegistry.EPIC, args.epicId, "epic_id")?.let { return it }
 
         val groupBy = args.groupBy.lowercase()
         val scopeStart = ChatScope.scopeStartDate()
+        // 부모·담당자 필터는 이름 → 서버가 id로 해소 (search_items와 동일 — 모델이 id를 지어낼 여지 제거)
+        val resolvedAssigneeId =
+            when (val r = support.resolveByName(args.assignee, "사용자", ChatV2EntityType.USER, idRegistry) {
+                userRepository.findAllBy(Sort.by("name")).map { it.requiredId to it.name }
+            }) {
+                is NameResolution.Error -> return errorResult(r.message)
+                is NameResolution.Resolved -> r.id
+                NameResolution.NotRequested -> null
+            }
+        val projectId =
+            when (val r = support.resolveByName(args.project, "프로젝트", ChatV2EntityType.PROJECT, idRegistry) {
+                projectService.search(ProjectSearchFilter(scopeStartDate = scopeStart)).map { it.id to it.name }
+            }) {
+                is NameResolution.Error -> return errorResult(r.message)
+                is NameResolution.Resolved -> r.id
+                NameResolution.NotRequested -> null
+            }
+        val epicId =
+            when (val r = support.resolveByName(args.epic, "업무 그룹", ChatV2EntityType.EPIC, idRegistry) {
+                epicService.search(EpicSearchFilter(scopeStartDate = scopeStart)).map { it.id to it.name }
+            }) {
+                is NameResolution.Error -> return errorResult(r.message)
+                is NameResolution.Resolved -> r.id
+                NameResolution.NotRequested -> null
+            }
         val dueFrom = args.dueDateFrom?.let(LocalDate::parse)
         val dueTo = args.dueDateTo?.let(LocalDate::parse)
-        val assigneeId = args.assigneeId ?: if (args.assigneeMe == true) currentUserId else null
+        val assigneeId = resolvedAssigneeId ?: if (args.assigneeMe == true) currentUserId else null
         val excludeDone = args.excludeDone ?: false
 
         return when (args.type.lowercase()) {
@@ -192,8 +172,8 @@ class ChatV2ToolExecutor(
                     taskService.search(
                         TaskSearchFilter(
                             status = status,
-                            epicId = args.epicId,
-                            projectId = args.projectId,
+                            epicId = epicId,
+                            projectId = projectId,
                             assigneeId = assigneeId,
                             dueDateFrom = dueFrom,
                             dueDateTo = dueTo,
@@ -217,7 +197,7 @@ class ChatV2ToolExecutor(
                     epicService.search(
                         EpicSearchFilter(
                             status = status,
-                            projectId = args.projectId,
+                            projectId = projectId,
                             assigneeId = assigneeId,
                             dueDateFrom = dueFrom,
                             dueDateTo = dueTo,
@@ -275,7 +255,7 @@ class ChatV2ToolExecutor(
             taskReviewService
                 .findPendingReviews()
                 .take(MAX_USER_RESULTS)
-                .onEach { idRegistry.register(ChatV2IdRegistry.TASK, it.taskId) }
+                .onEach { idRegistry.register(ChatV2EntityType.TASK, it.taskId) }
                 .map {
                     mapOf(
                         "id" to it.taskId,
@@ -293,7 +273,7 @@ class ChatV2ToolExecutor(
         idRegistry: ChatV2IdRegistry,
     ): String {
         val args = readArgs<GetTaskHistoryArgs>(argumentsJson)
-        validateKnown(idRegistry, ChatV2IdRegistry.TASK, args.taskId, "task_id")?.let { return it }
+        validateKnown(idRegistry, ChatV2EntityType.TASK, args.taskId, "task_id")?.let { return it }
         // 권한은 findApprovalLogs 내장 requireEpicAccess가 담당
         val history =
             taskReviewService.findApprovalLogs(args.taskId).map {
@@ -362,18 +342,12 @@ class ChatV2ToolExecutor(
 
     private fun validateKnown(
         idRegistry: ChatV2IdRegistry,
-        type: String,
+        type: ChatV2EntityType,
         id: Long?,
         field: String,
     ): String? = support.validateKnown(idRegistry, type, id, field)
 
     private fun errorResult(message: String): String = support.errorResult(message)
-
-    private fun taskMap(task: TaskResponse): Map<String, Any?> = support.taskMap(task)
-
-    private fun epicMap(epic: EpicResponse): Map<String, Any?> = support.epicMap(epic)
-
-    private fun projectMap(project: ProjectResponse): Map<String, Any?> = support.projectMap(project)
 
     companion object {
         private const val MAX_USER_RESULTS = 20

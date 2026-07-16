@@ -29,6 +29,7 @@ class ChatV2Service(
     private val llmClient: ChatV2LlmClient,
     private val toolExecutor: ChatV2ToolExecutor,
     private val historyStore: ChatV2HistoryStore,
+    private val idRegistryStore: ChatV2IdRegistryStore,
     private val authorizationService: AuthorizationService,
     private val chatLogService: ChatLogService,
     private val userLock: ChatV2UserLock,
@@ -70,8 +71,10 @@ class ChatV2Service(
         val steps = mutableListOf<ChatV2Step>()
         var usage = TokenUsage()
         var cachedTokens = 0
-        // 이번 턴에서 검색으로 확인된 id만 mutating tool에 허용 (모델의 id 추측 차단)
-        val idRegistry = ChatV2IdRegistry(userId)
+        // 검색으로 확인된 id만 조회 tool에 허용 (모델의 id 추측 차단). 세션 단위로 영속돼 이전 턴 검색 결과가 이어진다.
+        val idRegistry = idRegistryStore.load(userId)
+        var lastStepHadError = false
+        var errorRetries = 0
 
         repeat(MAX_STEPS) { step ->
             val result = llmClient.call(messages, ChatV2Tools.ALL)
@@ -88,7 +91,17 @@ class ChatV2Service(
                 val reply =
                     assistant.content?.trim()?.takeIf { it.isNotBlank() }
                         ?: throw CustomException(ErrorCode.LLM_INVALID_RESPONSE)
+                // 직전 스텝이 error인데 모델이 사과로 끝내려 하면, 종료 대신 한 번 더 유도 (상한으로 무한루프 차단).
+                if (lastStepHadError && errorRetries < MAX_ERROR_RETRIES) {
+                    errorRetries++
+                    log.info { "chat/v2 error 후 사과 감지 → 재시도 유도 $errorRetries/$MAX_ERROR_RETRIES" }
+                    messages += assistant
+                    messages += ToolMessage(role = "user", content = ERROR_RETRY_NUDGE)
+                    lastStepHadError = false
+                    return@repeat
+                }
                 historyStore.appendTurn(userId, message, reply)
+                idRegistryStore.save(userId, idRegistry)
                 logData.recordAction(usage, reply)
                 log.info { "chat/v2 완료 — steps=${steps.size}, tokens=${usage.totalTokens} (cached=$cachedTokens)" }
                 return ChatV2Response(
@@ -101,6 +114,7 @@ class ChatV2Service(
             }
 
             messages += assistant
+            var stepError = false
             toolCalls.forEach { call ->
                 log.info { "chat/v2 step ${step + 1} — ${call.function.name}(${call.function.arguments})" }
                 val toolResult = toolExecutor.execute(call.function.name, call.function.arguments, userId, idRegistry)
@@ -111,13 +125,16 @@ class ChatV2Service(
                         content = toolResult,
                         toolCallId = call.id,
                     )
+                if (toolResult.trimStart().startsWith("{\"error\"")) stepError = true
             }
+            lastStepHadError = stepError
         }
 
         // 루프 한도 초과 — 에러 대신 graceful 안내 (요청이 소화된 만큼의 trace는 응답에 남긴다)
         log.warn { "chat/v2 루프 한도($MAX_STEPS) 초과 — message=$message" }
         val reply = "요청을 처리하는 단계가 너무 많아 여기서 멈췄어요. 질문을 더 구체적으로 나눠서 다시 시도해주세요."
         historyStore.appendTurn(userId, message, reply)
+        idRegistryStore.save(userId, idRegistry)
         logData.recordAction(usage, reply)
         return ChatV2Response(
             reply = reply,
@@ -141,5 +158,13 @@ class ChatV2Service(
     companion object {
         // 검색→사용자 확인→실행→확인 등 멀티스텝 흐름을 감안한 한도
         private const val MAX_STEPS = 8
+
+        // error 직후 모델이 사과로 끝내려 할 때 재시도를 유도하는 횟수 상한 (무한루프 방지)
+        private const val MAX_ERROR_RETRIES = 1
+
+        private const val ERROR_RETRY_NUDGE =
+            "직전 도구 호출이 실패했습니다(위 오류 참고). 같은 인자로 반복하지 말 것 — " +
+                "이름을 변형(음차↔영문, 핵심 단어만)해 다시 조회하거나 다른 도구를 쓰고, " +
+                "정말 없거나 여러 개면 사과만 하지 말고 그 사실·후보를 사용자에게 알리세요."
     }
 }

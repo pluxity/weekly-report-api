@@ -1,5 +1,6 @@
 package com.pluxity.weekly.chat.v2
 
+import com.pluxity.weekly.auth.user.repository.UserRepository
 import com.pluxity.weekly.chat.dto.EpicSearchFilter
 import com.pluxity.weekly.chat.dto.ProjectSearchFilter
 import com.pluxity.weekly.chat.dto.TaskSearchFilter
@@ -16,6 +17,7 @@ import com.pluxity.weekly.task.dto.TaskResponse
 import com.pluxity.weekly.task.entity.TaskStatus
 import com.pluxity.weekly.task.service.TaskService
 import com.pluxity.weekly.team.service.TeamService
+import org.springframework.data.domain.Sort
 import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
 import java.time.LocalDate
@@ -32,6 +34,7 @@ class SearchItemsHandler(
     private val epicService: EpicService,
     private val projectService: ProjectService,
     private val teamService: TeamService,
+    private val userRepository: UserRepository,
     private val support: ChatV2ToolSupport,
     private val objectMapper: ObjectMapper,
 ) {
@@ -45,29 +48,51 @@ class SearchItemsHandler(
         // type 미지정(전체 검색)과 잘못된 type을 구분: 원본이 null이면 미지정. 값이 있는데 파싱 실패면
         // 명백한 실수이므로 조용히 빈 결과가 아니라 error로 돌려보내 모델이 자가교정하게 한다 (get_item_details와 일관).
         val typeOmitted = args.type == null
-        val type = SearchType.from(args.type)
-        if (!typeOmitted && type == null) {
+        val type = ChatV2EntityType.from(args.type)
+        // USER는 search_items 대상이 아니다 (사용자는 search_users) — null(미인식)과 함께 거부
+        if (!typeOmitted && (type == null || type == ChatV2EntityType.USER)) {
             return support.errorResult("알 수 없는 종류: ${args.type} (task/epic/project/team만 가능)")
         }
         if (typeOmitted && query == null && !args.hasFilter()) {
-            return support.errorResult("query 또는 필터(type/status/assignee_me/assignee_id/기간)를 하나 이상 지정하세요.")
+            return support.errorResult("query 또는 필터(type/status/assignee_me/assignee/project/epic/기간)를 하나 이상 지정하세요.")
         }
-        // 검색 필터의 id도 검색으로 확인된 값만 — 지어낸 id로 빈 결과가 나가면 "없다"는 거짓 부정으로 이어진다
-        // (실사례: 알파 프로젝트=10인데 project_id=3으로 검색 → "알파에는 없습니다")
-        support.validateKnown(idRegistry, ChatV2IdRegistry.USER, args.assigneeId, "assignee_id")?.let { return it }
-        support.validateKnown(idRegistry, ChatV2IdRegistry.PROJECT, args.projectId, "project_id")?.let { return it }
-        support.validateKnown(idRegistry, ChatV2IdRegistry.EPIC, args.epicId, "epic_id")?.let { return it }
+        // 부모·담당자 필터는 이름 → 서버가 id로 해소 (모델이 id를 지어낼 여지 제거). 0건/다건이면 안내로 되돌린다.
+        val scopeStart = ChatScope.scopeStartDate()
+        val assigneeId =
+            when (val r = support.resolveByName(args.assignee, "사용자", ChatV2EntityType.USER, idRegistry) {
+                userRepository.findAllBy(Sort.by("name")).map { it.requiredId to it.name }
+            }) {
+                is NameResolution.Error -> return support.errorResult(r.message)
+                is NameResolution.Resolved -> r.id
+                NameResolution.NotRequested -> null
+            }
+        val projectId =
+            when (val r = support.resolveByName(args.project, "프로젝트", ChatV2EntityType.PROJECT, idRegistry) {
+                projectService.search(ProjectSearchFilter(scopeStartDate = scopeStart)).map { it.id to it.name }
+            }) {
+                is NameResolution.Error -> return support.errorResult(r.message)
+                is NameResolution.Resolved -> r.id
+                NameResolution.NotRequested -> null
+            }
+        val epicId =
+            when (val r = support.resolveByName(args.epic, "업무 그룹", ChatV2EntityType.EPIC, idRegistry) {
+                epicService.search(EpicSearchFilter(scopeStartDate = scopeStart)).map { it.id to it.name }
+            }) {
+                is NameResolution.Error -> return support.errorResult(r.message)
+                is NameResolution.Resolved -> r.id
+                NameResolution.NotRequested -> null
+            }
 
         val limit = (args.limit ?: DEFAULT_LIMIT).coerceIn(1, MAX_LIMIT)
 
-        if (type == SearchType.TEAM) return searchTeams(query, limit)
+        if (type == ChatV2EntityType.TEAM) return searchTeams(query, limit, idRegistry)
 
-        val c = Criteria.from(args, query, currentUserId)
+        val c = Criteria.from(args, query, currentUserId, assigneeId, projectId, epicId)
         // 소속/담당 필터가 있으면 의미 없는 계층은 건너뛴다 (epic_id → 태스크만, 담당자 필터 → 프로젝트 제외)
-        val taskMatches = if (typeOmitted || type == SearchType.TASK) searchTasks(c) else emptyList()
-        val epicMatches = if ((typeOmitted || type == SearchType.EPIC) && c.epicId == null) searchEpics(c) else emptyList()
+        val taskMatches = if (typeOmitted || type == ChatV2EntityType.TASK) searchTasks(c) else emptyList()
+        val epicMatches = if ((typeOmitted || type == ChatV2EntityType.EPIC) && c.epicId == null) searchEpics(c) else emptyList()
         val projectMatches =
-            if ((typeOmitted || type == SearchType.PROJECT) && c.epicId == null && c.assigneeId == null) {
+            if ((typeOmitted || type == ChatV2EntityType.PROJECT) && c.epicId == null && c.assigneeId == null) {
                 searchProjects(c)
             } else {
                 emptyList()
@@ -132,12 +157,13 @@ class SearchItemsHandler(
     private fun searchTeams(
         query: String?,
         limit: Int,
+        idRegistry: ChatV2IdRegistry,
     ): String {
         val matched = teamService.search(TeamSearchFilter()).matching(query) { it.name }
         val teams =
-            matched.take(limit).map {
-                mapOf("id" to it.id, "name" to it.name, "leader" to it.leaderName, "members" to it.members.map { m -> m.name })
-            }
+            matched.take(limit)
+                .onEach { idRegistry.register(ChatV2EntityType.TEAM, it.id) }
+                .map(support::teamMap)
         return objectMapper.writeValueAsString(
             mapOf("teams" to teams, "totals" to mapOf("teams" to matched.size), "truncated" to (matched.size > limit)),
         )
@@ -156,13 +182,13 @@ class SearchItemsHandler(
     ): String {
         val tasks =
             sortTasks(taskMatches, sort, order).take(limit)
-                .onEach { idRegistry.register(ChatV2IdRegistry.TASK, it.id) }.map(support::taskMap)
+                .onEach { idRegistry.register(ChatV2EntityType.TASK, it.id) }.map(support::taskMap)
         val epics =
             sortEpics(epicMatches, sort, order).take(limit)
-                .onEach { idRegistry.register(ChatV2IdRegistry.EPIC, it.id) }.map(support::epicMap)
+                .onEach { idRegistry.register(ChatV2EntityType.EPIC, it.id) }.map(support::epicMap)
         val projects =
             sortProjects(projectMatches, sort, order).take(limit)
-                .onEach { idRegistry.register(ChatV2IdRegistry.PROJECT, it.id) }.map(support::projectMap)
+                .onEach { idRegistry.register(ChatV2EntityType.PROJECT, it.id) }.map(support::projectMap)
 
         return objectMapper.writeValueAsString(
             mapOf(
@@ -191,12 +217,15 @@ class SearchItemsHandler(
                 args: SearchItemsArgs,
                 query: String?,
                 currentUserId: Long,
+                assigneeId: Long?,
+                projectId: Long?,
+                epicId: Long?,
             ) = Criteria(
                 query = query,
                 statusRaw = args.status,
-                assigneeId = args.assigneeId ?: if (args.assigneeMe == true) currentUserId else null,
-                projectId = args.projectId,
-                epicId = args.epicId,
+                assigneeId = assigneeId ?: if (args.assigneeMe == true) currentUserId else null,
+                projectId = projectId,
+                epicId = epicId,
                 dueFrom = args.dueDateFrom?.let(LocalDate::parse),
                 dueTo = args.dueDateTo?.let(LocalDate::parse),
                 excludeDone = args.excludeDone ?: false,
@@ -258,8 +287,8 @@ class SearchItemsHandler(
 
 /** search_items 인자에 필터가 하나라도 있는지 */
 private fun SearchItemsArgs.hasFilter(): Boolean =
-    status != null || assigneeMe == true || assigneeId != null || projectId != null ||
-        epicId != null || dueDateFrom != null || dueDateTo != null || excludeDone == true
+    status != null || assigneeMe == true || assignee != null || project != null ||
+        epic != null || dueDateFrom != null || dueDateTo != null || excludeDone == true
 
 /** query 이름 토큰 매칭 필터 — query 없으면 전체 통과 */
 private inline fun <T> List<T>.matching(

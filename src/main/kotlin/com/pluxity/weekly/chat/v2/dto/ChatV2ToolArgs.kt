@@ -14,12 +14,12 @@ data class SearchItemsArgs(
     val status: String? = null,
     @param:JsonProperty("assignee_me")
     val assigneeMe: Boolean? = null,
-    @param:JsonProperty("assignee_id")
-    val assigneeId: Long? = null,
-    @param:JsonProperty("project_id")
-    val projectId: Long? = null,
-    @param:JsonProperty("epic_id")
-    val epicId: Long? = null,
+    /** 이 사용자 담당만 — 사용자 '이름'을 그대로 넣으면 서버가 찾아준다 (id 아님) */
+    val assignee: String? = null,
+    /** 이 프로젝트 이름의 하위만 — 서버가 이름→id 해소 (모델은 id를 몰라도 됨) */
+    val project: String? = null,
+    /** 이 업무 그룹(에픽) 이름의 하위만 — 서버가 이름→id 해소 */
+    val epic: String? = null,
     @param:JsonProperty("due_date_from")
     val dueDateFrom: String? = null,
     @param:JsonProperty("due_date_to")
@@ -48,12 +48,12 @@ data class AggregateItemsArgs(
     val status: String? = null,
     @param:JsonProperty("assignee_me")
     val assigneeMe: Boolean? = null,
-    @param:JsonProperty("assignee_id")
-    val assigneeId: Long? = null,
-    @param:JsonProperty("project_id")
-    val projectId: Long? = null,
-    @param:JsonProperty("epic_id")
-    val epicId: Long? = null,
+    /** 이 사용자 담당만 — 사용자 '이름'을 그대로 넣으면 서버가 찾아준다 (id 아님) */
+    val assignee: String? = null,
+    /** 이 프로젝트 이름의 하위만 — 서버가 이름→id 해소 */
+    val project: String? = null,
+    /** 이 업무 그룹(에픽) 이름의 하위만 — 서버가 이름→id 해소 */
+    val epic: String? = null,
     @param:JsonProperty("due_date_from")
     val dueDateFrom: String? = null,
     @param:JsonProperty("due_date_to")

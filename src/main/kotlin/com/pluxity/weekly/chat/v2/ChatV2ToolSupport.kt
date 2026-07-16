@@ -3,9 +3,22 @@ package com.pluxity.weekly.chat.v2
 import com.pluxity.weekly.epic.dto.EpicResponse
 import com.pluxity.weekly.project.dto.ProjectResponse
 import com.pluxity.weekly.task.dto.TaskResponse
+import com.pluxity.weekly.team.dto.TeamResponse
 import org.springframework.stereotype.Component
 import tools.jackson.databind.DeserializationFeature
 import tools.jackson.databind.ObjectMapper
+
+/** 부모 필터 이름 해소 결과. */
+sealed interface NameResolution {
+    /** 이름 필터를 주지 않음 — 필터 없음. */
+    data object NotRequested : NameResolution
+
+    /** 유일 매칭 — 이 id로 필터. */
+    data class Resolved(val id: Long) : NameResolution
+
+    /** 0건 또는 다건 — 모델에게 안내(되묻기). */
+    data class Error(val message: String) : NameResolution
+}
 
 /**
  * chat/v2 도구 실행 공용 부품 — 여러 핸들러가 공유하는 인자 파싱·id 검증·응답 매핑.
@@ -28,7 +41,7 @@ class ChatV2ToolSupport(
      */
     fun validateKnown(
         idRegistry: ChatV2IdRegistry,
-        type: String,
+        type: ChatV2EntityType,
         id: Long?,
         field: String,
     ): String? {
@@ -40,6 +53,35 @@ class ChatV2ToolSupport(
     }
 
     fun errorResult(message: String): String = objectMapper.writeValueAsString(mapOf("error" to message))
+
+    /**
+     * 부모 필터 이름 → id 해소. 모델이 id를 지어내는 대신 이름만 넘기면 서버가 결정적으로 해소한다.
+     * (지어낼 id가 없으니 환각 불가 + 병렬 콜도 각자 완결 — [ItemNameMatcher] 재사용)
+     */
+    fun resolveByName(
+        name: String?,
+        label: String,
+        registryType: ChatV2EntityType,
+        idRegistry: ChatV2IdRegistry,
+        candidates: () -> List<Pair<Long, String>>,
+    ): NameResolution {
+        val trimmed = name?.trim()?.takeIf { it.isNotBlank() } ?: return NameResolution.NotRequested
+        val matched = candidates().filter { ItemNameMatcher.matches(trimmed, it.second) }
+        return when (matched.size) {
+            0 ->
+                NameResolution.Error(
+                    "'$trimmed' $label 을(를) 찾을 수 없습니다. 이름을 변형(음차↔영문, 핵심 단어만)해 다시 조회하거나, " +
+                        "없으면 사용자에게 알리세요.",
+                )
+            1 -> NameResolution.Resolved(matched.first().first).also { idRegistry.register(registryType, it.id) }
+            else ->
+                NameResolution.Error(
+                    "'$trimmed'에 해당하는 $label 이(가) 여러 개입니다: " +
+                        matched.take(5).joinToString(", ") { it.second } +
+                        ". 사용자에게 어느 것인지 물어보세요.",
+                )
+        }
+    }
 
     fun taskMap(task: TaskResponse): Map<String, Any?> =
         mapOf(
@@ -70,5 +112,13 @@ class ChatV2ToolSupport(
             "status" to project.status.name,
             "due_date" to project.dueDate?.toString(),
             "pm" to project.pmName,
+        )
+
+    fun teamMap(team: TeamResponse): Map<String, Any?> =
+        mapOf(
+            "id" to team.id,
+            "name" to team.name,
+            "leader" to team.leaderName,
+            "members" to team.members.map { it.name },
         )
 }

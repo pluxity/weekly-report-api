@@ -10,6 +10,25 @@ import com.pluxity.weekly.chat.v2.dto.ToolDefinition
  *
  * ⚠️ 스키마는 스텝 수만큼 곱해지는 input 비용이다. 행동 규칙(검색 먼저, id는 검색 결과만 등)은
  * chat-v2-prompt.txt에 한 번만 쓰고, 여기 description은 "무엇을 하는 도구인지"만 최소로 적는다.
+ *
+ * 각 ToolDefinition이 직렬화되면 아래 OpenAI 스타일 JSON이 된다 (예: get_item_details):
+ * ```json
+ * {
+ *   "type": "function",
+ *   "function": {
+ *     "name": "get_item_details",
+ *     "description": "태스크·업무 그룹·프로젝트·팀 1건의 상세 조회 (...).",
+ *     "parameters": {
+ *       "type": "object",
+ *       "properties": {
+ *         "type": { "type": "string", "description": "종류", "enum": ["task", "epic", "project", "team"] },
+ *         "id":   { "type": "integer", "description": "항목 ID" }
+ *       },
+ *       "required": ["type", "id"]
+ *     }
+ *   }
+ * }
+ * ```
  */
 object ChatV2Tools {
     const val SEARCH_ITEMS = "search_items"
@@ -71,9 +90,9 @@ object ChatV2Tools {
         mapOf(
             "status" to str("상태 필터 (태스크: TODO/IN_PROGRESS/IN_REVIEW/DONE, 그 외: TODO/IN_PROGRESS/DONE)"),
             "assignee_me" to bool("true면 내 담당만"),
-            "assignee_id" to int("이 사용자 담당만"),
-            "project_id" to int("이 프로젝트 소속만"),
-            "epic_id" to int("이 업무 그룹의 태스크만"),
+            "assignee" to str("이 사용자 담당만 — 사용자 '이름'을 그대로 넣으면 서버가 찾아준다 (id 아님)"),
+            "project" to str("이 프로젝트 소속만 — 프로젝트 '이름'을 그대로 넣으면 서버가 찾아준다 (id 아님)"),
+            "epic" to str("이 업무 그룹의 태스크만 — 업무 그룹 '이름'을 그대로 넣으면 서버가 찾아준다 (id 아님)"),
             "due_date_from" to date("마감일 범위 시작"),
             "due_date_to" to date("마감일 범위 끝"),
             "exclude_done" to bool("true면 완료(DONE) 제외 — 지연/남은 일 조회"),
@@ -100,10 +119,10 @@ object ChatV2Tools {
             ),
             tool(
                 name = GET_ITEM_DETAILS,
-                description = "태스크·업무 그룹·프로젝트 1건의 상세 조회 (설명·시작일·구성원 등 검색 결과에 없는 필드 포함).",
+                description = "태스크·업무 그룹·프로젝트·팀 1건의 상세 조회 (설명·시작일·구성원 등 검색 결과에 없는 필드 포함).",
                 properties =
                     mapOf(
-                        "type" to str("종류", listOf("task", "epic", "project")),
+                        "type" to str("종류", listOf("task", "epic", "project", "team")),
                         "id" to int("항목 ID"),
                     ),
                 required = listOf("type", "id"),

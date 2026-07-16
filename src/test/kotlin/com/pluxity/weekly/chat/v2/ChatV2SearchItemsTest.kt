@@ -41,6 +41,7 @@ class ChatV2SearchItemsTest :
                 epicService = epicService,
                 projectService = projectService,
                 teamService = mockk<TeamService>(),
+                userRepository = mockk<UserRepository>(),
                 support = support,
                 objectMapper = mapper,
             )
@@ -57,6 +58,7 @@ class ChatV2SearchItemsTest :
                 objectMapper = mapper,
                 support = support,
                 searchItemsHandler = searchItemsHandler,
+                getItemDetailsHandler = mockk<GetItemDetailsHandler>(),
             )
 
         val base = BaseResponse("2026-01-01T00:00", "tester", "2026-01-01T00:00", "tester")
@@ -164,13 +166,26 @@ class ChatV2SearchItemsTest :
             }
         }
 
-        Given("검색으로 확인되지 않은 id를 필터로 사용") {
-            When("이번 턴에 등록된 적 없는 project_id로 검색하면") {
-                val result = search("""{"query":"cctv","project_id":99}""")
+        Given("이름 필터 — 부모를 이름으로 지정") {
+            When("존재하지 않는 프로젝트 이름으로 필터하면") {
+                every { projectService.search(any()) } returns emptyList()
 
-                Then("거부되고 error가 반환된다") {
+                val result = search("""{"query":"cctv","project":"없는프로젝트"}""")
+
+                Then("서버가 해소 실패를 안내한다 (id를 지어낼 여지 없음)") {
                     result shouldContain "error"
-                    result shouldContain "확인되지 않은 id"
+                    result shouldContain "찾을 수 없습니다"
+                }
+            }
+
+            When("유일하게 매칭되는 프로젝트 이름으로 필터하면") {
+                every { projectService.search(any()) } returns listOf(project(30, "알파"))
+                every { taskService.search(any()) } returns listOf(task(10, "CCTV 목록 API"))
+
+                val result = mapper.readValue(search("""{"type":"task","project":"알파"}"""), Map::class.java)
+
+                Then("서버가 id로 해소해 그 프로젝트 하위를 조회한다") {
+                    (result["tasks"] as List<*>).size shouldBe 1
                 }
             }
         }
