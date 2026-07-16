@@ -8,13 +8,10 @@ import com.pluxity.weekly.epic.service.EpicService
 import com.pluxity.weekly.project.dto.ProjectResponse
 import com.pluxity.weekly.project.entity.ProjectStatus
 import com.pluxity.weekly.project.service.ProjectService
-import com.pluxity.weekly.report.service.WeeklyReportService
 import com.pluxity.weekly.task.dto.TaskResponse
 import com.pluxity.weekly.task.entity.TaskStatus
-import com.pluxity.weekly.task.service.TaskReviewService
 import com.pluxity.weekly.task.service.TaskService
 import com.pluxity.weekly.team.dto.TeamResponse
-import com.pluxity.weekly.team.repository.TeamRepository
 import com.pluxity.weekly.team.service.TeamService
 import io.kotest.core.spec.style.BehaviorSpec
 import io.kotest.matchers.shouldBe
@@ -59,17 +56,14 @@ class ChatV2GetItemDetailsTest :
 
         val executor =
             ChatV2ToolExecutor(
-                taskService = taskService,
-                taskReviewService = mockk<TaskReviewService>(),
-                epicService = epicService,
-                projectService = projectService,
-                teamRepository = mockk<TeamRepository>(),
-                weeklyReportService = mockk<WeeklyReportService>(),
-                userRepository = mockk<UserRepository>(),
-                objectMapper = mapper,
                 support = support,
                 searchItemsHandler = searchItemsHandler,
+                searchUsersHandler = mockk<SearchUsersHandler>(),
                 getItemDetailsHandler = getItemDetailsHandler,
+                aggregateItemsHandler = mockk<AggregateItemsHandler>(),
+                listPendingReviewsHandler = mockk<ListPendingReviewsHandler>(),
+                getTaskHistoryHandler = mockk<GetTaskHistoryHandler>(),
+                getWeeklyReportHandler = mockk<GetWeeklyReportHandler>(),
             )
 
         val base = BaseResponse("2026-01-01T00:00", "tester", "2026-01-01T00:00", "tester")
