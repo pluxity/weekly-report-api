@@ -49,6 +49,16 @@ class Epic(
         validateDateRange(startDate, dueDate)
     }
 
+    /**
+     * 파생 완료일. Epic이 DONE(= 모든 하위 Task 완료)이면 하위 Task 완료일 중 가장 늦은 날,
+     * 아니면 null. 별도 저장 없이 하위에서 계산한다.
+     *
+     * @param tasks 완료일 계산에 쓸 하위 Task. 기본값은 lazy 컬렉션이며, list 응답 등
+     *   N+1이 우려되는 곳은 배치 로딩한 Task를 넘겨 lazy 로딩을 피한다.
+     */
+    fun derivedCompletedAt(tasks: List<Task> = this.tasks): LocalDate? =
+        if (status == EpicStatus.DONE) tasks.mapNotNull { it.effectiveCompletedAt() }.maxOrNull() else null
+
     fun ensureMutable(action: String = "update") {
         if (status == EpicStatus.DONE) {
             throw CustomException(ErrorCode.INVALID_STATUS_TRANSITION, status, action)

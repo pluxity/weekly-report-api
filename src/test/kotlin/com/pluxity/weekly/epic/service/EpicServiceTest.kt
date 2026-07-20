@@ -60,6 +60,7 @@ class EpicServiceTest :
                     )
 
                 every { epicRepository.findByFilter(any()) } returns entities
+                every { taskRepository.findByEpicIn(entities) } returns emptyList()
 
                 val result = service.findAll()
 

@@ -61,6 +61,8 @@ class ProjectServiceTest :
             every { authorizationService.visibleProjectIds(any()) } returns null
             // progress 집계는 케이스별로 덮어쓰며, 기본값은 "태스크 없음"(빈 결과 → 0)
             every { taskRepository.findAverageProgressByProjectIds(any()) } returns emptyList()
+            // 완료일 파생용 하위 Epic 배치 로딩 기본값 (케이스별로 덮어씀)
+            every { epicRepository.findByProjectIdIn(any()) } returns emptyList()
         }
 
         Given("프로젝트 전체 조회") {
