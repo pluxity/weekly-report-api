@@ -140,6 +140,16 @@ POST /chat/v2/weekly-report {message: 명령+본문 붙여넣기}
   3. 가드레일(IdRegistry/FAIL_ON_UNKNOWN)은 **tool 인자만** 지킴 — stale history 재사용은 사각지대
 - **다음**: (a) `get_item_details`를 `search_items`의 `response_format`(detailed/concise) enum으로 흡수 검토 — Anthropic "writing tools for agents" 권고(tool 수 최소화, detail은 모드로). (b) eval 셋으로 측정 기반 결정. (c) history 값 제거(지칭만)
 
+### 진행 (2026-07-20 이어서 3) — detail enum + history fix 확정 (브랜치 `feature/chat-v2-search-detail-enum`)
+
+- **(a) `get_item_details` → `search_items.detail` enum (7→6 tool)**: concise(기본)/detailed. Anthropic writing-tools대로 tool 수 최소화, 상세는 모드로. get_item_details 제거. **A/B 비교는 하지 않고 6-tool로 확정.**
+- **history 오염 = 옵션 D 채택**: A(프롬프트 soft)·B(user만→blending)·C(고정마커→mimicry) 다 실측 실패 → **턴 전체 role-tagged 저장·replay**(`user→assistant[tool_calls]→tool[result]→최종답` 그대로). trim은 user 경계 기준 최근 5턴. 근본원인=**압축 저장이 role 경계 붕괴**. (= Spring AI ChatMemory가 기본 제공하는 것). 스펙: `chat-v2-history-fix-spec.md`
+- **concise 린화 + detailed 계층 트리**: concise 축소(task: project·epic 제거 / epic: project·members 제거), detailed = 부모맥락 + **자식 트리**(단건일 때 epic→tasks, project→epics[각 tasks], 캡 10/10, `task_count` 전체). 스펙: `chat-v2-detail-hierarchy-spec.md`
+- **미결로 승격**:
+  1. **FE blocks 계약** (§4-3) — detail 트리는 지금 `steps[].result`(모델·디버그용 **문자열**)에만 있음. FE 렌더용 **타입드 `blocks` 필드** 신설 + **모델용(compact)/FE용(full)** 분리 필요(트리를 모델에 안 먹여 토큰↓). "결과를 FE가 그리려면 JSON 계약" 논의.
+  2. **eval 토큰 실측** — concise 린화·detail 트리의 토큰 효과. 하네스는 준비됨(`promptfooconfig.v2.yaml`).
+  3. **Spring AI 이식 후보** — wire DTO·스키마 자동생성·ChatMemory를 프레임워크가 흡수(우리가 손으로 검증한 @param 직렬화·trim·replay가 프레임워크 몫). 트레이드오프: `chat-v2-spring-ai-tradeoff.md`. 순서상 아키텍처 굳힌 뒤.
+
 ## 4. 앞으로 할 것 (우선순위 순 — 전부 변경 가능)
 
 1. **E2E 검증 (서버 기동 후)**:
@@ -163,8 +173,11 @@ POST /chat/v2/weekly-report {message: 명령+본문 붙여넣기}
 - [x] ~~v1 대체 여부~~ — **대체로 결정** (폐기 일정만 미정, 위 4-2)
 - [ ] **`search_items.pm_me`/`pm` 필터 거취** (2026-07-20 추가) — 페르소나 모델(§3)상 "내 프로젝트"는 관리자 역할 디폴트로 흡수하는 게 정합적. LLM 필터로 유지할지 vs 서버 역할 스코프로 내릴지 결정 필요. 매트릭스 확정과 함께
 - [ ] **필터 정의 중복** — 필터 1개 추가 = 스키마(ChatV2Tools)+DTO(ChatV2ToolArgs)+핸들러(resolveByName/적용) 3점 편집. 단일 필터 레지스트리에서 스키마·바인딩 파생하는 리팩토링 후보 (다음 필터 나오기 전)
-- [ ] **history 오염 처리** (2026-07-20 발견) — 크로스턴 assistant 데이터 답을 LLM이 재사용해 교차귀속. 방향: 값 빼고 지칭 스레드만 저장(옵션 B=user 메시지만 / C=데이터 뺀 마커). 제거는 "그거" 지칭 깨져 불가. eval로 B/C 손익 측정 후 결정
-- [ ] **get_item_details 거취** — 별도 tool 유지 vs `search_items`의 detailed/concise 모드로 흡수 (Anthropic writing-tools 권고). eval로 detail 사용 빈도 측정 후 결정
+- [x] ~~**history 오염 처리**~~ — **옵션 D 채택·구현** (턴 전체 role-tagged 저장·replay). B(blending)·C(mimicry) 실패 후. 커밋 7c88f26. §3 진행3
+- [x] ~~**get_item_details 거취**~~ — **search_items.detail enum으로 흡수 확정** (7→6 tool, A/B 비교 없이). 커밋 d3a2738. §3 진행3
+- [ ] **FE blocks 계약** (§4-3) — detail 트리가 `steps[].result`(모델·디버그용 문자열)에만 있음. FE 렌더용 타입드 `blocks` 필드 + 모델용(compact)/FE용(full) 분리. "FE가 그리려면 JSON 계약" — FE와 함께 정의
+- [ ] **eval 토큰 실측** — concise 린화·detail 트리·스키마 baseline의 토큰 효과. 하네스 준비됨(promptfooconfig.v2.yaml)
+- [ ] **Spring AI 이식 여부** — wire DTO·스키마 자동생성·ChatMemory 프레임워크 흡수. 트레이드오프 문서 `chat-v2-spring-ai-tradeoff.md`. 아키텍처 굳힌 뒤
 - [ ] 모델 고정(gemini-2.5-flash) vs 폴백 체계
 - [ ] steps trace의 프로덕션 노출 여부 (디버그 전용 헤더로 분리?)
 - [ ] 다중 팀 리더의 생성 — 현재 첫 팀 고정 (스펙 비범위)

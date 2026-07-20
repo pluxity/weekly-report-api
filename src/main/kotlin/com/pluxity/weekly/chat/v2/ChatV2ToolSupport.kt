@@ -83,12 +83,11 @@ class ChatV2ToolSupport(
         }
     }
 
+    // concise — 훑기·식별용 최소 필드. 맥락(부모)·무거운 필드는 detailed로.
     fun taskMap(task: TaskResponse): Map<String, Any?> =
         mapOf(
             "id" to task.id,
             "name" to task.name,
-            "project" to task.projectName,
-            "epic" to task.epicName,
             "status" to task.status.name,
             "progress" to task.progress,
             "due_date" to task.dueDate?.toString(),
@@ -99,10 +98,8 @@ class ChatV2ToolSupport(
         mapOf(
             "id" to epic.id,
             "name" to epic.name,
-            "project" to epic.projectName,
             "status" to epic.status.name,
             "due_date" to epic.dueDate?.toString(),
-            "members" to epic.members.map { it.userName },
         )
 
     fun projectMap(project: ProjectResponse): Map<String, Any?> =
@@ -128,6 +125,8 @@ class ChatV2ToolSupport(
     fun taskDetailMap(task: TaskResponse): Map<String, Any?> =
         taskMap(task) +
             mapOf(
+                "project" to task.projectName,
+                "epic" to task.epicName,
                 "description" to task.description,
                 "start_date" to task.startDate?.toString(),
             )
@@ -135,6 +134,8 @@ class ChatV2ToolSupport(
     fun epicDetailMap(epic: EpicResponse): Map<String, Any?> =
         epicMap(epic) +
             mapOf(
+                "project" to epic.projectName,
+                "members" to epic.members.map { it.userName },
                 "description" to epic.description,
                 "start_date" to epic.startDate?.toString(),
             )

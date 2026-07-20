@@ -241,6 +241,34 @@ class SearchItemsHandler(
         )
     }
 
+    // ── 자식 트리 (단건 detailed 드릴인) ──
+
+    /** 에픽의 하위 태스크 (캡 + 전체 개수). */
+    private fun epicChildren(epicId: Long): Map<String, Any?> {
+        val tasks = taskService.search(TaskSearchFilter(epicId = epicId, scopeStartDate = ChatScope.scopeStartDate()))
+        return mapOf(
+            "task_count" to tasks.size,
+            "tasks" to tasks.take(TASK_CHILD_CAP).map { mapOf("name" to it.name, "status" to it.status.name) },
+        )
+    }
+
+    /** 프로젝트의 하위 에픽(각 하위 태스크 캡). 태스크는 프로젝트 단위로 한 번 조회해 epicId로 groupBy (N+1 회피). */
+    private fun projectChildEpics(projectId: Long): List<Map<String, Any?>> {
+        val scope = ChatScope.scopeStartDate()
+        val epics = epicService.search(EpicSearchFilter(projectId = projectId, scopeStartDate = scope))
+        val tasksByEpic =
+            taskService.search(TaskSearchFilter(projectId = projectId, scopeStartDate = scope)).groupBy { it.epicId }
+        return epics.take(EPIC_CHILD_CAP).map { e ->
+            val eTasks = tasksByEpic[e.id].orEmpty()
+            mapOf(
+                "name" to e.name,
+                "status" to e.status.name,
+                "task_count" to eTasks.size,
+                "tasks" to eTasks.take(TASK_CHILD_CAP).map { mapOf("name" to it.name, "status" to it.status.name) },
+            )
+        }
+    }
+
     // ── 응답 조립 ──
 
     private fun buildResponse(
@@ -260,12 +288,15 @@ class SearchItemsHandler(
         val tasks =
             sortTasks(taskMatches, sort, order).take(limit)
                 .onEach { idRegistry.register(ChatV2EntityType.TASK, it.id) }.map(taskMapper)
+        // detailed && 단건이면 자식 트리 부착 (드릴인 — "그 프로젝트/에픽 자세히"). 다건이면 토큰 위해 생략.
         val epics =
             sortEpics(epicMatches, sort, order).take(limit)
-                .onEach { idRegistry.register(ChatV2EntityType.EPIC, it.id) }.map(epicMapper)
+                .onEach { idRegistry.register(ChatV2EntityType.EPIC, it.id) }
+                .map { e -> if (detailed && epicMatches.size == 1) epicMapper(e) + epicChildren(e.id) else epicMapper(e) }
         val projects =
             sortProjects(projectMatches, sort, order).take(limit)
-                .onEach { idRegistry.register(ChatV2EntityType.PROJECT, it.id) }.map(projectMapper)
+                .onEach { idRegistry.register(ChatV2EntityType.PROJECT, it.id) }
+                .map { p -> if (detailed && projectMatches.size == 1) projectMapper(p) + mapOf("epics" to projectChildEpics(p.id)) else projectMapper(p) }
 
         return objectMapper.writeValueAsString(
             mapOf(
@@ -375,6 +406,10 @@ class SearchItemsHandler(
 
         // detailed는 항목당 상세 필드가 붙어 토큰이 큼 → 좁힌 조회 전제로 낮게 캡
         private const val DETAILED_MAX_LIMIT = 5
+
+        // 단건 detailed 자식 트리 캡 (토큰 방어)
+        private const val EPIC_CHILD_CAP = 10
+        private const val TASK_CHILD_CAP = 10
     }
 }
 
