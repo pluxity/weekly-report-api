@@ -66,6 +66,8 @@ class ChatV2Service(
     ): ChatV2Response {
         val messages = mutableListOf(ToolMessage(role = "system", content = buildSystemPrompt(userName, roleNames)))
         messages += historyStore.load(userId)
+        // 이번 턴 메시지 시작(현재 user부터) — 종료 시 이 이후 전부(assistant[tool_calls]·tool[result]·최종답)를 role 태그째 저장
+        val turnStart = messages.size
         messages += ToolMessage(role = "user", content = message)
 
         val steps = mutableListOf<ChatV2Step>()
@@ -100,7 +102,8 @@ class ChatV2Service(
                     lastStepHadError = false
                     return@repeat
                 }
-                historyStore.appendTurn(userId, message, reply)
+                messages += assistant // 최종 답(content, tool_calls 없음)도 턴에 포함해 저장
+                historyStore.appendMessages(userId, messages.drop(turnStart))
                 idRegistryStore.save(userId, idRegistry)
                 logData.recordAction(usage, reply)
                 log.info { "chat/v2 완료 — steps=${steps.size}, tokens=${usage.totalTokens} (cached=$cachedTokens)" }
@@ -133,7 +136,7 @@ class ChatV2Service(
         // 루프 한도 초과 — 에러 대신 graceful 안내 (요청이 소화된 만큼의 trace는 응답에 남긴다)
         log.warn { "chat/v2 루프 한도($MAX_STEPS) 초과 — message=$message" }
         val reply = "요청을 처리하는 단계가 너무 많아 여기서 멈췄어요. 질문을 더 구체적으로 나눠서 다시 시도해주세요."
-        historyStore.appendTurn(userId, message, reply)
+        historyStore.appendMessages(userId, messages.drop(turnStart) + ToolMessage(role = "assistant", content = reply))
         idRegistryStore.save(userId, idRegistry)
         logData.recordAction(usage, reply)
         return ChatV2Response(

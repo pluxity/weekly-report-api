@@ -10,8 +10,12 @@ import java.time.Duration
 private val log = KotlinLogging.logger {}
 
 /**
- * v2 대화 히스토리 — user/assistant 텍스트 메시지만 저장 (tool 호출 내역은 턴 안에서만 사용).
- * "AA 수정해줘" → "뭘 수정할까요?" → "진행률 80" 같은 멀티턴 흐름을 지원한다.
+ * v2 대화 히스토리 — 한 턴의 실제 메시지 배열을 **role 태그째** 저장·replay (2026-07-20 오염 fix, 옵션 D).
+ *
+ * tool calling 한 턴은 `user → assistant[tool_calls] → tool[result] → assistant[최종답]` 구조다.
+ * 이걸 압축/재구성해 저장하면(최종 텍스트만·마커·user만) 역할 경계가 무너져 — 이전 턴 데이터가 새 답에
+ * 새거나(fabrication), 이전 요청을 재실행하거나(blending), 가짜 마커를 앵무새(mimicry)한다(A~C 실측).
+ * → 실제 메시지를 그대로 쌓고 그대로 되돌린다. trim은 tool_call↔result 짝이 안 깨지게 **턴 단위**로 한다.
  */
 @Component
 class ChatV2HistoryStore(
@@ -21,38 +25,50 @@ class ChatV2HistoryStore(
     fun load(userId: Long): List<ToolMessage> {
         val key = keyOf(userId)
         return try {
-            redisTemplate
-                .opsForList()
-                .range(key, 0, -1)
-                ?.mapNotNull { parse(it) }
-                ?: emptyList()
+            redisTemplate.opsForList().range(key, 0, -1)?.mapNotNull { parse(it) } ?: emptyList()
         } catch (e: Exception) {
             log.warn(e) { "chat/v2 히스토리 로드 실패: $userId" }
             emptyList()
         }
     }
 
-    fun appendTurn(
+    /** 이번 턴에 생긴 메시지들(현재 user + assistant/tool + 최종 답)을 role 태그째 적재하고 최근 N턴만 남긴다. */
+    fun appendMessages(
         userId: Long,
-        userMessage: String,
-        assistantReply: String,
+        messages: List<ToolMessage>,
     ) {
+        if (messages.isEmpty()) return
         val key = keyOf(userId)
-        redisTemplate.opsForList().rightPush(key, toJson("user", userMessage))
-        redisTemplate.opsForList().rightPush(key, toJson("assistant", assistantReply))
-        redisTemplate.opsForList().trim(key, -MAX_MESSAGES.toLong(), -1)
+        val ops = redisTemplate.opsForList()
+        messages.forEach { ops.rightPush(key, toJson(it)) }
+        trimToRecentTurns(key)
         redisTemplate.expire(key, Duration.ofHours(TTL_HOURS))
     }
 
-    private fun toJson(
-        role: String,
-        content: String,
-    ): String = objectMapper.writeValueAsString(mapOf("role" to role, "content" to content))
+    /**
+     * user 메시지를 턴 경계로 보고 최근 MAX_TURNS 턴만 유지한다.
+     * 원소 개수로 자르면 tool_call만 남고 그 result가 잘려 다음 replay 시 API가 거부하므로 턴 단위로 자른다.
+     */
+    private fun trimToRecentTurns(key: String) {
+        val all = redisTemplate.opsForList().range(key, 0, -1) ?: return
+        val turnStarts = all.indices.filter { isUserMessage(all[it]) }
+        if (turnStarts.size <= MAX_TURNS) return
+        val cutFrom = turnStarts[turnStarts.size - MAX_TURNS]
+        redisTemplate.opsForList().trim(key, cutFrom.toLong(), -1)
+    }
+
+    private fun isUserMessage(json: String): Boolean =
+        try {
+            objectMapper.readTree(json).path("role").asString() == "user"
+        } catch (e: Exception) {
+            false
+        }
+
+    private fun toJson(message: ToolMessage): String = objectMapper.writeValueAsString(message)
 
     private fun parse(json: String): ToolMessage? =
         try {
-            val node = objectMapper.readTree(json)
-            ToolMessage(role = node.path("role").asString(), content = node.path("content").asString())
+            objectMapper.readValue(json, ToolMessage::class.java)
         } catch (e: Exception) {
             log.warn(e) { "chat/v2 히스토리 파싱 실패: $json" }
             null
@@ -61,7 +77,8 @@ class ChatV2HistoryStore(
     private fun keyOf(userId: Long): String = "chatv2:history:$userId"
 
     companion object {
-        private const val MAX_MESSAGES = 12
+        // 턴 수 기준 윈도우 — tool_result JSON이 커서 원소 수 아닌 턴 수로 제한
+        private const val MAX_TURNS = 5
         private const val TTL_HOURS = 24L
     }
 }
