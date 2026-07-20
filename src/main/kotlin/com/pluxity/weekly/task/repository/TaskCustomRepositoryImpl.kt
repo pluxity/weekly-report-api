@@ -22,6 +22,7 @@ class TaskCustomRepositoryImpl(
                     filter.epicId?.let { path(Task::epic)(Epic::id).eq(it) },
                     filter.projectId?.let { path(Task::epic)(Epic::project)(Project::id).eq(it) },
                     filter.assigneeId?.let { path(Task::assignee)(User::id).eq(it) },
+                    filter.assigneeIds?.let { path(Task::assignee)(User::id).`in`(it) },
                     filter.name?.let { path(Task::name).like("%$it%") },
                     filter.dueDateFrom?.let { path(Task::dueDate).greaterThanOrEqualTo(it) },
                     filter.dueDateTo?.let { path(Task::dueDate).lessThanOrEqualTo(it) },

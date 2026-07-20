@@ -21,6 +21,11 @@ data class SearchItemsArgs(
     val pmMe: Boolean? = null,
     /** 이 사용자가 PM인 프로젝트만 — 사용자 '이름'을 그대로 넣으면 서버가 id로 해소 (PROJECT 전용) */
     val pm: String? = null,
+    /** true면 내가 리더인 팀의 태스크만 (팀 멤버 담당 태스크) */
+    @param:JsonProperty("team_me")
+    val teamMe: Boolean? = null,
+    /** 이 팀의 태스크만 — 팀 '이름'을 그대로 넣으면 서버가 멤버→담당 태스크로 해소 (TASK 전용) */
+    val team: String? = null,
     /** 이 프로젝트 이름의 하위만 — 서버가 이름→id 해소 (모델은 id를 몰라도 됨) */
     val project: String? = null,
     /** 이 업무 그룹(에픽) 이름의 하위만 — 서버가 이름→id 해소 */

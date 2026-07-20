@@ -130,6 +130,16 @@ POST /chat/v2/weekly-report {message: 명령+본문 붙여넣기}
 - **미구현(의도)**: approve() 완료시점 write-path(#92 후속) → 지금은 백필된 과거건만 조회, 스코프 하드 강제, 관리자/ADMIN 페르소나
 - 다음: **관리자 페르소나**(팀 ⊥ 프로젝트 스코프) — 팀원에서 만든 필터 뼈대 재사용
 
+### 진행 (2026-07-20 이어서) — 관리자 팀 스코프 + 아키텍처 발견
+
+- **관리자 팀 스코프**: `search_items`에 `team_me`(내가 리더인 팀)/`team`(이름) 필터. Task↔Team은 **멤버 담당 경유만** 존재(project↔team 매핑 없음, 확인) → 팀→멤버 userId→`assignee IN`. `TaskSearchFilter.assigneeIds` + repo. 태스크 전용
+- **"우리 팀원 누구" 버그 수정**: `search_items(type=team)`가 team_me 인식 → 팀+구성원 반환. 발견한 버그: `teamService.findById`가 members를 안 채움(toResponse 기본 emptyList) → searchTeams·get_item_details(team) 둘 다 멤버가 비어 있었음. `myLedTeams` 헬퍼로 `search()`(멤버 채움) 통합 + get_item_details는 findMembers 보강
+- **아키텍처 발견 (PoC 핵심 산출물)**:
+  1. **history 오염** — 크로스턴 assistant 답 텍스트(데이터 값)를 LLM이 재사용 → 교차귀속(프로젝트1 에픽을 2로), tool 미호출. 오늘 3회 재현. history는 CUD 확정 대화용이었으나 **v2 조회전용이 되며 명분 소멸.** load off 실험으로 오염 사라짐 확인(단 "그거" 지칭 깨짐) → **history 유지하되 값 빼고 지칭만** 저장이 방향(미결)
+  2. **기능 커버리지 구멍 → 자신만만한 오답** — tool이 페르소나 잡을 못 덮으면 빈 결과가 아니라 틀린 tool을 확신하며 호출(search_users{role:LEADER} 사건)
+  3. 가드레일(IdRegistry/FAIL_ON_UNKNOWN)은 **tool 인자만** 지킴 — stale history 재사용은 사각지대
+- **다음**: (a) `get_item_details`를 `search_items`의 `response_format`(detailed/concise) enum으로 흡수 검토 — Anthropic "writing tools for agents" 권고(tool 수 최소화, detail은 모드로). (b) eval 셋으로 측정 기반 결정. (c) history 값 제거(지칭만)
+
 ## 4. 앞으로 할 것 (우선순위 순 — 전부 변경 가능)
 
 1. **E2E 검증 (서버 기동 후)**:
@@ -153,6 +163,8 @@ POST /chat/v2/weekly-report {message: 명령+본문 붙여넣기}
 - [x] ~~v1 대체 여부~~ — **대체로 결정** (폐기 일정만 미정, 위 4-2)
 - [ ] **`search_items.pm_me`/`pm` 필터 거취** (2026-07-20 추가) — 페르소나 모델(§3)상 "내 프로젝트"는 관리자 역할 디폴트로 흡수하는 게 정합적. LLM 필터로 유지할지 vs 서버 역할 스코프로 내릴지 결정 필요. 매트릭스 확정과 함께
 - [ ] **필터 정의 중복** — 필터 1개 추가 = 스키마(ChatV2Tools)+DTO(ChatV2ToolArgs)+핸들러(resolveByName/적용) 3점 편집. 단일 필터 레지스트리에서 스키마·바인딩 파생하는 리팩토링 후보 (다음 필터 나오기 전)
+- [ ] **history 오염 처리** (2026-07-20 발견) — 크로스턴 assistant 데이터 답을 LLM이 재사용해 교차귀속. 방향: 값 빼고 지칭 스레드만 저장(옵션 B=user 메시지만 / C=데이터 뺀 마커). 제거는 "그거" 지칭 깨져 불가. eval로 B/C 손익 측정 후 결정
+- [ ] **get_item_details 거취** — 별도 tool 유지 vs `search_items`의 detailed/concise 모드로 흡수 (Anthropic writing-tools 권고). eval로 detail 사용 빈도 측정 후 결정
 - [ ] 모델 고정(gemini-2.5-flash) vs 폴백 체계
 - [ ] steps trace의 프로덕션 노출 여부 (디버그 전용 헤더로 분리?)
 - [ ] 다중 팀 리더의 생성 — 현재 첫 팀 고정 (스펙 비범위)

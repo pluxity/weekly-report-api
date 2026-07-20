@@ -9,6 +9,8 @@ data class TaskSearchFilter(
     val epicId: Long? = null,
     val projectId: Long? = null,
     val assigneeId: Long? = null,
+    /** 담당자 다건 — "우리 팀 태스크"(팀 멤버 userId 목록)의 team 스코프 조회용 */
+    val assigneeIds: List<Long>? = null,
     val name: String? = null,
     val dueDateFrom: LocalDate? = null,
     val dueDateTo: LocalDate? = null,

@@ -61,7 +61,9 @@ class GetItemDetailsHandler(
                             "members" to p.members.map { it.userName },
                         )
                 }
-                else -> support.teamMap(teamService.findById(args.id)) // TEAM
+                else -> // TEAM — findById는 members를 비워두므로 findMembers로 보강
+                    support.teamMap(teamService.findById(args.id)) +
+                        mapOf("members" to teamService.findMembers(args.id).map { it.name })
             }
         return objectMapper.writeValueAsString(mapOf(type.key to detail))
     }

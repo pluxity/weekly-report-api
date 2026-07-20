@@ -114,6 +114,8 @@ object ChatV2Tools {
                         mapOf(
                             "pm_me" to bool("true면 내가 PM인 프로젝트만"),
                             "pm" to str("이 사용자가 PM인 프로젝트만 — 사용자 '이름'을 그대로 넣으면 서버가 찾아준다 (id 아님)"),
+                            "team_me" to bool("true면 내가 리더인 팀의 태스크만 (팀 멤버 담당)"),
+                            "team" to str("이 팀의 태스크만 — 팀 '이름'을 그대로 넣으면 서버가 멤버→담당 태스크로 찾아준다 (id 아님)"),
                             "completed_from" to date("완료일 범위 시작 — '이번주/저번주 한 일' 회고 (태스크 전용)"),
                             "completed_to" to date("완료일 범위 끝"),
                             "sort" to str("정렬 기준", listOf("due_date", "progress", "name")),

@@ -16,6 +16,7 @@ import com.pluxity.weekly.project.service.ProjectService
 import com.pluxity.weekly.task.dto.TaskResponse
 import com.pluxity.weekly.task.entity.TaskStatus
 import com.pluxity.weekly.task.service.TaskService
+import com.pluxity.weekly.team.dto.TeamResponse
 import com.pluxity.weekly.team.service.TeamService
 import org.springframework.data.domain.Sort
 import org.springframework.stereotype.Component
@@ -94,20 +95,49 @@ class SearchItemsHandler(
 
         val limit = (args.limit ?: DEFAULT_LIMIT).coerceIn(1, MAX_LIMIT)
 
-        if (type == ChatV2EntityType.TEAM) return searchTeams(query, limit, idRegistry)
+        // type=team → 팀 객체(구성원 포함) 반환. "우리 팀원 누구" 류. team_me=내가 리더인 팀, team=이름, 없으면 query.
+        if (type == ChatV2EntityType.TEAM) return searchTeams(args, query, currentUserId, limit, idRegistry)
 
-        val c = Criteria.from(args, query, currentUserId, assigneeId, projectId, epicId, pmId)
+        // 팀 스코프(태스크) — team_me/team이면 "팀 멤버가 담당한 태스크"로 좁힌다. Task엔 team 참조가 없고
+        // (프로젝트도 팀을 가로지름) 유일한 경로가 멤버 담당이라, 팀 → 멤버 userId → assignee IN 으로 해소한다.
+        val teamMemberIds: List<Long>? =
+            when {
+                args.teamMe == true -> {
+                    val led = myLedTeams(currentUserId)
+                    if (led.isEmpty()) return support.errorResult("리더로 있는 팀이 없어 '우리 팀' 태스크를 조회할 수 없어요.")
+                    led.flatMap { it.members.map { m -> m.id } }.distinct()
+                }
+                args.team != null ->
+                    when (val r = support.resolveByName(args.team, "팀", ChatV2EntityType.TEAM, idRegistry) {
+                        teamService.search(TeamSearchFilter()).map { it.id to it.name }
+                    }) {
+                        is NameResolution.Error -> return support.errorResult(r.message)
+                        is NameResolution.Resolved -> teamService.findMembers(r.id).map { m -> m.id }
+                        NameResolution.NotRequested -> null
+                    }
+                else -> null
+            }
+        // 팀은 확정됐는데 멤버가 없으면 태스크 0건 — assignee IN () 로 새지 않게 명시적 빈 결과
+        if (teamMemberIds != null && teamMemberIds.isEmpty()) {
+            return buildResponse(emptyList(), emptyList(), emptyList(), args.sort, args.order, limit, idRegistry)
+        }
+
+        val c = Criteria.from(args, query, currentUserId, assigneeId, projectId, epicId, pmId, teamMemberIds)
         // 소속/담당 필터가 있으면 의미 없는 계층은 건너뛴다
         // (epic_id → 태스크만, 담당자 필터 → 프로젝트 제외, PM 필터 → 프로젝트만, 완료일 필터 → 태스크만[완료일은 Task 전용 컬럼])
         val taskMatches = if ((typeOmitted || type == ChatV2EntityType.TASK) && c.pmId == null) searchTasks(c) else emptyList()
         val epicMatches =
-            if ((typeOmitted || type == ChatV2EntityType.EPIC) && c.epicId == null && c.pmId == null && !c.hasCompletedFilter) {
+            if ((typeOmitted || type == ChatV2EntityType.EPIC) && c.epicId == null && c.pmId == null &&
+                !c.hasCompletedFilter && !c.hasTeamFilter
+            ) {
                 searchEpics(c)
             } else {
                 emptyList()
             }
         val projectMatches =
-            if ((typeOmitted || type == ChatV2EntityType.PROJECT) && c.epicId == null && c.assigneeId == null && !c.hasCompletedFilter) {
+            if ((typeOmitted || type == ChatV2EntityType.PROJECT) && c.epicId == null && c.assigneeId == null &&
+                !c.hasCompletedFilter && !c.hasTeamFilter
+            ) {
                 searchProjects(c)
             } else {
                 emptyList()
@@ -129,6 +159,7 @@ class SearchItemsHandler(
                     epicId = c.epicId,
                     projectId = c.projectId,
                     assigneeId = c.assigneeId,
+                    assigneeIds = c.assigneeIds,
                     dueDateFrom = c.dueFrom,
                     dueDateTo = c.dueTo,
                     completedFrom = c.completedFrom,
@@ -172,12 +203,31 @@ class SearchItemsHandler(
             ).matching(c.query) { it.name }
     }
 
+    /**
+     * "우리 팀" = 현재 유저가 리더인 팀들. search가 멤버·리더명을 채우므로(findById는 멤버를 비운다)
+     * 팀 멤버 조회(type=team)와 태스크 스코프(assignee IN) 둘 다 이걸로 해소한다.
+     */
+    private fun myLedTeams(currentUserId: Long): List<TeamResponse> =
+        teamService.search(TeamSearchFilter()).filter { it.leaderId == currentUserId }
+
     private fun searchTeams(
+        args: SearchItemsArgs,
         query: String?,
+        currentUserId: Long,
         limit: Int,
         idRegistry: ChatV2IdRegistry,
     ): String {
-        val matched = teamService.search(TeamSearchFilter()).matching(query) { it.name }
+        // team_me="우리 팀"(내가 리더인 팀), team=이름 매칭, 둘 다 없으면 query로 전체 검색. 결과 팀은 teamMap이 구성원까지 담는다.
+        val matched: List<TeamResponse> =
+            when {
+                args.teamMe == true -> {
+                    val led = myLedTeams(currentUserId)
+                    if (led.isEmpty()) return support.errorResult("리더로 있는 팀이 없어요.")
+                    led
+                }
+                args.team != null -> teamService.search(TeamSearchFilter()).matching(args.team) { it.name }
+                else -> teamService.search(TeamSearchFilter()).matching(query) { it.name }
+            }
         val teams =
             matched.take(limit)
                 .onEach { idRegistry.register(ChatV2EntityType.TEAM, it.id) }
@@ -226,6 +276,7 @@ class SearchItemsHandler(
         val projectId: Long?,
         val epicId: Long?,
         val pmId: Long?,
+        val assigneeIds: List<Long>?,
         val dueFrom: LocalDate?,
         val dueTo: LocalDate?,
         val completedFrom: LocalDate?,
@@ -234,6 +285,7 @@ class SearchItemsHandler(
         val scopeStart: LocalDate,
     ) {
         val hasCompletedFilter: Boolean get() = completedFrom != null || completedTo != null
+        val hasTeamFilter: Boolean get() = assigneeIds != null
 
         companion object {
             fun from(
@@ -244,6 +296,7 @@ class SearchItemsHandler(
                 projectId: Long?,
                 epicId: Long?,
                 pmId: Long?,
+                assigneeIds: List<Long>?,
             ) = Criteria(
                 query = query,
                 statusRaw = args.status,
@@ -251,6 +304,7 @@ class SearchItemsHandler(
                 projectId = projectId,
                 epicId = epicId,
                 pmId = pmId ?: if (args.pmMe == true) currentUserId else null,
+                assigneeIds = assigneeIds,
                 dueFrom = args.dueDateFrom?.let(LocalDate::parse),
                 dueTo = args.dueDateTo?.let(LocalDate::parse),
                 completedFrom = args.completedFrom?.let(LocalDate::parse),
@@ -314,7 +368,8 @@ class SearchItemsHandler(
 
 /** search_items 인자에 필터가 하나라도 있는지 */
 private fun SearchItemsArgs.hasFilter(): Boolean =
-    status != null || assigneeMe == true || assignee != null || pmMe == true || pm != null || project != null ||
+    status != null || assigneeMe == true || assignee != null || pmMe == true || pm != null ||
+        teamMe == true || team != null || project != null ||
         epic != null || dueDateFrom != null || dueDateTo != null || completedFrom != null || completedTo != null ||
         excludeDone == true
 
