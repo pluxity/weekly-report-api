@@ -16,6 +16,11 @@ data class SearchItemsArgs(
     val assigneeMe: Boolean? = null,
     /** 이 사용자 담당만 — 사용자 '이름'을 그대로 넣으면 서버가 찾아준다 (id 아님) */
     val assignee: String? = null,
+    /** true면 내가 PM인 프로젝트만 (assignee_me의 PM 판) */
+    @param:JsonProperty("pm_me")
+    val pmMe: Boolean? = null,
+    /** 이 사용자가 PM인 프로젝트만 — 사용자 '이름'을 그대로 넣으면 서버가 id로 해소 (PROJECT 전용) */
+    val pm: String? = null,
     /** 이 프로젝트 이름의 하위만 — 서버가 이름→id 해소 (모델은 id를 몰라도 됨) */
     val project: String? = null,
     /** 이 업무 그룹(에픽) 이름의 하위만 — 서버가 이름→id 해소 */
@@ -24,6 +29,11 @@ data class SearchItemsArgs(
     val dueDateFrom: String? = null,
     @param:JsonProperty("due_date_to")
     val dueDateTo: String? = null,
+    /** 완료일 범위 — "이번주/저번주 한 일" 회고 (태스크 전용) */
+    @param:JsonProperty("completed_from")
+    val completedFrom: String? = null,
+    @param:JsonProperty("completed_to")
+    val completedTo: String? = null,
     @param:JsonProperty("exclude_done")
     val excludeDone: Boolean? = null,
     val sort: String? = null,

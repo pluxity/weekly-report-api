@@ -82,17 +82,32 @@ class SearchItemsHandler(
                 is NameResolution.Resolved -> r.id
                 NameResolution.NotRequested -> null
             }
+        // PM은 프로젝트 전용 필터 — assignee와 같은 이름→id 해소 (모델은 id를 모름)
+        val pmId =
+            when (val r = support.resolveByName(args.pm, "사용자", ChatV2EntityType.USER, idRegistry) {
+                userRepository.findAllBy(Sort.by("name")).map { it.requiredId to it.name }
+            }) {
+                is NameResolution.Error -> return support.errorResult(r.message)
+                is NameResolution.Resolved -> r.id
+                NameResolution.NotRequested -> null
+            }
 
         val limit = (args.limit ?: DEFAULT_LIMIT).coerceIn(1, MAX_LIMIT)
 
         if (type == ChatV2EntityType.TEAM) return searchTeams(query, limit, idRegistry)
 
-        val c = Criteria.from(args, query, currentUserId, assigneeId, projectId, epicId)
-        // 소속/담당 필터가 있으면 의미 없는 계층은 건너뛴다 (epic_id → 태스크만, 담당자 필터 → 프로젝트 제외)
-        val taskMatches = if (typeOmitted || type == ChatV2EntityType.TASK) searchTasks(c) else emptyList()
-        val epicMatches = if ((typeOmitted || type == ChatV2EntityType.EPIC) && c.epicId == null) searchEpics(c) else emptyList()
+        val c = Criteria.from(args, query, currentUserId, assigneeId, projectId, epicId, pmId)
+        // 소속/담당 필터가 있으면 의미 없는 계층은 건너뛴다
+        // (epic_id → 태스크만, 담당자 필터 → 프로젝트 제외, PM 필터 → 프로젝트만, 완료일 필터 → 태스크만[완료일은 Task 전용 컬럼])
+        val taskMatches = if ((typeOmitted || type == ChatV2EntityType.TASK) && c.pmId == null) searchTasks(c) else emptyList()
+        val epicMatches =
+            if ((typeOmitted || type == ChatV2EntityType.EPIC) && c.epicId == null && c.pmId == null && !c.hasCompletedFilter) {
+                searchEpics(c)
+            } else {
+                emptyList()
+            }
         val projectMatches =
-            if ((typeOmitted || type == ChatV2EntityType.PROJECT) && c.epicId == null && c.assigneeId == null) {
+            if ((typeOmitted || type == ChatV2EntityType.PROJECT) && c.epicId == null && c.assigneeId == null && !c.hasCompletedFilter) {
                 searchProjects(c)
             } else {
                 emptyList()
@@ -116,6 +131,8 @@ class SearchItemsHandler(
                     assigneeId = c.assigneeId,
                     dueDateFrom = c.dueFrom,
                     dueDateTo = c.dueTo,
+                    completedFrom = c.completedFrom,
+                    completedTo = c.completedTo,
                     excludeDone = c.excludeDone,
                     scopeStartDate = c.scopeStart,
                 ),
@@ -146,6 +163,7 @@ class SearchItemsHandler(
             .search(
                 ProjectSearchFilter(
                     status = status,
+                    pmId = c.pmId,
                     dueDateFrom = c.dueFrom,
                     dueDateTo = c.dueTo,
                     excludeDone = c.excludeDone,
@@ -207,11 +225,16 @@ class SearchItemsHandler(
         val assigneeId: Long?,
         val projectId: Long?,
         val epicId: Long?,
+        val pmId: Long?,
         val dueFrom: LocalDate?,
         val dueTo: LocalDate?,
+        val completedFrom: LocalDate?,
+        val completedTo: LocalDate?,
         val excludeDone: Boolean,
         val scopeStart: LocalDate,
     ) {
+        val hasCompletedFilter: Boolean get() = completedFrom != null || completedTo != null
+
         companion object {
             fun from(
                 args: SearchItemsArgs,
@@ -220,14 +243,18 @@ class SearchItemsHandler(
                 assigneeId: Long?,
                 projectId: Long?,
                 epicId: Long?,
+                pmId: Long?,
             ) = Criteria(
                 query = query,
                 statusRaw = args.status,
                 assigneeId = assigneeId ?: if (args.assigneeMe == true) currentUserId else null,
                 projectId = projectId,
                 epicId = epicId,
+                pmId = pmId ?: if (args.pmMe == true) currentUserId else null,
                 dueFrom = args.dueDateFrom?.let(LocalDate::parse),
                 dueTo = args.dueDateTo?.let(LocalDate::parse),
+                completedFrom = args.completedFrom?.let(LocalDate::parse),
+                completedTo = args.completedTo?.let(LocalDate::parse),
                 excludeDone = args.excludeDone ?: false,
                 scopeStart = ChatScope.scopeStartDate(),
             )
@@ -287,8 +314,9 @@ class SearchItemsHandler(
 
 /** search_items 인자에 필터가 하나라도 있는지 */
 private fun SearchItemsArgs.hasFilter(): Boolean =
-    status != null || assigneeMe == true || assignee != null || project != null ||
-        epic != null || dueDateFrom != null || dueDateTo != null || excludeDone == true
+    status != null || assigneeMe == true || assignee != null || pmMe == true || pm != null || project != null ||
+        epic != null || dueDateFrom != null || dueDateTo != null || completedFrom != null || completedTo != null ||
+        excludeDone == true
 
 /** query 이름 토큰 매칭 필터 — query 없으면 전체 통과 */
 private inline fun <T> List<T>.matching(

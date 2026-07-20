@@ -112,6 +112,10 @@ object ChatV2Tools {
                         "type" to str("종류를 명시한 경우에만", listOf("task", "epic", "project", "team")),
                     ) + commonFilters() +
                         mapOf(
+                            "pm_me" to bool("true면 내가 PM인 프로젝트만"),
+                            "pm" to str("이 사용자가 PM인 프로젝트만 — 사용자 '이름'을 그대로 넣으면 서버가 찾아준다 (id 아님)"),
+                            "completed_from" to date("완료일 범위 시작 — '이번주/저번주 한 일' 회고 (태스크 전용)"),
+                            "completed_to" to date("완료일 범위 끝"),
                             "sort" to str("정렬 기준", listOf("due_date", "progress", "name")),
                             "order" to str("생략 시 asc", listOf("asc", "desc")),
                             "limit" to int("타입당 최대 결과 수 (생략 시 10)", 1, 30),
