@@ -1,0 +1,154 @@
+# chat-v2 eval — /chat/v2 전체 루프를 실서버에 돌려 tool 선택·토큰 측정 (spec: docs/notes/chat-v2-eval-spec.md)
+# 기존 promptfooconfig.yaml(v1 프롬프트 회귀)과 별개. 이건 HTTP provider로 서버를 때린다.
+#
+# ── 실행 전 준비 ──
+# 1. 서버 2개 기동: 8080=현브랜치(7-tool), 8081=(a)브랜치(6-tool+enum)
+#      .\gradlew.bat bootRun                     (A, 8080)
+#      .\gradlew.bat bootRun --args='--server.port=8081'   (B, 다른 워크트리/브랜치)
+# 2. 유저별 세션 쿠키를 env로 (sign-in 응답의 Set-Cookie):
+#      $env:SHYOON_COOKIE = "..."   # 관리자
+#      $env:MEMBER_COOKIE = "..."   # 팀원(dkfkqpffk)
+#      $env:ADMIN_COOKIE  = "..."   # admin
+#    (쿠키 획득은 scripts에 헬퍼 예정. 유저별로 다르므로 각 test가 vars.cookie로 지정)
+# 3. npx promptfoo eval -c promptfoo/promptfooconfig.v2.yaml
+#
+# ⚠️ 쿠키를 provider 헤더에 {{cookie}}로 렌더한다. promptfoo 버전이 헤더 템플릿을 안 먹으면
+#    transformRequest 또는 페르소나별 config 분리로 폴백(스펙 §5).
+
+description: "chat-v2 tool-selection A/B (7-tool vs 6-tool enum)"
+
+providers:
+  - id: "https://localhost:8080/chat/v2"
+    label: "A-7tool"
+    config:
+      method: POST
+      headers:
+        Content-Type: application/json
+        Cookie: "{{cookie}}"
+      body:
+        message: "{{message}}"
+      transformResponse: "json"
+  - id: "https://localhost:8081/chat/v2"
+    label: "B-6tool-enum"
+    config:
+      method: POST
+      headers:
+        Content-Type: application/json
+        Cookie: "{{cookie}}"
+      body:
+        message: "{{message}}"
+      transformResponse: "json"
+
+# 복잡 케이스 llm-rubric 채점기 — 서버와 동일 OpenRouter 모델
+defaultTest:
+  options:
+    provider:
+      id: openrouter:google/gemini-2.5-flash
+
+# repeat는 CLI로: --repeat 3  (비결정성 완화)
+
+tests:
+  # ─────────────────────────────────────────────
+  # 정밀 케이스 — steps[]에 정확한 tool·args assert (변화가 landing했나)
+  # output = /chat/v2 응답 JSON 문자열 {reply, steps[], inputTokens, outputTokens}
+  # ─────────────────────────────────────────────
+
+  - description: "[팀원] 내 남은 일 → assignee_me + exclude_done"
+    vars: { cookie: "${MEMBER_COOKIE}", message: "내 남은 일 뭐 있어" }
+    assert:
+      - type: javascript
+        value: |
+          const s = JSON.parse(output).steps || [];
+          return s.some(x => x.tool === 'search_items' && (() => {
+            const a = JSON.parse(x.arguments);
+            return a.assignee_me === true && a.exclude_done === true;
+          })());
+
+  - description: "[팀원] 이번주 한 일 → completed_from/to (결과는 비어도 tool 호출이 정답)"
+    vars: { cookie: "${MEMBER_COOKIE}", message: "내가 이번주 뭐 했지" }
+    assert:
+      - type: javascript
+        value: |
+          const s = JSON.parse(output).steps || [];
+          return s.some(x => x.tool === 'search_items' && (() => {
+            const a = JSON.parse(x.arguments);
+            return !!a.completed_from || !!a.completed_to;
+          })());
+
+  - description: "[관리자] 우리 팀원 누구 → type=team + team_me"
+    vars: { cookie: "${SHYOON_COOKIE}", message: "우리 팀원 누구 있지" }
+    assert:
+      - type: javascript
+        value: |
+          const s = JSON.parse(output).steps || [];
+          return s.some(x => x.tool === 'search_items' && (() => {
+            const a = JSON.parse(x.arguments);
+            return a.type === 'team' && a.team_me === true;
+          })());
+
+  - description: "[관리자] 우리 팀 지연 → team_me (+지연 필터)"
+    vars: { cookie: "${SHYOON_COOKIE}", message: "우리 팀 지연된 태스크 보여줘" }
+    assert:
+      - type: javascript
+        value: |
+          const s = JSON.parse(output).steps || [];
+          return s.some(x => x.tool === 'search_items' && JSON.parse(x.arguments).team_me === true);
+
+  - description: "[관리자] 내 프로젝트 → pm_me"
+    vars: { cookie: "${SHYOON_COOKIE}", message: "내 프로젝트 진행률 어때" }
+    assert:
+      - type: javascript
+        value: |
+          const s = JSON.parse(output).steps || [];
+          return s.some(x => (x.tool === 'search_items' || x.tool === 'aggregate_items')
+            && JSON.parse(x.arguments).pm_me === true);
+
+  - description: "[A/B 판별] 태스크 상세 → A: get_item_details / B: search detailed"
+    vars: { cookie: "${SHYOON_COOKIE}", message: "'RFP 변경사항 정리' 태스크 상세히 알려줘" }
+    assert:
+      # 두 설계 모두 정답 처리 — 실제 비교는 토큰/스텝 메트릭으로. 여기선 "상세를 조회했나"만.
+      - type: javascript
+        value: |
+          const s = JSON.parse(output).steps || [];
+          const detailByTool = s.some(x => x.tool === 'get_item_details');
+          const detailByMode = s.some(x => x.tool === 'search_items' && /detail/i.test(x.arguments));
+          return detailByTool || detailByMode;
+
+  - description: "[CUD 거절] 완료 처리 요청 → 변경 실행 없이 보드/폼 안내"
+    vars: { cookie: "${MEMBER_COOKIE}", message: "'도면 관리 기능' 완료 처리해줘" }
+    assert:
+      - type: javascript
+        value: |
+          const r = JSON.parse(output);
+          return /보드|폼/.test(r.reply || '');
+      - type: llm-rubric
+        value: "변경을 실행했다고 하지 않고, 변경 작업은 보드/폼에서 하라고 안내한다."
+
+  # ─────────────────────────────────────────────
+  # 복잡 케이스 — 최종 reply를 llm-rubric로 판정 + 토큰/스텝 메트릭(리포트에서 확인)
+  # 메시지 하나 → 서버 루프가 멀티스텝 자동 수행
+  # ─────────────────────────────────────────────
+
+  - description: "[관리자·복잡] 우리 팀 이번주 마감 미완 중 최다 담당자"
+    vars: { cookie: "${SHYOON_COOKIE}", message: "우리 팀에서 이번주 마감인데 아직 안 끝난 거, 누가 제일 많이 걸려 있어?" }
+    assert:
+      - type: llm-rubric
+        value: "요청자 팀(멤버 담당) 범위에서 이번주 마감·미완 태스크를 근거로 담당자별로 답하며, 조회 결과에 없는 값을 지어내지 않는다. 데이터가 없으면 없다고 답한다."
+
+  - description: "[관리자·복잡] 프로젝트 지연 태스크 담당자의 리뷰 대기 여부"
+    vars: { cookie: "${SHYOON_COOKIE}", message: "'한.싱가포르 과제'에서 지연된 태스크 담당자 중에 리뷰 대기 걸린 사람 있어?" }
+    assert:
+      - type: llm-rubric
+        value: "해당 프로젝트의 지연 태스크와 그 담당자, 리뷰 대기 여부를 조회 결과에 근거해 답한다. 지어낸 이름/상태가 없다."
+
+  - description: "[팀원·복잡] 이번주 한 일 + 다음주 할 일 정리"
+    vars: { cookie: "${MEMBER_COOKIE}", message: "내가 이번주 한 일이랑 다음주 할 일 정리해줘" }
+    assert:
+      - type: llm-rubric
+        value: "본인 담당 기준으로, 완료(이번주)와 예정/미완을 구분해 정리한다. 데이터가 없는 항목은 없다고 밝힌다."
+
+  - description: "[admin·복잡] 지연 제일 심한 프로젝트"
+    vars: { cookie: "${ADMIN_COOKIE}", message: "지금 지연 제일 심한 프로젝트 하나 꼽아줘" }
+    assert:
+      - type: llm-rubric
+        value: "프로젝트 지연을 조회·집계한 근거로 하나를 지목한다. 지어낸 프로젝트가 아니다."
