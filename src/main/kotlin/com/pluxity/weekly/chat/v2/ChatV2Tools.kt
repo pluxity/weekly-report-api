@@ -11,20 +11,19 @@ import com.pluxity.weekly.chat.v2.dto.ToolDefinition
  * ⚠️ 스키마는 스텝 수만큼 곱해지는 input 비용이다. 행동 규칙(검색 먼저, id는 검색 결과만 등)은
  * chat-v2-prompt.txt에 한 번만 쓰고, 여기 description은 "무엇을 하는 도구인지"만 최소로 적는다.
  *
- * 각 ToolDefinition이 직렬화되면 아래 OpenAI 스타일 JSON이 된다 (예: get_item_details):
+ * 각 ToolDefinition이 직렬화되면 아래 OpenAI 스타일 JSON이 된다 (예: get_task_history):
  * ```json
  * {
  *   "type": "function",
  *   "function": {
- *     "name": "get_item_details",
- *     "description": "태스크·업무 그룹·프로젝트·팀 1건의 상세 조회 (...).",
+ *     "name": "get_task_history",
+ *     "description": "태스크의 리뷰 이력 조회 (...).",
  *     "parameters": {
  *       "type": "object",
  *       "properties": {
- *         "type": { "type": "string", "description": "종류", "enum": ["task", "epic", "project", "team"] },
- *         "id":   { "type": "integer", "description": "항목 ID" }
+ *         "task_id": { "type": "integer", "description": "태스크 ID" }
  *       },
- *       "required": ["type", "id"]
+ *       "required": ["task_id"]
  *     }
  *   }
  * }
@@ -33,7 +32,6 @@ import com.pluxity.weekly.chat.v2.dto.ToolDefinition
 object ChatV2Tools {
     const val SEARCH_ITEMS = "search_items"
     const val SEARCH_USERS = "search_users"
-    const val GET_ITEM_DETAILS = "get_item_details"
     const val AGGREGATE_ITEMS = "aggregate_items"
     const val LIST_PENDING_REVIEWS = "list_pending_reviews"
     const val GET_TASK_HISTORY = "get_task_history"
@@ -118,20 +116,15 @@ object ChatV2Tools {
                             "team" to str("이 팀의 태스크만 — 팀 '이름'을 그대로 넣으면 서버가 멤버→담당 태스크로 찾아준다 (id 아님)"),
                             "completed_from" to date("완료일 범위 시작 — '이번주/저번주 한 일' 회고 (태스크 전용)"),
                             "completed_to" to date("완료일 범위 끝"),
+                            "detail" to
+                                str(
+                                    "응답 상세도. concise(기본)=핵심 필드. detailed=설명·시작일·구성원 등 상세 필드까지 (대상을 좁혔을 때만).",
+                                    listOf("concise", "detailed"),
+                                ),
                             "sort" to str("정렬 기준", listOf("due_date", "progress", "name")),
                             "order" to str("생략 시 asc", listOf("asc", "desc")),
                             "limit" to int("타입당 최대 결과 수 (생략 시 10)", 1, 30),
                         ),
-            ),
-            tool(
-                name = GET_ITEM_DETAILS,
-                description = "태스크·업무 그룹·프로젝트·팀 1건의 상세 조회 (설명·시작일·구성원 등 검색 결과에 없는 필드 포함).",
-                properties =
-                    mapOf(
-                        "type" to str("종류", listOf("task", "epic", "project", "team")),
-                        "id" to int("항목 ID"),
-                    ),
-                required = listOf("type", "id"),
             ),
             tool(
                 name = AGGREGATE_ITEMS,

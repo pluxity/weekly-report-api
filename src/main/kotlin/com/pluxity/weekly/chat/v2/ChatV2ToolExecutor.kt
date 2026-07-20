@@ -19,7 +19,6 @@ class ChatV2ToolExecutor(
     private val support: ChatV2ToolSupport,
     private val searchItemsHandler: SearchItemsHandler,
     private val searchUsersHandler: SearchUsersHandler,
-    private val getItemDetailsHandler: GetItemDetailsHandler,
     private val aggregateItemsHandler: AggregateItemsHandler,
     private val listPendingReviewsHandler: ListPendingReviewsHandler,
     private val getTaskHistoryHandler: GetTaskHistoryHandler,
@@ -35,7 +34,6 @@ class ChatV2ToolExecutor(
             when (toolName) {
                 ChatV2Tools.SEARCH_ITEMS -> searchItemsHandler.handle(argumentsJson, currentUserId, idRegistry)
                 ChatV2Tools.SEARCH_USERS -> searchUsersHandler.handle(argumentsJson, idRegistry)
-                ChatV2Tools.GET_ITEM_DETAILS -> getItemDetailsHandler.handle(argumentsJson, idRegistry)
                 ChatV2Tools.AGGREGATE_ITEMS -> aggregateItemsHandler.handle(argumentsJson, currentUserId, idRegistry)
                 ChatV2Tools.LIST_PENDING_REVIEWS -> listPendingReviewsHandler.handle(idRegistry)
                 ChatV2Tools.GET_TASK_HISTORY -> getTaskHistoryHandler.handle(argumentsJson, idRegistry)

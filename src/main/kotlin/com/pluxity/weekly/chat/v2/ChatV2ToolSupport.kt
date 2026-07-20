@@ -121,4 +121,30 @@ class ChatV2ToolSupport(
             "leader" to team.leaderName,
             "members" to team.members.map { it.name },
         )
+
+    // ── detailed 응답 매핑 (search_items detail=detailed) ──
+    // concise map + 무거운 필드. search 결과 DTO가 이미 다 들고 있어 재조회 없음(get_item_details 대체).
+
+    fun taskDetailMap(task: TaskResponse): Map<String, Any?> =
+        taskMap(task) +
+            mapOf(
+                "description" to task.description,
+                "start_date" to task.startDate?.toString(),
+            )
+
+    fun epicDetailMap(epic: EpicResponse): Map<String, Any?> =
+        epicMap(epic) +
+            mapOf(
+                "description" to epic.description,
+                "start_date" to epic.startDate?.toString(),
+            )
+
+    fun projectDetailMap(project: ProjectResponse): Map<String, Any?> =
+        projectMap(project) +
+            mapOf(
+                "description" to project.description,
+                "start_date" to project.startDate?.toString(),
+                "progress" to project.progress,
+                "members" to project.members.map { it.userName },
+            )
 }

@@ -48,7 +48,6 @@ class ChatV2SearchItemsTest :
                 support = support,
                 searchItemsHandler = searchItemsHandler,
                 searchUsersHandler = mockk<SearchUsersHandler>(),
-                getItemDetailsHandler = mockk<GetItemDetailsHandler>(),
                 aggregateItemsHandler = mockk<AggregateItemsHandler>(),
                 listPendingReviewsHandler = mockk<ListPendingReviewsHandler>(),
                 getTaskHistoryHandler = mockk<GetTaskHistoryHandler>(),
@@ -64,7 +63,8 @@ class ChatV2SearchItemsTest :
         ) = TaskResponse(
             id = id, projectId = 1, projectName = "알파", epicId = 1, epicName = "기획",
             name = name, description = null, status = status, progress = 0,
-            startDate = null, dueDate = null, assigneeId = null, assigneeName = null, baseResponse = base,
+            startDate = null, dueDate = null, completedAt = null, delayed = false, delayDays = null,
+            assigneeId = null, assigneeName = null, baseResponse = base,
         )
 
         fun epic(
@@ -72,7 +72,8 @@ class ChatV2SearchItemsTest :
             name: String,
         ) = EpicResponse(
             id = id, projectId = 1, projectName = "알파", name = name, description = null,
-            status = EpicStatus.TODO, startDate = null, dueDate = null, members = emptyList(), baseResponse = base,
+            status = EpicStatus.TODO, startDate = null, dueDate = null,
+            completedAt = null, delayed = false, delayDays = null, members = emptyList(), baseResponse = base,
         )
 
         fun project(
@@ -80,7 +81,8 @@ class ChatV2SearchItemsTest :
             name: String,
         ) = ProjectResponse(
             id = id, name = name, description = null, status = ProjectStatus.TODO, startDate = null,
-            dueDate = null, pmId = null, pmName = null, members = emptyList(), progress = 0, baseResponse = base,
+            dueDate = null, completedAt = null, delayed = false, delayDays = null,
+            pmId = null, pmName = null, members = emptyList(), progress = 0, baseResponse = base,
         )
 
         // 기본: 세 계층 모두 빈 결과. 각 테스트에서 필요한 것만 override.

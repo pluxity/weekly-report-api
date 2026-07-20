@@ -47,7 +47,7 @@ class SearchItemsHandler(
         val args = support.readArgs<SearchItemsArgs>(argumentsJson)
         val query = args.query?.trim()?.takeIf { it.isNotBlank() }
         // type 미지정(전체 검색)과 잘못된 type을 구분: 원본이 null이면 미지정. 값이 있는데 파싱 실패면
-        // 명백한 실수이므로 조용히 빈 결과가 아니라 error로 돌려보내 모델이 자가교정하게 한다 (get_item_details와 일관).
+        // 명백한 실수이므로 조용히 빈 결과가 아니라 error로 돌려보내 모델이 자가교정하게 한다.
         val typeOmitted = args.type == null
         val type = ChatV2EntityType.from(args.type)
         // USER는 search_items 대상이 아니다 (사용자는 search_users) — null(미인식)과 함께 거부
@@ -93,7 +93,11 @@ class SearchItemsHandler(
                 NameResolution.NotRequested -> null
             }
 
-        val limit = (args.limit ?: DEFAULT_LIMIT).coerceIn(1, MAX_LIMIT)
+        // detailed는 항목당 무거운 필드(설명·구성원 등)가 붙어 토큰이 커진다 → 좁힌 조회 전제로 limit을 낮게 캡
+        val detailed = args.detail == "detailed"
+        val limit =
+            (args.limit ?: DEFAULT_LIMIT).coerceIn(1, MAX_LIMIT)
+                .let { if (detailed) it.coerceAtMost(DETAILED_MAX_LIMIT) else it }
 
         // type=team → 팀 객체(구성원 포함) 반환. "우리 팀원 누구" 류. team_me=내가 리더인 팀, team=이름, 없으면 query.
         if (type == ChatV2EntityType.TEAM) return searchTeams(args, query, currentUserId, limit, idRegistry)
@@ -119,7 +123,7 @@ class SearchItemsHandler(
             }
         // 팀은 확정됐는데 멤버가 없으면 태스크 0건 — assignee IN () 로 새지 않게 명시적 빈 결과
         if (teamMemberIds != null && teamMemberIds.isEmpty()) {
-            return buildResponse(emptyList(), emptyList(), emptyList(), args.sort, args.order, limit, idRegistry)
+            return buildResponse(emptyList(), emptyList(), emptyList(), args.sort, args.order, limit, detailed, idRegistry)
         }
 
         val c = Criteria.from(args, query, currentUserId, assigneeId, projectId, epicId, pmId, teamMemberIds)
@@ -143,7 +147,7 @@ class SearchItemsHandler(
                 emptyList()
             }
 
-        return buildResponse(taskMatches, epicMatches, projectMatches, args.sort, args.order, limit, idRegistry)
+        return buildResponse(taskMatches, epicMatches, projectMatches, args.sort, args.order, limit, detailed, idRegistry)
     }
 
     // ── 계층별 검색 ──
@@ -246,17 +250,22 @@ class SearchItemsHandler(
         sort: String?,
         order: String?,
         limit: Int,
+        detailed: Boolean,
         idRegistry: ChatV2IdRegistry,
     ): String {
+        // detailed면 무거운 필드(설명·시작일·구성원·진행률)까지 매핑 — get_item_details가 하던 상세를 흡수
+        val taskMapper = if (detailed) support::taskDetailMap else support::taskMap
+        val epicMapper = if (detailed) support::epicDetailMap else support::epicMap
+        val projectMapper = if (detailed) support::projectDetailMap else support::projectMap
         val tasks =
             sortTasks(taskMatches, sort, order).take(limit)
-                .onEach { idRegistry.register(ChatV2EntityType.TASK, it.id) }.map(support::taskMap)
+                .onEach { idRegistry.register(ChatV2EntityType.TASK, it.id) }.map(taskMapper)
         val epics =
             sortEpics(epicMatches, sort, order).take(limit)
-                .onEach { idRegistry.register(ChatV2EntityType.EPIC, it.id) }.map(support::epicMap)
+                .onEach { idRegistry.register(ChatV2EntityType.EPIC, it.id) }.map(epicMapper)
         val projects =
             sortProjects(projectMatches, sort, order).take(limit)
-                .onEach { idRegistry.register(ChatV2EntityType.PROJECT, it.id) }.map(support::projectMap)
+                .onEach { idRegistry.register(ChatV2EntityType.PROJECT, it.id) }.map(projectMapper)
 
         return objectMapper.writeValueAsString(
             mapOf(
@@ -363,6 +372,9 @@ class SearchItemsHandler(
     companion object {
         private const val DEFAULT_LIMIT = 10
         private const val MAX_LIMIT = 30
+
+        // detailed는 항목당 상세 필드가 붙어 토큰이 큼 → 좁힌 조회 전제로 낮게 캡
+        private const val DETAILED_MAX_LIMIT = 5
     }
 }
 

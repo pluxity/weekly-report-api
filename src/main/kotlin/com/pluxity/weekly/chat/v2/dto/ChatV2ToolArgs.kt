@@ -41,6 +41,8 @@ data class SearchItemsArgs(
     val completedTo: String? = null,
     @param:JsonProperty("exclude_done")
     val excludeDone: Boolean? = null,
+    /** concise(기본)/detailed — detailed면 설명·시작일·구성원 등 상세 필드까지 (get_item_details 대체) */
+    val detail: String? = null,
     val sort: String? = null,
     val order: String? = null,
     val limit: Int? = null,
@@ -49,11 +51,6 @@ data class SearchItemsArgs(
 data class SearchUsersArgs(
     val query: String? = null,
     val role: String? = null,
-)
-
-data class GetItemDetailsArgs(
-    val type: String,
-    val id: Long,
 )
 
 data class AggregateItemsArgs(

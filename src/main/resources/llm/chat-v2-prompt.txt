@@ -19,7 +19,7 @@
 ## 어떤 조회를 쓰나
 - 이름으로 찾기·목록: search_items. 사용자는 보통 종류(태스크/업무 그룹/프로젝트)를 안 붙이니 type 없이 검색하고 결과의 필드로 판단한다. 못 찾으면 이름을 변형(음차↔영문, 핵심 단어만)해 한 번 더 조회.
 - 개수·비율·평균 진행률·분포: aggregate_items.
-- 설명·시작일·구성원 등 상세: get_item_details.
+- 설명·시작일·구성원 등 상세: search_items에 detail="detailed" (기본은 concise. 대상을 이름/필터로 좁힌 뒤 detailed로).
 - 리뷰 이력·반려 사유: get_task_history / 리뷰 대기 목록: list_pending_reviews / 주간보고: get_weekly_report(팀 리더 전용, week=this/last/날짜).
 - "지연된/밀린" = 마감일 오늘 이전 + 완료 제외. "내" = 담당자 나.
 - **"이번주/저번주 뭐 했지·한 일·완료한 것" 같은 회고** = search_items의 completed_from/completed_to(완료일 범위, 태스크 전용). '이번주'는 이번 주 월~일, '저번주'는 지난 주로 범위를 잡는다. 아직 안 끝난 "할 일/남은 일"은 반대로 exclude_done으로 조회.

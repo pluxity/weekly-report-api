@@ -42,7 +42,6 @@ class ChatV2AggregateItemsTest :
                 support = support,
                 searchItemsHandler = mockk<SearchItemsHandler>(),
                 searchUsersHandler = mockk<SearchUsersHandler>(),
-                getItemDetailsHandler = mockk<GetItemDetailsHandler>(),
                 aggregateItemsHandler = aggregateItemsHandler,
                 listPendingReviewsHandler = mockk<ListPendingReviewsHandler>(),
                 getTaskHistoryHandler = mockk<GetTaskHistoryHandler>(),
@@ -58,7 +57,8 @@ class ChatV2AggregateItemsTest :
         ) = TaskResponse(
             id = id, projectId = 1, projectName = "알파", epicId = 1, epicName = "기획",
             name = "작업$id", description = null, status = status, progress = progress,
-            startDate = null, dueDate = null, assigneeId = null, assigneeName = null, baseResponse = base,
+            startDate = null, dueDate = null, completedAt = null, delayed = false, delayDays = null,
+            assigneeId = null, assigneeName = null, baseResponse = base,
         )
 
         fun agg(
