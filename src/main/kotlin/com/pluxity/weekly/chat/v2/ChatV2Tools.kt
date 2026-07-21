@@ -101,9 +101,10 @@ object ChatV2Tools {
             tool(
                 name = SEARCH_ITEMS,
                 description =
-                    "태스크·업무 그룹(에픽)·프로젝트·팀 통합 검색. 이름은 단어 단위 부분 일치. " +
+                    "태스크·업무 그룹(에픽)·프로젝트·팀 **개별 항목 검색·나열**. 이름은 단어 단위 부분 일치. " +
                         "type 생략 시 태스크·업무 그룹·프로젝트를 한 번에 검색 (팀은 type='team' 명시 시에만). " +
-                        "결과는 타입당 limit건 + totals(전체 개수).",
+                        "결과는 타입당 limit건 + totals(전체 개수). " +
+                        "개수·평균·분포·순위(최다/최소)는 이 도구로 세지 말고 aggregate_items를 쓸 것 — 목록이 limit에 잘려 집계가 틀린다.",
                 properties =
                     mapOf(
                         "query" to str("찾을 이름 (목록 조회면 생략)"),
@@ -129,8 +130,9 @@ object ChatV2Tools {
             tool(
                 name = AGGREGATE_ITEMS,
                 description =
-                    "태스크·업무 그룹·프로젝트 집계 — 그룹별 개수·평균 진행률. " +
-                        "'몇 개', '진행률 얼마', '누가 제일 많아' 같은 수치 질문은 검색 대신 이걸 쓸 것.",
+                    "태스크·업무 그룹·프로젝트 집계 — 개별 항목은 나열하지 않고 그룹별 개수·평균 진행률만 반환. " +
+                        "'몇 개', '진행률 얼마', '누가 제일 많아', '프로젝트별 분포/개수' 같은 수치·순위·분포 질문은 " +
+                        "반드시 이 도구(search_items로 세지 말 것 — 목록이 잘려 틀린다).",
                 properties =
                     mapOf(
                         "type" to str("집계 대상", listOf("task", "epic", "project")),
