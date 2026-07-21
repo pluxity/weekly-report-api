@@ -1,6 +1,10 @@
 package com.pluxity.weekly.chat.v2
 
+import com.pluxity.weekly.auth.authorization.AuthorizationService
+import com.pluxity.weekly.auth.user.entity.User
 import com.pluxity.weekly.auth.user.repository.UserRepository
+import com.pluxity.weekly.core.constant.ErrorCode
+import com.pluxity.weekly.core.exception.CustomException
 import com.pluxity.weekly.report.service.WeeklyReportService
 import com.pluxity.weekly.task.service.TaskReviewService
 import com.pluxity.weekly.team.repository.TeamRepository
@@ -10,6 +14,7 @@ import io.kotest.matchers.string.shouldContain
 import io.mockk.every
 import io.mockk.mockk
 import tools.jackson.databind.json.JsonMapper
+import java.time.LocalDate
 
 /**
  * search_users / list_pending_reviews / get_task_history / get_weekly_report 특성화 테스트.
@@ -23,6 +28,7 @@ class ChatV2RemainingToolsTest :
         val taskReviewService: TaskReviewService = mockk()
         val teamRepository: TeamRepository = mockk()
         val weeklyReportService: WeeklyReportService = mockk()
+        val authorizationService: AuthorizationService = mockk()
         val support = ChatV2ToolSupport(mapper)
 
         val executor =
@@ -33,7 +39,8 @@ class ChatV2RemainingToolsTest :
                 aggregateItemsHandler = mockk<AggregateItemsHandler>(),
                 listPendingReviewsHandler = ListPendingReviewsHandler(taskReviewService, mapper),
                 getTaskHistoryHandler = GetTaskHistoryHandler(taskReviewService, support, mapper),
-                getWeeklyReportHandler = GetWeeklyReportHandler(teamRepository, weeklyReportService, support, mapper),
+                getWeeklyReportHandler =
+                    GetWeeklyReportHandler(teamRepository, weeklyReportService, authorizationService, support, mapper),
             )
 
         fun exec(
@@ -78,14 +85,20 @@ class ChatV2RemainingToolsTest :
         }
 
         Given("get_weekly_report") {
-            When("리더가 아닌 사용자가 조회하면") {
-                every { teamRepository.findByLeaderId(any()) } returns emptyList()
+            When("리더도 admin도 아닌 사용자가 조회하면") {
+                every { authorizationService.currentUser() } returns mockk<User>()
+                every { authorizationService.visibleTeamIds(any()) } returns emptyList()
+                every { teamRepository.findAllById(any()) } returns emptyList()
+                every { weeklyReportService.weekStartOf(any()) } returns LocalDate.now()
+                // findAll 내부 requireAdminOrLeader가 무권한 사용자에게 던지는 예외
+                every { weeklyReportService.findAll(any(), any(), any()) } throws
+                    CustomException(ErrorCode.PERMISSION_DENIED)
 
                 val result = exec(ChatV2Tools.GET_WEEKLY_REPORT, """{}""")
 
-                Then("팀 리더 전용 error를 반환한다") {
+                Then("리더/admin 전용 error를 반환한다") {
                     result shouldContain "error"
-                    result shouldContain "팀 리더만"
+                    result shouldContain "팀 리더 또는 admin"
                 }
             }
         }

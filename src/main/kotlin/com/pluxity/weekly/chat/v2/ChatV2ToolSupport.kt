@@ -83,7 +83,7 @@ class ChatV2ToolSupport(
         }
     }
 
-    // concise — 훑기·식별용 최소 필드. 맥락(부모)·무거운 필드는 detailed로.
+    // concise — 훑기·식별·그룹핑용. 부모(epic/project)까지 포함(identity). 무거운 필드·자식 트리는 단건 좁힘 시 자동 부착.
     fun taskMap(task: TaskResponse): Map<String, Any?> =
         mapOf(
             "id" to task.id,
@@ -92,6 +92,10 @@ class ChatV2ToolSupport(
             "progress" to task.progress,
             "due_date" to task.dueDate?.toString(),
             "assignee" to task.assigneeName,
+            // 부모 맥락(에픽·프로젝트) — "업무 그룹별로/프로젝트별로" 그룹핑·필터에 필수(정체성). 이게 없으면
+            // 모델이 계층별로 필터를 쪼개 부르며 이름을 추측한다. 부모 이름은 detail이 아니라 identity라 concise에 둔다.
+            "epic" to task.epicName,
+            "project" to task.projectName,
         )
 
     fun epicMap(epic: EpicResponse): Map<String, Any?> =
@@ -100,6 +104,8 @@ class ChatV2ToolSupport(
             "name" to epic.name,
             "status" to epic.status.name,
             "due_date" to epic.dueDate?.toString(),
+            // 부모 프로젝트 — "프로젝트별 에픽" 그룹핑·맥락(identity). task와 같은 이유로 concise에 둔다.
+            "project" to epic.projectName,
         )
 
     fun projectMap(project: ProjectResponse): Map<String, Any?> =
@@ -119,22 +125,19 @@ class ChatV2ToolSupport(
             "members" to team.members.map { it.name },
         )
 
-    // ── detailed 응답 매핑 (search_items detail=detailed) ──
-    // concise map + 무거운 필드. search 결과 DTO가 이미 다 들고 있어 재조회 없음(get_item_details 대체).
+    // ── 상세 매핑 (단건 좁힘 시 자동 부착) ──
+    // concise map + 무거운 필드(설명·구성원 등). search 결과 DTO가 이미 다 들고 있어 재조회 없음(get_item_details 대체).
 
     fun taskDetailMap(task: TaskResponse): Map<String, Any?> =
-        taskMap(task) +
+        taskMap(task) + // epic·project는 taskMap에 이미 포함 (identity). detail은 무거운 것만.
             mapOf(
-                "project" to task.projectName,
-                "epic" to task.epicName,
                 "description" to task.description,
                 "start_date" to task.startDate?.toString(),
             )
 
     fun epicDetailMap(epic: EpicResponse): Map<String, Any?> =
-        epicMap(epic) +
+        epicMap(epic) + // project는 epicMap에 이미 포함
             mapOf(
-                "project" to epic.projectName,
                 "members" to epic.members.map { it.userName },
                 "description" to epic.description,
                 "start_date" to epic.startDate?.toString(),

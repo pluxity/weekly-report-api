@@ -93,11 +93,7 @@ class SearchItemsHandler(
                 NameResolution.NotRequested -> null
             }
 
-        // detailed는 항목당 무거운 필드(설명·구성원 등)가 붙어 토큰이 커진다 → 좁힌 조회 전제로 limit을 낮게 캡
-        val detailed = args.detail == "detailed"
-        val limit =
-            (args.limit ?: DEFAULT_LIMIT).coerceIn(1, MAX_LIMIT)
-                .let { if (detailed) it.coerceAtMost(DETAILED_MAX_LIMIT) else it }
+        val limit = (args.limit ?: DEFAULT_LIMIT).coerceIn(1, MAX_LIMIT)
 
         // type=team → 팀 객체(구성원 포함) 반환. "우리 팀원 누구" 류. team_me=내가 리더인 팀, team=이름, 없으면 query.
         if (type == ChatV2EntityType.TEAM) return searchTeams(args, query, currentUserId, limit, idRegistry)
@@ -123,7 +119,7 @@ class SearchItemsHandler(
             }
         // 팀은 확정됐는데 멤버가 없으면 태스크 0건 — assignee IN () 로 새지 않게 명시적 빈 결과
         if (teamMemberIds != null && teamMemberIds.isEmpty()) {
-            return buildResponse(emptyList(), emptyList(), emptyList(), args.sort, args.order, limit, detailed, idRegistry)
+            return buildResponse(emptyList(), emptyList(), emptyList(), args.sort, args.order, limit, idRegistry)
         }
 
         val c = Criteria.from(args, query, currentUserId, assigneeId, projectId, epicId, pmId, teamMemberIds)
@@ -147,7 +143,7 @@ class SearchItemsHandler(
                 emptyList()
             }
 
-        return buildResponse(taskMatches, epicMatches, projectMatches, args.sort, args.order, limit, detailed, idRegistry)
+        return buildResponse(taskMatches, epicMatches, projectMatches, args.sort, args.order, limit, idRegistry)
     }
 
     // ── 계층별 검색 ──
@@ -241,7 +237,7 @@ class SearchItemsHandler(
         )
     }
 
-    // ── 자식 트리 (단건 detailed 드릴인) ──
+    // ── 자식 트리 (단건 자동 드릴인) ──
 
     /** 에픽의 하위 태스크 (캡 + 전체 개수). */
     private fun epicChildren(epicId: Long): Map<String, Any?> {
@@ -278,25 +274,23 @@ class SearchItemsHandler(
         sort: String?,
         order: String?,
         limit: Int,
-        detailed: Boolean,
         idRegistry: ChatV2IdRegistry,
     ): String {
-        // detailed면 무거운 필드(설명·시작일·구성원·진행률)까지 매핑 — get_item_details가 하던 상세를 흡수
-        val taskMapper = if (detailed) support::taskDetailMap else support::taskMap
-        val epicMapper = if (detailed) support::epicDetailMap else support::epicMap
-        val projectMapper = if (detailed) support::projectDetailMap else support::projectMap
+        // 결과가 전체 단건으로 좁혀지면 자동 드릴인 — 무거운 필드(설명·구성원 등) + 자식 트리 부착.
+        // 다건 목록이면 concise. concise가 이미 부모 이름(epic/project)까지 담아 그룹핑·필터엔 충분하다.
+        val drill = taskMatches.size + epicMatches.size + projectMatches.size == 1
         val tasks =
             sortTasks(taskMatches, sort, order).take(limit)
-                .onEach { idRegistry.register(ChatV2EntityType.TASK, it.id) }.map(taskMapper)
-        // detailed && 단건이면 자식 트리 부착 (드릴인 — "그 프로젝트/에픽 자세히"). 다건이면 토큰 위해 생략.
+                .onEach { idRegistry.register(ChatV2EntityType.TASK, it.id) }
+                .map { if (drill) support.taskDetailMap(it) else support.taskMap(it) }
         val epics =
             sortEpics(epicMatches, sort, order).take(limit)
                 .onEach { idRegistry.register(ChatV2EntityType.EPIC, it.id) }
-                .map { e -> if (detailed && epicMatches.size == 1) epicMapper(e) + epicChildren(e.id) else epicMapper(e) }
+                .map { e -> if (drill) support.epicDetailMap(e) + epicChildren(e.id) else support.epicMap(e) }
         val projects =
             sortProjects(projectMatches, sort, order).take(limit)
                 .onEach { idRegistry.register(ChatV2EntityType.PROJECT, it.id) }
-                .map { p -> if (detailed && projectMatches.size == 1) projectMapper(p) + mapOf("epics" to projectChildEpics(p.id)) else projectMapper(p) }
+                .map { p -> if (drill) support.projectDetailMap(p) + mapOf("epics" to projectChildEpics(p.id)) else support.projectMap(p) }
 
         return objectMapper.writeValueAsString(
             mapOf(
@@ -404,10 +398,7 @@ class SearchItemsHandler(
         private const val DEFAULT_LIMIT = 10
         private const val MAX_LIMIT = 30
 
-        // detailed는 항목당 상세 필드가 붙어 토큰이 큼 → 좁힌 조회 전제로 낮게 캡
-        private const val DETAILED_MAX_LIMIT = 5
-
-        // 단건 detailed 자식 트리 캡 (토큰 방어)
+        // 단건 드릴인 자식 트리 캡 (토큰 방어)
         private const val EPIC_CHILD_CAP = 10
         private const val TASK_CHILD_CAP = 10
     }

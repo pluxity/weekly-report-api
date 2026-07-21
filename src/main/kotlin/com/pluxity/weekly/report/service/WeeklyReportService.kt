@@ -56,6 +56,12 @@ class WeeklyReportService(
         return weeklyReportRepository.findByFilter(filter).map { it.toResponse() }
     }
 
+    /**
+     * chat/v2 도구가 week 문자열("this"/"last"/YYYY-MM-DD)을 그 주 월요일로 해석할 때 쓰는 공개 진입점.
+     * 해석 로직은 [resolveWeekStart]에 그대로 두고 노출만 한다 (findForChat과 동일 규칙).
+     */
+    fun weekStartOf(week: String?): LocalDate = resolveWeekStart(week)
+
     fun findForChat(week: String?): WeeklyReportResponse? {
         val user = authorizationService.currentUser()
         val team = teamRepository.findByLeaderId(user.requiredId).firstOrNull() ?: return null

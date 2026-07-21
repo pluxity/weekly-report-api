@@ -41,8 +41,6 @@ data class SearchItemsArgs(
     val completedTo: String? = null,
     @param:JsonProperty("exclude_done")
     val excludeDone: Boolean? = null,
-    /** concise(기본)/detailed — detailed면 설명·시작일·구성원 등 상세 필드까지 (get_item_details 대체) */
-    val detail: String? = null,
     val sort: String? = null,
     val order: String? = null,
     val limit: Int? = null,
@@ -82,4 +80,6 @@ data class GetTaskHistoryArgs(
 data class GetWeeklyReportArgs(
     /** "this"(기본)/"last"/YYYY-MM-DD — 해석은 서버(resolveWeekStart) */
     val week: String? = null,
+    /** 특정 팀 이름 (선택) — 그 팀 주간보고 내용. 생략 시 admin은 전 팀 제출현황, 리더는 내 팀. */
+    val team: String? = null,
 )
