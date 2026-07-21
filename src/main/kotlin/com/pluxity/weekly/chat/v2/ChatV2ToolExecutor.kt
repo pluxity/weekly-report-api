@@ -18,6 +18,7 @@ private val log = KotlinLogging.logger {}
 class ChatV2ToolExecutor(
     private val support: ChatV2ToolSupport,
     private val searchItemsHandler: SearchItemsHandler,
+    private val getDetailHandler: GetDetailHandler,
     private val searchUsersHandler: SearchUsersHandler,
     private val aggregateItemsHandler: AggregateItemsHandler,
     private val listPendingReviewsHandler: ListPendingReviewsHandler,
@@ -33,6 +34,7 @@ class ChatV2ToolExecutor(
         try {
             when (toolName) {
                 ChatV2Tools.SEARCH_ITEMS -> searchItemsHandler.handle(argumentsJson, currentUserId, idRegistry)
+                ChatV2Tools.GET_DETAIL -> getDetailHandler.handle(argumentsJson, idRegistry)
                 ChatV2Tools.SEARCH_USERS -> searchUsersHandler.handle(argumentsJson, idRegistry)
                 ChatV2Tools.AGGREGATE_ITEMS -> aggregateItemsHandler.handle(argumentsJson, currentUserId, idRegistry)
                 ChatV2Tools.LIST_PENDING_REVIEWS -> listPendingReviewsHandler.handle(idRegistry)

@@ -35,6 +35,7 @@ class ChatV2RemainingToolsTest :
             ChatV2ToolExecutor(
                 support = support,
                 searchItemsHandler = mockk<SearchItemsHandler>(),
+                getDetailHandler = mockk<GetDetailHandler>(),
                 searchUsersHandler = SearchUsersHandler(userRepository, support, mapper),
                 aggregateItemsHandler = mockk<AggregateItemsHandler>(),
                 listPendingReviewsHandler = ListPendingReviewsHandler(taskReviewService, mapper),

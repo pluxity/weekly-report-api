@@ -47,6 +47,7 @@ class ChatV2SearchItemsTest :
             ChatV2ToolExecutor(
                 support = support,
                 searchItemsHandler = searchItemsHandler,
+                getDetailHandler = mockk<GetDetailHandler>(),
                 searchUsersHandler = mockk<SearchUsersHandler>(),
                 aggregateItemsHandler = mockk<AggregateItemsHandler>(),
                 listPendingReviewsHandler = mockk<ListPendingReviewsHandler>(),

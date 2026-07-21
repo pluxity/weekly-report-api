@@ -237,34 +237,6 @@ class SearchItemsHandler(
         )
     }
 
-    // ── 자식 트리 (단건 자동 드릴인) ──
-
-    /** 에픽의 하위 태스크 (캡 + 전체 개수). */
-    private fun epicChildren(epicId: Long): Map<String, Any?> {
-        val tasks = taskService.search(TaskSearchFilter(epicId = epicId, scopeStartDate = ChatScope.scopeStartDate()))
-        return mapOf(
-            "task_count" to tasks.size,
-            "tasks" to tasks.take(TASK_CHILD_CAP).map { mapOf("name" to it.name, "status" to it.status.name) },
-        )
-    }
-
-    /** 프로젝트의 하위 에픽(각 하위 태스크 캡). 태스크는 프로젝트 단위로 한 번 조회해 epicId로 groupBy (N+1 회피). */
-    private fun projectChildEpics(projectId: Long): List<Map<String, Any?>> {
-        val scope = ChatScope.scopeStartDate()
-        val epics = epicService.search(EpicSearchFilter(projectId = projectId, scopeStartDate = scope))
-        val tasksByEpic =
-            taskService.search(TaskSearchFilter(projectId = projectId, scopeStartDate = scope)).groupBy { it.epicId }
-        return epics.take(EPIC_CHILD_CAP).map { e ->
-            val eTasks = tasksByEpic[e.id].orEmpty()
-            mapOf(
-                "name" to e.name,
-                "status" to e.status.name,
-                "task_count" to eTasks.size,
-                "tasks" to eTasks.take(TASK_CHILD_CAP).map { mapOf("name" to it.name, "status" to it.status.name) },
-            )
-        }
-    }
-
     // ── 응답 조립 ──
 
     private fun buildResponse(
@@ -276,21 +248,21 @@ class SearchItemsHandler(
         limit: Int,
         idRegistry: ChatV2IdRegistry,
     ): String {
-        // 결과가 전체 단건으로 좁혀지면 자동 드릴인 — 무거운 필드(설명·구성원 등) + 자식 트리 부착.
-        // 다건 목록이면 concise. concise가 이미 부모 이름(epic/project)까지 담아 그룹핑·필터엔 충분하다.
-        val drill = taskMatches.size + epicMatches.size + projectMatches.size == 1
+        // search_items는 찾기·목록 전용 — 항상 concise 매퍼만(상세·자식 트리 부착 없음).
+        // 상세(설명·구성원·시작일·하위 항목)는 전용 도구 get_detail이 담당한다.
+        // concise가 이미 부모 이름(epic/project)까지 담아 그룹핑·필터엔 충분하다.
         val tasks =
             sortTasks(taskMatches, sort, order).take(limit)
                 .onEach { idRegistry.register(ChatV2EntityType.TASK, it.id) }
-                .map { if (drill) support.taskDetailMap(it) else support.taskMap(it) }
+                .map(support::taskMap)
         val epics =
             sortEpics(epicMatches, sort, order).take(limit)
                 .onEach { idRegistry.register(ChatV2EntityType.EPIC, it.id) }
-                .map { e -> if (drill) support.epicDetailMap(e) + epicChildren(e.id) else support.epicMap(e) }
+                .map(support::epicMap)
         val projects =
             sortProjects(projectMatches, sort, order).take(limit)
                 .onEach { idRegistry.register(ChatV2EntityType.PROJECT, it.id) }
-                .map { p -> if (drill) support.projectDetailMap(p) + mapOf("epics" to projectChildEpics(p.id)) else support.projectMap(p) }
+                .map(support::projectMap)
 
         return objectMapper.writeValueAsString(
             mapOf(
@@ -397,10 +369,6 @@ class SearchItemsHandler(
     companion object {
         private const val DEFAULT_LIMIT = 10
         private const val MAX_LIMIT = 30
-
-        // 단건 드릴인 자식 트리 캡 (토큰 방어)
-        private const val EPIC_CHILD_CAP = 10
-        private const val TASK_CHILD_CAP = 10
     }
 }
 

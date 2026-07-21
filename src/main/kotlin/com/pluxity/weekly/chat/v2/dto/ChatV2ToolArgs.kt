@@ -77,6 +77,13 @@ data class GetTaskHistoryArgs(
     val taskId: Long,
 )
 
+data class GetDetailArgs(
+    /** task/epic/project/team — 상세 대상 종류 */
+    val type: String,
+    /** 항목 이름 — 그대로 넣으면 서버가 찾아 단건으로 좁혀 상세를 준다 (id 아님) */
+    val name: String,
+)
+
 data class GetWeeklyReportArgs(
     /** "this"(기본)/"last"/YYYY-MM-DD — 해석은 서버(resolveWeekStart) */
     val week: String? = null,

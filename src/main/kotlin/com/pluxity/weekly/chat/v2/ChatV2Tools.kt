@@ -31,6 +31,7 @@ import com.pluxity.weekly.chat.v2.dto.ToolDefinition
  */
 object ChatV2Tools {
     const val SEARCH_ITEMS = "search_items"
+    const val GET_DETAIL = "get_detail"
     const val SEARCH_USERS = "search_users"
     const val AGGREGATE_ITEMS = "aggregate_items"
     const val LIST_PENDING_REVIEWS = "list_pending_reviews"
@@ -101,10 +102,10 @@ object ChatV2Tools {
             tool(
                 name = SEARCH_ITEMS,
                 description =
-                    "태스크·업무 그룹(에픽)·프로젝트·팀 **개별 항목 검색·나열**. 이름은 단어 단위 부분 일치. " +
-                        "type 생략 시 태스크·업무 그룹·프로젝트를 한 번에 검색 (팀은 type='team' 명시 시에만). " +
-                        "결과는 타입당 limit건 + totals(전체 개수). " +
-                        "개수·평균·분포·순위(최다/최소)는 이 도구로 세지 말고 aggregate_items를 쓸 것 — 목록이 limit에 잘려 집계가 틀린다.",
+                    "태스크·업무 그룹(에픽)·프로젝트·팀 **찾기·목록 조회 전용** — 이름으로 후보 찾기, 조건별 나열. " +
+                        "이름은 단어 단위 부분 일치. type 생략 시 3계층 한 번에 검색 (팀은 type='team' 명시 시에만). " +
+                        "결과는 타입당 limit건(핵심 필드만) + totals(전체 개수). " +
+                        "**한 대상의 전체 상황(브리핑·현황·자세히)은 get_detail, 개수·순위·분포는 aggregate_items** — 이 도구는 목록만 준다.",
                 properties =
                     mapOf(
                         "query" to str("찾을 이름 (목록 조회면 생략)"),
@@ -121,6 +122,19 @@ object ChatV2Tools {
                             "order" to str("생략 시 asc", listOf("asc", "desc")),
                             "limit" to int("타입당 최대 결과 수 (생략 시 10)", 1, 30),
                         ),
+            ),
+            tool(
+                name = GET_DETAIL,
+                description =
+                    "**항목 하나를 콕 집어** 물을 때 — 그 항목(태스크·업무 그룹·프로젝트·팀)의 전체 상황: " +
+                        "설명·상태·진행률·구성원·시작/마감·하위 항목까지. " +
+                        "'{이름} 자세히/설명/브리핑/현황/어떻게 돼가' 처럼 한 대상에 대해 알려달라는 요청. 이름으로 지정.",
+                properties =
+                    mapOf(
+                        "type" to str("항목 종류", listOf("task", "epic", "project", "team")),
+                        "name" to str("항목 이름 — 그대로 넣으면 서버가 찾아 상세를 준다"),
+                    ),
+                required = listOf("type", "name"),
             ),
             tool(
                 name = AGGREGATE_ITEMS,
