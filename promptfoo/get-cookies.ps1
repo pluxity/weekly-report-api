@@ -1,16 +1,18 @@
-# chat-v2 eval 세션 쿠키 획득 — 3 페르소나 로그인 후 Cookie 헤더를 env로 설정
-# 사용: 서버 기동(8080) 후  →  . .\promptfoo\get-cookies.ps1   (점-소스로 실행해야 env가 현재 셸에 남음)
-# 다른 포트면:  . .\promptfoo\get-cookies.ps1 -BaseUrl https://localhost:8081
+# chat-v2 eval session cookies — sign in 3 personas, set Cookie header into env
+# Usage: start server(8081) first  ->  . .\promptfoo\get-cookies.ps1   (dot-source so env persists in this shell)
+# Other port:  . .\promptfoo\get-cookies.ps1 -BaseUrl http://localhost:8080
+# Note: Windows PowerShell 5.1 compatible (no -SkipHttpErrorCheck; messages in ASCII to dodge codepage issues).
 
-param([string]$BaseUrl = "https://localhost:8080")
+param([string]$BaseUrl = "http://localhost:8081")
 
-# 로컬 self-signed 인증서 무시 (https localhost)
+# ignore self-signed cert if https localhost (harmless on http)
 try { [System.Net.ServicePointManager]::ServerCertificateValidationCallback = { $true } } catch {}
 
+# seed 유저 (EvalDataSeeder). 비번 evaltest123.
 $users = @{
-  SHYOON_COOKIE = "shyoon"      # 관리자(윤승현)
-  MEMBER_COOKIE = "dkfkqpffk"   # 팀원(임우정)
-  ADMIN_COOKIE  = "admin"       # admin(관리자)
+  SHYOON_COOKIE = "leader"      # 이도경 — TEAM_LEADER + PM (팀 리더 + 프로젝트 PM)
+  MEMBER_COOKIE = "member"      # 박서준 — 무역할 (본인 태스크만)
+  ADMIN_COOKIE  = "admin"       # 김관리 — ADMIN (전체 스코프)
 }
 
 foreach ($envName in $users.Keys) {
@@ -18,21 +20,21 @@ foreach ($envName in $users.Keys) {
   $body = @{ username = $username; password = "evaltest123" } | ConvertTo-Json
   try {
     $resp = Invoke-WebRequest -Uri "$BaseUrl/auth/sign-in" -Method Post `
-      -ContentType "application/json" -Body $body -SessionVariable sess -SkipHttpErrorCheck
-    # Set-Cookie들을 "name=value; name2=value2" 형태로 병합
+      -ContentType "application/json" -Body $body -SessionVariable sess -UseBasicParsing
+    # merge Set-Cookie into "name=value; name2=value2"
     $cookies = $sess.Cookies.GetCookies($BaseUrl)
     if ($cookies.Count -eq 0) {
-      Write-Host "[$username] 쿠키 없음 — status=$($resp.StatusCode). 비번/유저 확인" -ForegroundColor Yellow
+      Write-Host "[$username] no cookie -- status=$($resp.StatusCode). check password/user" -ForegroundColor Yellow
       continue
     }
     $cookieHeader = ($cookies | ForEach-Object { "$($_.Name)=$($_.Value)" }) -join "; "
     Set-Item -Path "env:$envName" -Value $cookieHeader
-    Write-Host "[$username] -> `$env:$envName 설정됨 (status=$($resp.StatusCode), cookies=$($cookies.Count))" -ForegroundColor Green
+    Write-Host "[$username] -> `$env:$envName set (status=$($resp.StatusCode), cookies=$($cookies.Count))" -ForegroundColor Green
   } catch {
-    Write-Host "[$username] 로그인 실패: $($_.Exception.Message)" -ForegroundColor Red
+    Write-Host "[$username] sign-in failed: $($_.Exception.Message)" -ForegroundColor Red
   }
 }
 
-Write-Host "`n설정된 env:" -ForegroundColor Cyan
+Write-Host "`nenv set:" -ForegroundColor Cyan
 $users.Keys | ForEach-Object { "  $_ = $([bool](Get-Item "env:$_" -ErrorAction SilentlyContinue))" }
-Write-Host "`n다음: npx promptfoo eval -c promptfoo/promptfooconfig.v2.yaml --repeat 3"
+Write-Host "`nnext (single run): npx promptfoo eval -c promptfoo/promptfooconfig.v2.yaml"
