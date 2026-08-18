@@ -28,6 +28,28 @@ import org.springframework.web.bind.annotation.RestController
 class UserController(
     private val service: UserService,
 ) {
+    @Operation(
+        summary = "사용자 목록 조회",
+        description = "담당자 선택 등에 쓰는 목록. 인증된 사용자면 조회할 수 있다. 퇴사자도 포함되므로 retiredAt 으로 구분한다",
+    )
+    @ApiResponses(
+        value = [
+            ApiResponse(responseCode = "200", description = "조회 성공"),
+            ApiResponse(
+                responseCode = "401",
+                description = "인증되지 않은 요청",
+                content = [Content(mediaType = "application/json", schema = Schema(implementation = ErrorResponseBody::class))],
+            ),
+            ApiResponse(
+                responseCode = "403",
+                description = "퇴사 처리된 계정 (RETIRED_USER)",
+                content = [Content(mediaType = "application/json", schema = Schema(implementation = ErrorResponseBody::class))],
+            ),
+        ],
+    )
+    @GetMapping
+    fun getUsers(): ResponseEntity<DataResponseBody<List<UserResponse>>> = ResponseEntity.ok(DataResponseBody(service.findAll()))
+
     @Operation(summary = "내 정보 조회", description = "현재 로그인한 사용자의 정보를 조회합니다")
     @ApiResponses(
         value = [
