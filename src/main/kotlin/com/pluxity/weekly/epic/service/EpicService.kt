@@ -35,7 +35,10 @@ class EpicService(
         val user = authorizationService.currentUser()
         val scoped = filter.copy(epicIds = filter.epicIds ?: authorizationService.visibleEpicIds(user))
         if (scoped.epicIds?.isEmpty() == true) return emptyList()
-        return epicRepository.findByFilter(scoped).map { it.toResponse() }
+        val epics = epicRepository.findByFilter(scoped)
+        if (epics.isEmpty()) return emptyList()
+        val tasksByEpicId = taskRepository.findByEpicIn(epics).groupBy { it.epic.requiredId }
+        return epics.map { it.toResponse(completedAt = it.derivedCompletedAt(tasksByEpicId[it.requiredId].orEmpty())) }
     }
 
     fun findById(id: Long): EpicResponse = getEpicById(id).toResponse()

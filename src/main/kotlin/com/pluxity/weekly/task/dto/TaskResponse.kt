@@ -1,6 +1,7 @@
 package com.pluxity.weekly.task.dto
 
 import com.fasterxml.jackson.annotation.JsonUnwrapped
+import com.pluxity.weekly.core.delay.DelayInfo
 import com.pluxity.weekly.core.response.BaseResponse
 import com.pluxity.weekly.core.response.toBaseResponse
 import com.pluxity.weekly.task.entity.Task
@@ -32,6 +33,15 @@ data class TaskResponse(
     val startDate: LocalDate?,
     @field:Schema(description = "마감일", example = "2026-03-31")
     val dueDate: LocalDate?,
+    @field:Schema(description = "완료일 (미완료 시 null)", example = "2026-03-28")
+    val completedAt: LocalDate?,
+    @field:Schema(description = "지연 여부 (delayDays > 0)", example = "false")
+    val delayed: Boolean,
+    @field:Schema(
+        description = "마감 대비 일수. 음수=조기완료, 0=정시, 양수=지연. 미완료·마감이내 또는 마감일 없음이면 null",
+        example = "-3",
+    )
+    val delayDays: Int?,
     @field:Schema(description = "담당자 ID", example = "1")
     val assigneeId: Long?,
     @field:Schema(description = "담당자 이름", example = "홍길동")
@@ -40,8 +50,9 @@ data class TaskResponse(
     val baseResponse: BaseResponse,
 )
 
-fun Task.toResponse(): TaskResponse =
-    TaskResponse(
+fun Task.toResponse(today: LocalDate = LocalDate.now()): TaskResponse {
+    val delay = DelayInfo.of(this.dueDate, this.effectiveCompletedAt(), today)
+    return TaskResponse(
         id = this.requiredId,
         epicId = this.epic.requiredId,
         epicName = this.epic.name,
@@ -53,7 +64,11 @@ fun Task.toResponse(): TaskResponse =
         progress = this.progress,
         startDate = this.startDate,
         dueDate = this.dueDate,
+        completedAt = delay.completedAt,
+        delayed = delay.delayed,
+        delayDays = delay.delayDays,
         assigneeId = this.assignee?.id,
         assigneeName = this.assignee?.name,
         baseResponse = this.toBaseResponse(),
     )
+}

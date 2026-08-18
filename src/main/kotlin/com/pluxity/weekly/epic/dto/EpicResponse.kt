@@ -1,6 +1,7 @@
 package com.pluxity.weekly.epic.dto
 
 import com.fasterxml.jackson.annotation.JsonUnwrapped
+import com.pluxity.weekly.core.delay.DelayInfo
 import com.pluxity.weekly.core.response.BaseResponse
 import com.pluxity.weekly.core.response.toBaseResponse
 import com.pluxity.weekly.epic.entity.Epic
@@ -26,6 +27,15 @@ data class EpicResponse(
     val startDate: LocalDate?,
     @field:Schema(description = "마감일", example = "2026-03-31")
     val dueDate: LocalDate?,
+    @field:Schema(description = "완료일 (하위 Task에서 파생, 미완료 시 null)", example = "2026-03-28")
+    val completedAt: LocalDate?,
+    @field:Schema(description = "지연 여부 (delayDays > 0)", example = "false")
+    val delayed: Boolean,
+    @field:Schema(
+        description = "마감 대비 일수. 음수=조기완료, 0=정시, 양수=지연. 미완료·마감이내 또는 마감일 없음이면 null",
+        example = "-3",
+    )
+    val delayDays: Int?,
     @field:Schema(description = "배정된 사용자 목록")
     val members: List<EpicMemberResponse>,
     @field:JsonUnwrapped
@@ -40,8 +50,12 @@ data class EpicMemberResponse(
     val userName: String,
 )
 
-fun Epic.toResponse(): EpicResponse =
-    EpicResponse(
+fun Epic.toResponse(
+    completedAt: LocalDate? = derivedCompletedAt(),
+    today: LocalDate = LocalDate.now(),
+): EpicResponse {
+    val delay = DelayInfo.of(this.dueDate, completedAt, today)
+    return EpicResponse(
         id = this.requiredId,
         projectId = this.project.requiredId,
         projectName = this.project.name,
@@ -50,6 +64,9 @@ fun Epic.toResponse(): EpicResponse =
         status = this.status,
         startDate = this.startDate,
         dueDate = this.dueDate,
+        completedAt = delay.completedAt,
+        delayed = delay.delayed,
+        delayDays = delay.delayDays,
         members =
             this.assignments.map {
                 EpicMemberResponse(
@@ -59,3 +76,4 @@ fun Epic.toResponse(): EpicResponse =
             },
         baseResponse = this.toBaseResponse(),
     )
+}

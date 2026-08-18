@@ -40,6 +40,16 @@ class Project(
         validateDateRange(startDate, dueDate)
     }
 
+    /**
+     * 파생 완료일. Project가 DONE(= 모든 하위 Epic 완료)이면 하위 Epic 완료일 중 가장 늦은 날,
+     * 아니면 null. 별도 저장 없이 하위에서 계산한다.
+     *
+     * @param epicCompletedAts 하위 Epic들의 파생 완료일. 기본값은 lazy 컬렉션에서 계산하며,
+     *   list 응답 등 N+1이 우려되는 곳은 배치 로딩으로 미리 계산한 값을 넘긴다.
+     */
+    fun derivedCompletedAt(epicCompletedAts: List<LocalDate?> = epics.map { it.derivedCompletedAt() }): LocalDate? =
+        if (status == ProjectStatus.DONE) epicCompletedAts.filterNotNull().maxOrNull() else null
+
     fun ensureMutable() {
         if (status == ProjectStatus.DONE) {
             throw CustomException(ErrorCode.INVALID_STATUS_TRANSITION, status, "update")

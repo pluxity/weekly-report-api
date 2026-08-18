@@ -48,8 +48,27 @@ class ProjectService(
                 .groupBy { it.projectId }
         val pmNameMap = resolvePmNames(projects.mapNotNull { it.pmId })
         val progressMap = averageProgressByProjectIds(projectIds)
+
+        // 완료일 파생용 하위 Epic·Task 배치 로딩 (N+1 방지) — 프로젝트별 하위 Epic 완료일 목록
+        val epics = epicRepository.findByProjectIdIn(projectIds)
+        val tasksByEpicId =
+            if (epics.isEmpty()) {
+                emptyMap()
+            } else {
+                taskRepository.findByEpicIn(epics).groupBy { it.epic.requiredId }
+            }
+        val epicCompletedAtsByProject =
+            epics
+                .groupBy { it.project.requiredId }
+                .mapValues { (_, es) -> es.map { it.derivedCompletedAt(tasksByEpicId[it.requiredId].orEmpty()) } }
+
         return projects.map {
-            it.toResponse(memberMap[it.requiredId].orEmpty(), pmNameMap[it.pmId], progressMap[it.requiredId] ?: 0)
+            it.toResponse(
+                memberMap[it.requiredId].orEmpty(),
+                pmNameMap[it.pmId],
+                progressMap[it.requiredId] ?: 0,
+                completedAt = it.derivedCompletedAt(epicCompletedAtsByProject[it.requiredId].orEmpty()),
+            )
         }
     }
 

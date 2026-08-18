@@ -3,6 +3,7 @@ package com.pluxity.weekly.dashboard.service
 import com.pluxity.weekly.auth.authorization.AuthorizationService
 import com.pluxity.weekly.auth.user.repository.UserRepository
 import com.pluxity.weekly.core.constant.ErrorCode
+import com.pluxity.weekly.core.delay.DelayInfo
 import com.pluxity.weekly.core.exception.CustomException
 import com.pluxity.weekly.dashboard.dto.AdminDashboardResponse
 import com.pluxity.weekly.dashboard.dto.AdminProjectCard
@@ -170,9 +171,7 @@ class DashboardService(
                     memberCount = projectTasks.mapNotNull { it.assignee?.requiredId }.distinct().size,
                     delayedTaskCount =
                         projectTasks.count { task ->
-                            task.dueDate != null &&
-                                task.status != TaskStatus.DONE &&
-                                now.isAfter(task.dueDate)
+                            task.status != TaskStatus.DONE && task.calculateDaysDelta(now) != null
                         },
                     startDate = project.startDate,
                     dueDate = project.dueDate,
@@ -222,24 +221,19 @@ class DashboardService(
         val doneTasks = tasks.filter { it.status == TaskStatus.DONE }
 
         // KPI
+        val now = LocalDate.now()
         val completionRate = if (tasks.isEmpty()) 0 else (doneTasks.size * 100 / tasks.size)
-        val onTimeTasks =
-            doneTasks.filter { task ->
-                task.dueDate != null && !task.updatedAt.toLocalDate().isAfter(task.dueDate)
-            }
-        val onTimeRate = if (doneTasks.isEmpty()) 0 else (onTimeTasks.size * 100 / doneTasks.size)
-        val delayedDoneTasks =
-            doneTasks.filter { task ->
-                task.dueDate != null && task.updatedAt.toLocalDate().isAfter(task.dueDate)
-            }
+        // dueDate 없는 완료건은 지연일이 null → 집계에서 제외 (기존 동작과 동일)
+        val doneDelays = doneTasks.mapNotNull { it.calculateDaysDelta(now) }
+        val onTimeCount = doneDelays.count { it <= 0 }
+        val onTimeRate = if (doneTasks.isEmpty()) 0 else (onTimeCount * 100 / doneTasks.size)
+        val delayedDelays = doneDelays.filter { it > 0 }
         val averageDelayDays =
-            if (delayedDoneTasks.isEmpty()) {
+            if (delayedDelays.isEmpty()) {
                 0.0
             } else {
                 kotlin.math.round(
-                    delayedDoneTasks
-                        .map { ChronoUnit.DAYS.between(it.dueDate, it.updatedAt.toLocalDate()).toDouble() }
-                        .average() * 100,
+                    delayedDelays.map { it.toDouble() }.average() * 100,
                 ) / 100.0
             }
 
@@ -406,19 +400,8 @@ class DashboardService(
     }
 
     /**
-     * daysDelta 계산:
-     * - DONE: updatedAt(완료일) - dueDate (음수=조기완료, 양수=지연완료)
-     * - 미완료 + 마감초과: now - dueDate (양수=지연중)
-     * - 그 외: null
+     * 지연일(daysDelta) — 지연 관련 모든 지표의 단일 기준. 계산 규칙은 [DelayInfo],
+     * 완료 기준일은 [Task.effectiveCompletedAt](completedAt, 미입력 시 updatedAt fallback).
      */
-    private fun Task.calculateDaysDelta(now: LocalDate): Int? {
-        val due = this.dueDate ?: return null
-        return when {
-            this.status == TaskStatus.DONE ->
-                ChronoUnit.DAYS.between(due, this.updatedAt.toLocalDate()).toInt()
-            now.isAfter(due) ->
-                ChronoUnit.DAYS.between(due, now).toInt()
-            else -> null
-        }
-    }
+    private fun Task.calculateDaysDelta(now: LocalDate): Int? = DelayInfo.of(this.dueDate, this.effectiveCompletedAt(), now).delayDays
 }

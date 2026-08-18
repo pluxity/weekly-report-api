@@ -1,6 +1,7 @@
 package com.pluxity.weekly.project.dto
 
 import com.fasterxml.jackson.annotation.JsonUnwrapped
+import com.pluxity.weekly.core.delay.DelayInfo
 import com.pluxity.weekly.core.response.BaseResponse
 import com.pluxity.weekly.core.response.toBaseResponse
 import com.pluxity.weekly.project.entity.Project
@@ -22,6 +23,15 @@ data class ProjectResponse(
     val startDate: LocalDate?,
     @field:Schema(description = "마감일", example = "2026-03-31")
     val dueDate: LocalDate?,
+    @field:Schema(description = "완료일 (하위 Epic/Task에서 파생, 미완료 시 null)", example = "2026-03-28")
+    val completedAt: LocalDate?,
+    @field:Schema(description = "지연 여부 (delayDays > 0)", example = "false")
+    val delayed: Boolean,
+    @field:Schema(
+        description = "마감 대비 일수. 음수=조기완료, 0=정시, 양수=지연. 미완료·마감이내 또는 마감일 없음이면 null",
+        example = "-3",
+    )
+    val delayDays: Int?,
     @field:Schema(description = "담당 PM 사용자 ID", example = "1")
     val pmId: Long?,
     @field:Schema(description = "담당 PM 이름", example = "홍길동")
@@ -52,17 +62,24 @@ fun Project.toResponse(
     memberInfos: List<ProjectMemberResponse> = emptyList(),
     pmName: String? = null,
     progress: Int = 0,
-): ProjectResponse =
-    ProjectResponse(
+    completedAt: LocalDate? = derivedCompletedAt(),
+    today: LocalDate = LocalDate.now(),
+): ProjectResponse {
+    val delay = DelayInfo.of(this.dueDate, completedAt, today)
+    return ProjectResponse(
         id = this.requiredId,
         name = this.name,
         description = this.description,
         status = this.status,
         startDate = this.startDate,
         dueDate = this.dueDate,
+        completedAt = delay.completedAt,
+        delayed = delay.delayed,
+        delayDays = delay.delayDays,
         pmId = this.pmId,
         pmName = pmName,
         members = memberInfos,
         progress = progress,
         baseResponse = this.toBaseResponse(),
     )
+}

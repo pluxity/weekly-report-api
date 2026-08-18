@@ -41,9 +41,18 @@ class Task(
     @JoinColumn(name = "assignee_id")
     var assignee: User? = null,
 ) : IdentityIdEntity() {
+    @Column(name = "completed_at")
+    var completedAt: LocalDate? = null
+
     init {
         validateDateRange(startDate, dueDate)
     }
+
+    /**
+     * 지연 계산용 완료 기준일. DONE이면 저장된 [completedAt](미입력 시 마지막 수정 시각 fallback),
+     * 그 외 상태는 null.
+     */
+    fun effectiveCompletedAt(): LocalDate? = if (status == TaskStatus.DONE) (completedAt ?: updatedAt.toLocalDate()) else null
 
     fun ensureMutable() {
         if (status == TaskStatus.DONE) {
