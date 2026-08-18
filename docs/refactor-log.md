@@ -4,6 +4,23 @@
 
 ---
 
+## refactor/authorization — 진행중
+
+**Backend**
+
+- `/admin/**`, `/roles/**` 에 `hasRole(ADMIN)` — 지금까지 로그인만 하면 역할 변경까지 가능했다
+- `GET /users` 신설 — 담당자 선택 등 일반 화면용 사용자 목록
+- 남은 작업은 `docs/notes/authorization-spec.md` 참조 (2단계부터)
+
+**FE**
+
+| 구분 | 내용 |
+|---|---|
+| 필수 | 사용자 목록 조회를 `GET /admin/users` → `GET /users` 로 변경. 기존 경로는 ADMIN 전용이 되어 담당자 드롭다운이 403 |
+| 참고 | 관리자 화면(사용자·역할 관리)은 ADMIN 계정에서만 동작 |
+
+---
+
 ## refactor/soft-delete-consistency — PR #94
 
 **Backend**

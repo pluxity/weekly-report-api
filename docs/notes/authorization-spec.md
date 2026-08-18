@@ -127,14 +127,35 @@ GET /users             → 신설. 인증 사용자면 조회 가능
 
 ## 작업 단계
 
-### 1. 구멍 막기 — 이것만으로 실제 위험은 대부분 사라진다
+### 1. 구멍 막기 — ✅ 완료 (`864e4b6`)
 
-- `SecurityConfig` — `/admin/**`, `/roles/**` 에 `hasRole("ADMIN")`
-- `GET /users` 신설 (`UserController`). `AdminUserController` 의 목록 조회는 그대로 두되 ADMIN 전용이 됨
+- `SecurityConfig` — `/admin/**`, `/roles/**` 에 `hasRole(UserType.ADMIN.roleName)`
+- `GET /users` 신설 (`UserController`)
+- 확인함: 일반 사용자 403 / ADMIN 200 / `/users` 200
+- **주의**: 차단이 `Role.auth` 컬럼에 의존한다. ADMIN 행의 `auth` 가 `USER` 가 되면 조용히 풀린다
+  (`getAuthority()` 가 `ROLE_${auth}` 이고 `Role.name` 과 별개)
 
-### 2. `AccessPolicy` 도입
+### 2. `AccessPolicy` 도입 ← **여기부터**
 
 새 컴포넌트. 위 규칙 표를 `isManagerOf` + `can`/`require` + `canCreateXxx` 로 구현.
+
+**같이 처리할 것 — `Role.auth` 를 `Role.name` 으로 통합.**
+"관리자인가" 판정이 지금 둘로 갈려 있고 서로 모른다.
+
+```
+Spring Security  ROLE_ADMIN 권한       ← Role.auth 파생 (getAuthority)   → 경로 차단
+도메인           Role.name == "ADMIN"  ← AuthorizationService.hasRole    → 서비스 판정
+User.isAdmin()   Role.auth             ← 또 auth
+```
+
+일치하는 건 1번 행이 우연히 둘 다 `ADMIN` 이기 때문이지 제약이 아니다. `POST /roles` 로
+`name='SUPER', auth='ADMIN'`(경로는 통과, 서비스는 거부) 같은 조합을 만들 수 있다.
+
+```kotlin
+fun getAuthority() = "ROLE_${name.uppercase()}"   // name 단일 소스. Leader 가 혼용이라 uppercase 필요
+```
+
+`auth` 컬럼과 `RoleType` enum 제거. 덤으로 `ROLE_PM`·`ROLE_LEADER` 가 생겨 경로 규칙을 세밀하게 쓸 수 있다.
 
 ### 3. `scope` 분리
 
