@@ -16,7 +16,6 @@ import io.swagger.v3.oas.annotations.tags.Tag
 import jakarta.validation.Valid
 import org.springframework.http.ResponseEntity
 import org.springframework.security.core.Authentication
-import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PatchMapping
 import org.springframework.web.bind.annotation.RequestBody
@@ -36,6 +35,11 @@ class UserController(
             ApiResponse(
                 responseCode = "401",
                 description = "인증되지 않은 요청",
+                content = [Content(mediaType = "application/json", schema = Schema(implementation = ErrorResponseBody::class))],
+            ),
+            ApiResponse(
+                responseCode = "403",
+                description = "퇴사 처리된 계정 (RETIRED_USER)",
                 content = [Content(mediaType = "application/json", schema = Schema(implementation = ErrorResponseBody::class))],
             ),
             ApiResponse(
@@ -64,6 +68,11 @@ class UserController(
                 content = [Content(mediaType = "application/json", schema = Schema(implementation = ErrorResponseBody::class))],
             ),
             ApiResponse(
+                responseCode = "403",
+                description = "퇴사 처리된 계정 (RETIRED_USER)",
+                content = [Content(mediaType = "application/json", schema = Schema(implementation = ErrorResponseBody::class))],
+            ),
+            ApiResponse(
                 responseCode = "500",
                 description = "서버 오류",
                 content = [Content(mediaType = "application/json", schema = Schema(implementation = ErrorResponseBody::class))],
@@ -80,7 +89,7 @@ class UserController(
         return ResponseEntity.noContent().build()
     }
 
-    @Operation(summary = "사용자 비밀번호 변경", description = "사용자의 비밀번호를 변경합니다")
+    @Operation(summary = "내 비밀번호 변경", description = "현재 비밀번호를 확인하고 새 비밀번호로 변경합니다")
     @ApiResponses(
         value = [
             ApiResponse(responseCode = "204", description = "비밀번호 변경 성공"),
@@ -96,12 +105,7 @@ class UserController(
             ),
             ApiResponse(
                 responseCode = "403",
-                description = "권한 없음",
-                content = [Content(mediaType = "application/json", schema = Schema(implementation = ErrorResponseBody::class))],
-            ),
-            ApiResponse(
-                responseCode = "404",
-                description = "사용자를 찾을 수 없음",
+                description = "퇴사 처리된 계정 (RETIRED_USER)",
                 content = [Content(mediaType = "application/json", schema = Schema(implementation = ErrorResponseBody::class))],
             ),
             ApiResponse(

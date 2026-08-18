@@ -30,15 +30,10 @@ class AuthenticationController(
     @Operation(summary = "회원가입", description = "새로운 사용자를 등록합니다")
     @ApiResponses(
         value = [
-            ApiResponse(responseCode = "201", description = "회원가입 성공"),
+            ApiResponse(responseCode = "201", description = "회원가입 성공. Location 헤더에 /users/me"),
             ApiResponse(
                 responseCode = "400",
-                description = "잘못된 요청",
-                content = [Content(mediaType = "application/json", schema = Schema(implementation = ErrorResponseBody::class))],
-            ),
-            ApiResponse(
-                responseCode = "409",
-                description = "이미 존재하는 사용자",
+                description = "잘못된 요청 또는 이미 존재하는 아이디",
                 content = [Content(mediaType = "application/json", schema = Schema(implementation = ErrorResponseBody::class))],
             ),
             ApiResponse(
@@ -54,18 +49,21 @@ class AuthenticationController(
         @Parameter(description = "회원가입 정보", required = true) @RequestBody @Valid dto: SignUpRequest,
     ): ResponseEntity<Long> = ResponseEntity.ok(authenticationService.signUp(dto))
 
-    @Operation(summary = "로그인", description = "사용자 인증 및 세션 생성")
+    @Operation(
+        summary = "로그인",
+        description = "자격 증명을 검증하고 AccessToken/RefreshToken 쿠키를 발급합니다. 퇴사 처리된 계정은 로그인할 수 없습니다",
+    )
     @ApiResponses(
         value = [
-            ApiResponse(responseCode = "204", description = "로그인 성공"),
+            ApiResponse(responseCode = "201", description = "로그인 성공. AccessToken/RefreshToken 쿠키 발급"),
             ApiResponse(
                 responseCode = "400",
-                description = "잘못된 요청",
+                description = "아이디 또는 비밀번호가 틀림 (존재하지 않는 아이디도 동일하게 응답)",
                 content = [Content(mediaType = "application/json", schema = Schema(implementation = ErrorResponseBody::class))],
             ),
             ApiResponse(
-                responseCode = "401",
-                description = "인증 실패",
+                responseCode = "403",
+                description = "퇴사 처리된 계정 (RETIRED_USER)",
                 content = [Content(mediaType = "application/json", schema = Schema(implementation = ErrorResponseBody::class))],
             ),
             ApiResponse(
@@ -86,13 +84,18 @@ class AuthenticationController(
         return ResponseEntity.noContent().build()
     }
 
-    @Operation(summary = "로그아웃", description = "사용자 세션 종료")
+    @Operation(summary = "로그아웃", description = "RefreshToken 을 폐기하고 인증 쿠키를 만료시킵니다")
     @ApiResponses(
         value = [
             ApiResponse(responseCode = "204", description = "로그아웃 성공"),
             ApiResponse(
                 responseCode = "401",
-                description = "인증되지 않은 요청",
+                description = "액세스 토큰이 유효하지 않거나 만료됨",
+                content = [Content(mediaType = "application/json", schema = Schema(implementation = ErrorResponseBody::class))],
+            ),
+            ApiResponse(
+                responseCode = "403",
+                description = "퇴사 처리된 계정 (RETIRED_USER)",
                 content = [Content(mediaType = "application/json", schema = Schema(implementation = ErrorResponseBody::class))],
             ),
             ApiResponse(
@@ -111,13 +114,21 @@ class AuthenticationController(
         return ResponseEntity.noContent().build()
     }
 
-    @Operation(summary = "토큰 갱신", description = "인증 토큰 갱신")
+    @Operation(
+        summary = "토큰 갱신",
+        description = "RefreshToken 쿠키로 인증 쿠키를 재발급합니다. 실패 시 기존 쿠키를 만료시킵니다",
+    )
     @ApiResponses(
         value = [
             ApiResponse(responseCode = "204", description = "토큰 갱신 성공"),
             ApiResponse(
                 responseCode = "401",
-                description = "유효하지 않은 리프레시 토큰",
+                description = "리프레시 토큰이 없거나 유효하지 않거나 만료됨",
+                content = [Content(mediaType = "application/json", schema = Schema(implementation = ErrorResponseBody::class))],
+            ),
+            ApiResponse(
+                responseCode = "404",
+                description = "토큰의 사용자를 찾을 수 없음",
                 content = [Content(mediaType = "application/json", schema = Schema(implementation = ErrorResponseBody::class))],
             ),
             ApiResponse(
