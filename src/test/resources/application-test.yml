@@ -1,0 +1,8 @@
+jwt:
+  access-token:
+    secret: test-access-secret-0123456789012345678901234567890123456789
+  refresh-token:
+    secret: test-refresh-secret-0123456789012345678901234567890123456789
+
+user:
+  init-password: test1234!

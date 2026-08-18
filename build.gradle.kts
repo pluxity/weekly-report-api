@@ -51,6 +51,7 @@ dependencies {
     testImplementation(libs.kotlin.test.junit5)
     testRuntimeOnly(libs.junit.platform.launcher)
     testImplementation(libs.bundles.kotest)
+    testImplementation(libs.bundles.testcontainers)
     testImplementation(libs.mockk)
     testImplementation(libs.h2)
 }

@@ -51,10 +51,14 @@ kotest-assertions-core = { module = "io.kotest:kotest-assertions-core", version.
 kotest-extensions-spring = { module = "io.kotest.extensions:kotest-extensions-spring", version.ref = "kotest-extensions-spring" }
 mockk = { module = "io.mockk:mockk", version.ref = "mockk" }
 
+spring-boot-testcontainers = { module = "org.springframework.boot:spring-boot-testcontainers" }
+testcontainers-postgresql = { module = "org.testcontainers:testcontainers-postgresql" }
+
 [bundles]
 kotlin-jdsl = ["kotlin-jdsl-jpql-dsl", "kotlin-jdsl-jpql-render", "kotlin-jdsl-spring-data-jpa"]
 springdoc = ["springdoc-webmvc-ui", "springdoc-common"]
 kotest = ["kotest-runner-junit5", "kotest-assertions-core", "kotest-extensions-spring"]
+testcontainers = ["spring-boot-testcontainers", "testcontainers-postgresql"]
 
 [plugins]
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
