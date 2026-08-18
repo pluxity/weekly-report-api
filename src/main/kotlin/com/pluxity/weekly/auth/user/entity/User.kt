@@ -8,12 +8,11 @@ import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.OneToMany
 import jakarta.persistence.Table
-import org.hibernate.annotations.SoftDelete
+import java.time.LocalDate
 import java.time.LocalDateTime
 
 @Entity
 @Table(name = "users")
-@SoftDelete(columnName = "deleted")
 class User(
     @Column(nullable = false, unique = true)
     var username: String,
@@ -36,13 +35,29 @@ class User(
     @Column(name = "teams_service_url")
     var teamsServiceUrl: String? = null
 
-    @Column(name = "profile_image_id")
-    var profileImageId: Long? = null
-
     var lastPasswordChangeDate: LocalDateTime = LocalDateTime.now()
+
+    @Column(name = "retired_at")
+    var retiredAt: LocalDate? = null
+        protected set
 
     @OneToMany(mappedBy = "user", cascade = [CascadeType.PERSIST, CascadeType.MERGE])
     var userRoles: MutableSet<UserRole> = LinkedHashSet()
+
+    val isRetired: Boolean
+        get() = retiredAt != null
+
+    fun retire(retiredAt: LocalDate) {
+        if (retiredAt.isAfter(LocalDate.now())) {
+            throw CustomException(ErrorCode.INVALID_RETIRED_AT)
+        }
+        this.retiredAt = retiredAt
+    }
+
+    fun rejoin() {
+        if (!isRetired) throw CustomException(ErrorCode.USER_NOT_RETIRED)
+        this.retiredAt = null
+    }
 
     fun changePassword(password: String) {
         this.password = password
@@ -103,10 +118,6 @@ class User(
 
     fun changeEmail(email: String?) {
         this.email = email
-    }
-
-    fun changeProfileImageId(profileImageId: Long?) {
-        this.profileImageId = profileImageId
     }
 
     fun updateTeamsInfo(

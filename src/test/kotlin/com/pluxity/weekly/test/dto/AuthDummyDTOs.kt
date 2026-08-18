@@ -17,7 +17,6 @@ fun dummyUserCreateRequest(
     code: String = "code",
     phoneNumber: String? = null,
     email: String? = null,
-    profileImageId: Long? = null,
     roleIds: List<Long> = listOf(),
 ): UserCreateRequest =
     UserCreateRequest(
@@ -27,7 +26,6 @@ fun dummyUserCreateRequest(
         code = code,
         phoneNumber = phoneNumber,
         email = email,
-        profileImageId = profileImageId,
         roleIds = roleIds,
     )
 
@@ -36,7 +34,6 @@ fun dummyUserUpdateRequest(
     code: String = "code",
     phoneNumber: String? = null,
     email: String? = null,
-    profileImageId: Long? = null,
     roleIds: List<Long>? = null,
 ): UserUpdateRequest =
     UserUpdateRequest(
@@ -44,7 +41,6 @@ fun dummyUserUpdateRequest(
         code = code,
         phoneNumber = phoneNumber,
         email = email,
-        profileImageId = profileImageId,
         roleIds = roleIds,
     )
 

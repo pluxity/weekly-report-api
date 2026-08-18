@@ -1,5 +1,6 @@
 package com.pluxity.weekly.auth.authentication.security
 
+import com.pluxity.weekly.core.constant.ErrorCode
 import com.pluxity.weekly.core.exception.CustomException
 import com.pluxity.weekly.core.response.ErrorResponseBody
 import jakarta.servlet.FilterChain
@@ -43,6 +44,8 @@ class JwtAuthenticationFilter(
         if (token != null) {
             val username = jwtProvider.extractUsername(token)
             val userDetails = userDetailsService.loadUserByUsername(username)
+            // 발급된 토큰이 남아 있어도 퇴사 처리된 계정은 차단한다
+            if (!userDetails.isEnabled) throw CustomException(ErrorCode.RETIRED_USER)
             setAuthenticationContext(request, userDetails)
         }
     }

@@ -3,6 +3,7 @@ package com.pluxity.weekly.auth.user.dto
 import com.pluxity.weekly.auth.authorization.UserType
 import com.pluxity.weekly.auth.user.entity.User
 import io.swagger.v3.oas.annotations.media.Schema
+import java.time.LocalDate
 
 @Schema(description = "사용자 응답")
 data class UserResponse(
@@ -24,6 +25,8 @@ data class UserResponse(
     val roles: List<RoleResponse>,
     @field:Schema(description = "대표 역할 (우선순위 ADMIN > PO > PM > LEADER, 없으면 WORKER)", example = "PM")
     val effectiveRole: String,
+    @field:Schema(description = "퇴사일. null 이면 재직 중", example = "2026-08-31")
+    val retiredAt: LocalDate?,
 )
 
 fun User.toResponse(): UserResponse =
@@ -37,4 +40,5 @@ fun User.toResponse(): UserResponse =
         shouldChangePassword = this.isPasswordChangeRequired(),
         roles = this.userRoles.sortedByDescending { it.role.id }.map { it.role.toResponse() },
         effectiveRole = UserType.effectiveRoleName(this.userRoles.map { it.role.name.uppercase() }.toSet()),
+        retiredAt = this.retiredAt,
     )

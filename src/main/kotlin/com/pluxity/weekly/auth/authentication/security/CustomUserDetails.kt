@@ -21,5 +21,5 @@ data class CustomUserDetails(
 
     override fun isCredentialsNonExpired(): Boolean = true
 
-    override fun isEnabled(): Boolean = true
+    override fun isEnabled(): Boolean = !user.isRetired
 }

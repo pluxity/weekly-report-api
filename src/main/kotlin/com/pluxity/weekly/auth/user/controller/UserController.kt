@@ -119,21 +119,4 @@ class UserController(
         service.updateUserPassword(authentication.name, dto)
         return ResponseEntity.noContent().build()
     }
-
-    @Operation(summary = "내 프로필 이미지 삭제", description = "현재 로그인한 사용자의 프로필 이미지를 삭제합니다")
-    @ApiResponses(
-        value = [
-            ApiResponse(responseCode = "204", description = "프로필 이미지 삭제 성공"),
-            ApiResponse(
-                responseCode = "401",
-                description = "인증되지 않은 요청",
-                content = [Content(mediaType = "application/json", schema = Schema(implementation = ErrorResponseBody::class))],
-            ),
-        ],
-    )
-    @DeleteMapping("/me/profile-image")
-    fun removeProfileImage(authentication: Authentication): ResponseEntity<Void> {
-        service.removeProfileImage(authentication.name)
-        return ResponseEntity.noContent().build()
-    }
 }
