@@ -24,6 +24,9 @@ enum class ErrorCode(
         HttpStatus.CONFLICT,
         "사용자가 프로젝트 PM 또는 팀 리더로 배정되어 있어 삭제할 수 없습니다. 먼저 다른 사용자로 인계해주세요.",
     ),
+    INVALID_RETIRED_AT(HttpStatus.BAD_REQUEST, "퇴사일은 미래일 수 없습니다."),
+    USER_NOT_RETIRED(HttpStatus.BAD_REQUEST, "퇴사 상태가 아닌 사용자입니다."),
+    RETIRED_USER(HttpStatus.FORBIDDEN, "퇴사 처리된 계정입니다."),
 
     // ── Team ──
     NOT_FOUND_TEAM(HttpStatus.NOT_FOUND, "요청하신 팀을 찾을 수 없습니다."),

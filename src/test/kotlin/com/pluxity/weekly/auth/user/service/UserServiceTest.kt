@@ -23,6 +23,7 @@ import io.mockk.mockk
 import io.mockk.verify
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.security.crypto.password.PasswordEncoder
+import java.time.LocalDate
 
 class UserServiceTest :
     BehaviorSpec({
@@ -80,7 +81,7 @@ class UserServiceTest :
                 every { teamRepository.existsByLeaderId(10L) } returns false
                 every { refreshTokenRepository.findByIdOrNull(any<String>()) } returns null
 
-                Then("정상 soft delete") {
+                Then("정상 삭제") {
                     service.delete(10L)
                     verify(exactly = 1) { userRepository.delete(targetUser) }
                 }
@@ -120,14 +121,13 @@ class UserServiceTest :
                 }
             }
 
-            When("aadObjectId 기준 기존 사용자가 soft-deleted 상태이면") {
+            When("aadObjectId 기준 기존 사용자가 퇴사 상태이면") {
                 val existing = dummyUser(id = 30L, username = "a@pluxity.com", email = "a@pluxity.com")
                 existing.aadObjectId = "aad-30"
-                every { userRepository.findByAadObjectIdIncludingDeleted("aad-30") } returns existing
-                every { userRepository.restoreById(30L) } returns 1
-                every { userRepository.findByIdOrNull(30L) } returns existing
+                existing.retire(LocalDate.now())
+                every { userRepository.findByAadObjectId("aad-30") } returns existing
 
-                Then("restoreById 호출 + 사용자 반환") {
+                Then("복직 처리 후 사용자 반환") {
                     val result =
                         service.provisionFromTeams(
                             aadObjectId = "aad-30",
@@ -139,12 +139,12 @@ class UserServiceTest :
                         )
                     result.shouldNotBeNull()
                     result.name shouldBe "복원이름"
-                    verify(exactly = 1) { userRepository.restoreById(30L) }
+                    result.isRetired shouldBe false
                 }
             }
 
             When("기존 사용자가 없고 email도 매칭 안 되면") {
-                every { userRepository.findByAadObjectIdIncludingDeleted("aad-new") } returns null
+                every { userRepository.findByAadObjectId("aad-new") } returns null
                 every { userRepository.findByEmail("new@pluxity.com") } returns null
                 val saveSlot = mutableListOf<User>()
                 every { userRepository.save(capture(saveSlot)) } answers { firstArg() }

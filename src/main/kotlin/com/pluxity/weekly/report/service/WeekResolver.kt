@@ -44,7 +44,12 @@ private val MONTH_WEEK_REGEX = Regex("""(\d{1,2})\s*월\s*(\d{1,2})\s*주차""")
 /** "28주차", "제28주차", "28 주차" 등에서 주차 번호만 추출. 매칭 실패 시 null. */
 private val WEEK_NUMBER_REGEX = Regex("""(\d{1,2})\s*주차""")
 
-private fun parseWeekNumber(text: String): Int? = WEEK_NUMBER_REGEX.find(text)?.groupValues?.get(1)?.toIntOrNull()
+private fun parseWeekNumber(text: String): Int? =
+    WEEK_NUMBER_REGEX
+        .find(text)
+        ?.groupValues
+        ?.get(1)
+        ?.toIntOrNull()
 
 /**
  * "M월 N주차"를 그 주의 월요일로 계산한다 (A안: 그 달 1일이 속한 주 = 1주차, 월요일 시작).
@@ -92,7 +97,8 @@ private fun isoWeekMonday(
     val maxWeek = LocalDate.of(weekBasedYear, 12, 28).get(IsoFields.WEEK_OF_WEEK_BASED_YEAR)
     if (weekNo !in 1..maxWeek) return null
     // 1월 4일은 항상 그 해의 1주차에 속한다(ISO 정의) → 1주차 월요일 기준으로 (N-1)주 이동
-    return LocalDate.of(weekBasedYear, 1, 4)
+    return LocalDate
+        .of(weekBasedYear, 1, 4)
         .with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
         .plusWeeks((weekNo - 1).toLong())
 }

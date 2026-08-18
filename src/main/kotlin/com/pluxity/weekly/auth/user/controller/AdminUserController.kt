@@ -4,6 +4,7 @@ import com.pluxity.weekly.auth.user.dto.UserCreateRequest
 import com.pluxity.weekly.auth.user.dto.UserLoggedInResponse
 import com.pluxity.weekly.auth.user.dto.UserPasswordUpdateRequest
 import com.pluxity.weekly.auth.user.dto.UserResponse
+import com.pluxity.weekly.auth.user.dto.UserRetireRequest
 import com.pluxity.weekly.auth.user.dto.UserRoleUpdateRequest
 import com.pluxity.weekly.auth.user.dto.UserUpdateRequest
 import com.pluxity.weekly.auth.user.service.UserService
@@ -81,12 +82,36 @@ class AdminUserController(
         return ResponseEntity.noContent().build()
     }
 
-    @Operation(summary = "사용자 삭제", description = "ID로 사용자를 삭제합니다")
+    @Operation(
+        summary = "사용자 완전 삭제",
+        description =
+            "사용자와 그에 딸린 역할/소속/배정을 DB에서 제거합니다. " +
+                "태스크와 승인 이력은 남고 담당자 연결만 해제됩니다. 퇴사 처리는 /retire 를 사용하세요",
+    )
     @DeleteMapping("/{id}")
     fun deleteUser(
         @PathVariable @Parameter(description = "사용자 ID", required = true) id: Long,
     ): ResponseEntity<Void> {
         service.delete(id)
+        return ResponseEntity.noContent().build()
+    }
+
+    @Operation(summary = "퇴사 처리", description = "재직 상태만 바꿉니다. 데이터는 그대로 남고 로그인만 차단됩니다")
+    @PostMapping("/{id}/retire")
+    fun retireUser(
+        @PathVariable @Parameter(description = "사용자 ID", required = true) id: Long,
+        @RequestBody @Valid request: UserRetireRequest,
+    ): ResponseEntity<Void> {
+        service.retire(id, request.retiredAt)
+        return ResponseEntity.noContent().build()
+    }
+
+    @Operation(summary = "복직 처리", description = "퇴사 상태를 해제합니다")
+    @PostMapping("/{id}/rejoin")
+    fun rejoinUser(
+        @PathVariable @Parameter(description = "사용자 ID", required = true) id: Long,
+    ): ResponseEntity<Void> {
+        service.rejoin(id)
         return ResponseEntity.noContent().build()
     }
 

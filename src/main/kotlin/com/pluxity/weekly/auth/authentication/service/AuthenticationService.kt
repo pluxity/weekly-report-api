@@ -11,16 +11,20 @@ import com.pluxity.weekly.auth.user.entity.User
 import com.pluxity.weekly.auth.user.repository.UserRepository
 import com.pluxity.weekly.core.constant.ErrorCode
 import com.pluxity.weekly.core.exception.CustomException
+import io.github.oshai.kotlinlogging.KotlinLogging
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
 import org.springframework.http.HttpHeaders
 import org.springframework.http.ResponseCookie
 import org.springframework.security.authentication.AuthenticationManager
+import org.springframework.security.authentication.DisabledException
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.util.WebUtils
+
+private val log = KotlinLogging.logger {}
 
 @Service
 class AuthenticationService(
@@ -104,7 +108,9 @@ class AuthenticationService(
             authenticationManager.authenticate(
                 UsernamePasswordAuthenticationToken(signInRequest.username, signInRequest.password),
             )
-        }.getOrElse {
+        }.getOrElse { cause ->
+            if (cause is DisabledException) throw CustomException(ErrorCode.RETIRED_USER)
+            log.debug(cause) { "로그인 실패 - username=${signInRequest.username}" }
             throw CustomException(ErrorCode.INVALID_ID_OR_PASSWORD)
         }
     }

@@ -17,9 +17,10 @@ class TaskApprovalLog(
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "task_id", nullable = false)
     val task: Task,
+    // 사용자를 완전 삭제해도 승인 이력은 남는다 (ON DELETE SET NULL)
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "actor_id", nullable = false)
-    val actor: User,
+    @JoinColumn(name = "actor_id")
+    val actor: User?,
     @Enumerated(EnumType.STRING)
     @Column(name = "action", nullable = false)
     val action: TaskApprovalAction,

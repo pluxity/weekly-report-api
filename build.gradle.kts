@@ -52,6 +52,7 @@ dependencies {
     testRuntimeOnly(libs.junit.platform.launcher)
     testImplementation(libs.bundles.kotest)
     testImplementation(libs.bundles.testcontainers)
+    testImplementation(libs.spring.boot.webmvc.test)
     testImplementation(libs.mockk)
     testImplementation(libs.h2)
 }

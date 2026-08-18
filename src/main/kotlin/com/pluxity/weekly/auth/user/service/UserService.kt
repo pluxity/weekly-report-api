@@ -26,6 +26,7 @@ import org.springframework.data.repository.findByIdOrNull
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import java.time.LocalDate
 
 private val log = KotlinLogging.logger {}
 
@@ -68,8 +69,6 @@ class UserService(
                 email = request.email,
             )
 
-        user.changeProfileImageId(request.profileImageId)
-
         if (request.roleIds.isNotEmpty()) {
             val roles = request.roleIds.map { findRoleById(it) }
             user.addRoles(roles)
@@ -86,10 +85,8 @@ class UserService(
         request: UserUpdateRequest,
     ): UserResponse {
         val user = findUserById(id)
-        val oldProfileImageId = user.profileImageId
         updateUserFields(user, request)
         changeRole(request.roleIds, user)
-
         return user.toResponse()
     }
 
@@ -133,9 +130,22 @@ class UserService(
         }
     }
 
+    @Transactional
+    fun retire(
+        id: Long,
+        retiredAt: LocalDate,
+    ) {
+        findUserById(id).retire(retiredAt)
+    }
+
+    @Transactional
+    fun rejoin(id: Long) {
+        findUserById(id).rejoin()
+    }
+
     /**
      * Teams 채널을 통한 자동 가입/복원.
-     * - 같은 aadObjectId가 이미 있으면(soft-deleted 포함) 복원 후 Teams 정보 갱신
+     * - 같은 aadObjectId가 이미 있으면(퇴사 상태 포함) 복직 후 Teams 정보 갱신
      * - 같은 email로 미리 등록된 user가 있으면 aadObjectId 연결만
      * - 둘 다 없으면 신규 생성 (USER role 부여, 임의 비밀번호)
      * 도메인 검증 실패 또는 필수 정보 누락 시 null 반환.
@@ -158,7 +168,7 @@ class UserService(
             return null
         }
 
-        userRepository.findByAadObjectIdIncludingDeleted(aadObjectId)?.let { existing ->
+        userRepository.findByAadObjectId(aadObjectId)?.let { existing ->
             return restoreAndSync(existing, displayName, teamsServiceUrl, teamsConversationId)
         }
 
@@ -188,15 +198,15 @@ class UserService(
         teamsServiceUrl: String?,
         teamsConversationId: String?,
     ): User {
-        val id = user.requiredId
-        val wasDeleted = userRepository.restoreById(id) > 0
-        if (wasDeleted) log.info { "soft-deleted 사용자 복원 - userId: $id" }
-        val fresh = userRepository.findByIdOrNull(id) ?: error("복원 직후 사용자 조회 실패: $id")
-        fresh.changeName(displayName)
-        if (teamsServiceUrl != null && teamsConversationId != null) {
-            fresh.updateTeamsInfo(fresh.aadObjectId ?: error("aadObjectId 누락"), teamsServiceUrl, teamsConversationId)
+        if (user.isRetired) {
+            user.rejoin()
+            log.info { "퇴사 사용자 복직 - userId: ${user.requiredId}" }
         }
-        return fresh
+        user.changeName(displayName)
+        if (teamsServiceUrl != null && teamsConversationId != null) {
+            user.updateTeamsInfo(user.aadObjectId ?: error("aadObjectId 누락"), teamsServiceUrl, teamsConversationId)
+        }
+        return user
     }
 
     private fun createTeamsUser(
@@ -225,18 +235,6 @@ class UserService(
         val saved = userRepository.save(newUser)
         log.info { "Teams 자동 가입 - userId: ${saved.requiredId}, email: $email" }
         return saved
-    }
-
-    @Transactional
-    fun removeProfileImage(id: Long) {
-        val user = findUserById(id)
-        user.changeProfileImageId(null)
-    }
-
-    @Transactional
-    fun removeProfileImage(username: String) {
-        val user = findUserByUsername(username)
-        user.changeProfileImageId(null)
     }
 
     @Transactional
@@ -301,9 +299,6 @@ class UserService(
         }
         if (request.email != null) {
             user.changeEmail(request.email)
-        }
-        if (request.profileImageId != null) {
-            user.changeProfileImageId(request.profileImageId)
         }
     }
 

@@ -28,7 +28,8 @@ class MigrationChainTest(
                             "SELECT version FROM flyway_schema_history WHERE success = true ORDER BY installed_rank",
                             String::class.java,
                         )
-                    applied shouldContainExactly listOf("1", "20260707.001")
+                    applied shouldContainExactly
+                        listOf("1", "20260707.001", "20260818.001", "20260818.002", "20260818.003")
                 }
 
                 Then("baseline이 만든 테이블이 존재한다") {
