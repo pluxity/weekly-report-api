@@ -1,6 +1,8 @@
 package com.pluxity.weekly.teams.service
 
-import com.pluxity.weekly.auth.authorization.AuthorizationService
+import com.pluxity.weekly.auth.authorization.AccessPolicy
+import com.pluxity.weekly.auth.authorization.CurrentUserProvider
+import com.pluxity.weekly.auth.authorization.UserType
 import com.pluxity.weekly.core.constant.ErrorCode
 import com.pluxity.weekly.core.exception.CustomException
 import com.pluxity.weekly.core.response.PageResponse
@@ -22,7 +24,8 @@ import org.springframework.transaction.annotation.Transactional
 @Transactional(readOnly = true)
 class TeamsNotificationLogService(
     private val logRepository: TeamsNotificationLogRepository,
-    private val authorizationService: AuthorizationService,
+    private val currentUserProvider: CurrentUserProvider,
+    private val accessPolicy: AccessPolicy,
     private val eventPublisher: ApplicationEventPublisher,
 ) {
     @Transactional
@@ -56,7 +59,7 @@ class TeamsNotificationLogService(
     }
 
     fun findMine(pageable: Pageable): PageResponse<TeamsNotificationLogResponse> {
-        val user = authorizationService.currentUser()
+        val user = currentUserProvider.get()
         val userId = user.id ?: throw CustomException(ErrorCode.PERMISSION_DENIED)
         return logRepository.findByUserId(userId, pageable).toPageResponse { it.toResponse() }
     }
@@ -66,8 +69,8 @@ class TeamsNotificationLogService(
         status: TeamsNotificationStatus?,
         pageable: Pageable,
     ): PageResponse<TeamsNotificationLogResponse> {
-        val user = authorizationService.currentUser()
-        authorizationService.requireAdmin(user)
+        val user = currentUserProvider.get()
+        accessPolicy.requireAnyRole(user, UserType.ADMIN)
         val page =
             if (status == null) {
                 logRepository.findAll(pageable)
@@ -83,8 +86,8 @@ class TeamsNotificationLogService(
      */
     @Transactional
     fun retry(logId: Long): TeamsNotificationLogResponse {
-        val user = authorizationService.currentUser()
-        authorizationService.requireAdmin(user)
+        val user = currentUserProvider.get()
+        accessPolicy.requireAnyRole(user, UserType.ADMIN)
 
         val log =
             logRepository.findByIdOrNull(logId)

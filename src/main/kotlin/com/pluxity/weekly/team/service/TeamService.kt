@@ -1,6 +1,8 @@
 package com.pluxity.weekly.team.service
 
-import com.pluxity.weekly.auth.authorization.AuthorizationService
+import com.pluxity.weekly.auth.authorization.AccessPolicy
+import com.pluxity.weekly.auth.authorization.CurrentUserProvider
+import com.pluxity.weekly.auth.authorization.UserType
 import com.pluxity.weekly.auth.user.dto.UserResponse
 import com.pluxity.weekly.auth.user.dto.toResponse
 import com.pluxity.weekly.auth.user.entity.User
@@ -26,7 +28,8 @@ class TeamService(
     private val teamRepository: TeamRepository,
     private val memberRepository: TeamMemberRepository,
     private val userRepository: UserRepository,
-    private val authorizationService: AuthorizationService,
+    private val currentUserProvider: CurrentUserProvider,
+    private val accessPolicy: AccessPolicy,
 ) {
     fun findAll(): List<TeamResponse> =
         teamRepository.findAll().map { team ->
@@ -48,8 +51,8 @@ class TeamService(
 
     @Transactional
     fun create(request: TeamRequest): Long {
-        val user = authorizationService.currentUser()
-        authorizationService.requireAdmin(user)
+        val user = currentUserProvider.get()
+        accessPolicy.requireAnyRole(user, UserType.ADMIN)
         return teamRepository
             .save(
                 Team(
@@ -64,8 +67,8 @@ class TeamService(
         id: Long,
         request: TeamUpdateRequest,
     ) {
-        val user = authorizationService.currentUser()
-        authorizationService.requireAdmin(user)
+        val user = currentUserProvider.get()
+        accessPolicy.requireAnyRole(user, UserType.ADMIN)
         getTeamById(id).update(
             name = request.name,
             leaderId = request.leaderId,
@@ -74,8 +77,8 @@ class TeamService(
 
     @Transactional
     fun delete(id: Long) {
-        val user = authorizationService.currentUser()
-        authorizationService.requireAdmin(user)
+        val user = currentUserProvider.get()
+        accessPolicy.requireAnyRole(user, UserType.ADMIN)
         teamRepository.deleteById(getTeamById(id).requiredId)
     }
 
@@ -91,8 +94,8 @@ class TeamService(
         teamId: Long,
         userId: Long,
     ): Long {
-        val currentUser = authorizationService.currentUser()
-        authorizationService.requireAdmin(currentUser)
+        val currentUser = currentUserProvider.get()
+        accessPolicy.requireAnyRole(currentUser, UserType.ADMIN)
         val team = getTeamById(teamId)
         val user = getUserById(userId)
         if (memberRepository.existsByTeamAndUser(team, user)) {
@@ -106,8 +109,8 @@ class TeamService(
         teamId: Long,
         userId: Long,
     ) {
-        val currentUser = authorizationService.currentUser()
-        authorizationService.requireAdmin(currentUser)
+        val currentUser = currentUserProvider.get()
+        accessPolicy.requireAnyRole(currentUser, UserType.ADMIN)
         val team = getTeamById(teamId)
         val user = getUserById(userId)
         if (!memberRepository.existsByTeamAndUser(team, user)) {

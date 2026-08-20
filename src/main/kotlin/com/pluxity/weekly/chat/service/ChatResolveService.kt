@@ -1,6 +1,6 @@
 package com.pluxity.weekly.chat.service
 
-import com.pluxity.weekly.auth.authorization.AuthorizationService
+import com.pluxity.weekly.auth.authorization.CurrentUserProvider
 import com.pluxity.weekly.chat.dto.ChatActionResponse
 import com.pluxity.weekly.chat.dto.ChatResolveRequest
 import com.pluxity.weekly.chat.dto.LlmAction
@@ -15,7 +15,7 @@ class ChatResolveService(
     private val clarifyStore: ClarifyStore,
     private val chatActionRouter: ChatActionRouter,
     private val chatHistoryStore: ChatHistoryStore,
-    private val authorizationService: AuthorizationService,
+    private val currentUserProvider: CurrentUserProvider,
     private val objectMapper: ObjectMapper,
 ) {
     companion object {
@@ -23,7 +23,7 @@ class ChatResolveService(
     }
 
     fun resolve(request: ChatResolveRequest): ChatActionResponse {
-        val userId = authorizationService.currentUser().requiredId
+        val userId = currentUserProvider.get().requiredId
         val stored = clarifyStore.peek(userId, request.clarifyId)
         validate(stored, request)
         val mergedAction = mergeField(stored, request)

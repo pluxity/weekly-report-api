@@ -1,6 +1,7 @@
 package com.pluxity.weekly.dashboard.service
 
-import com.pluxity.weekly.auth.authorization.AuthorizationService
+import com.pluxity.weekly.auth.authorization.AccessPolicy
+import com.pluxity.weekly.auth.authorization.CurrentUserProvider
 import com.pluxity.weekly.auth.user.repository.UserRepository
 import com.pluxity.weekly.epic.entity.EpicStatus
 import com.pluxity.weekly.epic.entity.dummyEpic
@@ -28,7 +29,8 @@ import java.time.LocalDateTime
 class DashboardServiceTest :
     BehaviorSpec({
 
-        val authorizationService: AuthorizationService = mockk()
+        val currentUserProvider: CurrentUserProvider = mockk()
+        val accessPolicy: AccessPolicy = mockk()
         val projectRepository: ProjectRepository = mockk()
         val epicRepository: EpicRepository = mockk()
         val taskRepository: TaskRepository = mockk()
@@ -38,7 +40,8 @@ class DashboardServiceTest :
         val taskApprovalLogRepository: TaskApprovalLogRepository = mockk(relaxed = true)
         val service =
             DashboardService(
-                authorizationService,
+                currentUserProvider,
+                accessPolicy,
                 projectRepository,
                 epicRepository,
                 taskRepository,
@@ -52,7 +55,7 @@ class DashboardServiceTest :
         val userId = currentUser.requiredId
 
         beforeSpec {
-            every { authorizationService.currentUser() } returns currentUser
+            every { currentUserProvider.get() } returns currentUser
         }
 
         afterEach {
@@ -74,8 +77,8 @@ class DashboardServiceTest :
             val task2 = dummyTask(id = 101L, epic = epic, name = "API 개발", progress = 70)
 
             When("대시보드를 조회하면") {
-                every { authorizationService.currentUser() } returns currentUser
-                every { authorizationService.visibleEpicIds(currentUser) } returns listOf(epic.requiredId)
+                every { currentUserProvider.get() } returns currentUser
+                every { accessPolicy.visibleEpicIds(currentUser) } returns listOf(epic.requiredId)
                 every { epicRepository.findAllById(any<List<Long>>()) } returns listOf(epic)
                 every { taskRepository.findByAssigneeId(userId) } returns listOf(task1, task2)
 
@@ -105,8 +108,8 @@ class DashboardServiceTest :
             val epic = dummyEpic(id = 10L, project = project)
 
             When("대시보드를 조회하면") {
-                every { authorizationService.currentUser() } returns currentUser
-                every { authorizationService.visibleEpicIds(currentUser) } returns listOf(epic.requiredId)
+                every { currentUserProvider.get() } returns currentUser
+                every { accessPolicy.visibleEpicIds(currentUser) } returns listOf(epic.requiredId)
                 every { epicRepository.findAllById(any<List<Long>>()) } returns listOf(epic)
                 every { taskRepository.findByAssigneeId(userId) } returns emptyList()
 
@@ -124,8 +127,8 @@ class DashboardServiceTest :
 
         Given("에픽이 아예 없는 경우") {
             When("대시보드를 조회하면") {
-                every { authorizationService.currentUser() } returns currentUser
-                every { authorizationService.visibleEpicIds(currentUser) } returns emptyList()
+                every { currentUserProvider.get() } returns currentUser
+                every { accessPolicy.visibleEpicIds(currentUser) } returns emptyList()
                 every { epicRepository.findAllById(any<List<Long>>()) } returns emptyList()
                 every { taskRepository.findByAssigneeId(userId) } returns emptyList()
 
@@ -147,8 +150,8 @@ class DashboardServiceTest :
             val taskForEpic2b = dummyTask(id = 201L, epic = epic2, name = "태스크3", progress = 60)
 
             When("대시보드를 조회하면") {
-                every { authorizationService.currentUser() } returns currentUser
-                every { authorizationService.visibleEpicIds(currentUser) } returns listOf(epic1.requiredId, epic2.requiredId)
+                every { currentUserProvider.get() } returns currentUser
+                every { accessPolicy.visibleEpicIds(currentUser) } returns listOf(epic1.requiredId, epic2.requiredId)
                 every { epicRepository.findAllById(any<List<Long>>()) } returns listOf(epic1, epic2)
                 every { taskRepository.findByAssigneeId(userId) } returns
                     listOf(
@@ -196,8 +199,8 @@ class DashboardServiceTest :
                         status = TaskStatus.IN_PROGRESS,
                         dueDate = today.plusDays(5),
                     )
-                every { authorizationService.currentUser() } returns currentUser
-                every { authorizationService.visibleEpicIds(currentUser) } returns listOf(epic.requiredId)
+                every { currentUserProvider.get() } returns currentUser
+                every { accessPolicy.visibleEpicIds(currentUser) } returns listOf(epic.requiredId)
                 every { epicRepository.findAllById(any<List<Long>>()) } returns listOf(epic)
                 every { taskRepository.findByAssigneeId(userId) } returns listOf(task)
 
@@ -216,8 +219,8 @@ class DashboardServiceTest :
                         status = TaskStatus.DONE,
                         dueDate = today.plusDays(5),
                     )
-                every { authorizationService.currentUser() } returns currentUser
-                every { authorizationService.visibleEpicIds(currentUser) } returns listOf(epic.requiredId)
+                every { currentUserProvider.get() } returns currentUser
+                every { accessPolicy.visibleEpicIds(currentUser) } returns listOf(epic.requiredId)
                 every { epicRepository.findAllById(any<List<Long>>()) } returns listOf(epic)
                 every { taskRepository.findByAssigneeId(userId) } returns listOf(task)
 
@@ -236,8 +239,8 @@ class DashboardServiceTest :
                         status = TaskStatus.IN_PROGRESS,
                         dueDate = today.plusDays(8),
                     )
-                every { authorizationService.currentUser() } returns currentUser
-                every { authorizationService.visibleEpicIds(currentUser) } returns listOf(epic.requiredId)
+                every { currentUserProvider.get() } returns currentUser
+                every { accessPolicy.visibleEpicIds(currentUser) } returns listOf(epic.requiredId)
                 every { epicRepository.findAllById(any<List<Long>>()) } returns listOf(epic)
                 every { taskRepository.findByAssigneeId(userId) } returns listOf(task)
 
@@ -256,8 +259,8 @@ class DashboardServiceTest :
                         status = TaskStatus.IN_PROGRESS,
                         dueDate = today.minusDays(1),
                     )
-                every { authorizationService.currentUser() } returns currentUser
-                every { authorizationService.visibleEpicIds(currentUser) } returns listOf(epic.requiredId)
+                every { currentUserProvider.get() } returns currentUser
+                every { accessPolicy.visibleEpicIds(currentUser) } returns listOf(epic.requiredId)
                 every { epicRepository.findAllById(any<List<Long>>()) } returns listOf(epic)
                 every { taskRepository.findByAssigneeId(userId) } returns listOf(task)
 
@@ -276,8 +279,8 @@ class DashboardServiceTest :
                         status = TaskStatus.IN_PROGRESS,
                         dueDate = null,
                     )
-                every { authorizationService.currentUser() } returns currentUser
-                every { authorizationService.visibleEpicIds(currentUser) } returns listOf(epic.requiredId)
+                every { currentUserProvider.get() } returns currentUser
+                every { accessPolicy.visibleEpicIds(currentUser) } returns listOf(epic.requiredId)
                 every { epicRepository.findAllById(any<List<Long>>()) } returns listOf(epic)
                 every { taskRepository.findByAssigneeId(userId) } returns listOf(task)
 
@@ -296,8 +299,8 @@ class DashboardServiceTest :
                         status = TaskStatus.TODO,
                         dueDate = today,
                     )
-                every { authorizationService.currentUser() } returns currentUser
-                every { authorizationService.visibleEpicIds(currentUser) } returns listOf(epic.requiredId)
+                every { currentUserProvider.get() } returns currentUser
+                every { accessPolicy.visibleEpicIds(currentUser) } returns listOf(epic.requiredId)
                 every { epicRepository.findAllById(any<List<Long>>()) } returns listOf(epic)
                 every { taskRepository.findByAssigneeId(userId) } returns listOf(task)
 
@@ -325,8 +328,8 @@ class DashboardServiceTest :
                         dummyTask(id = 5L, epic = epic, status = TaskStatus.DONE),
                         dummyTask(id = 6L, epic = epic, status = TaskStatus.DONE),
                     )
-                every { authorizationService.currentUser() } returns currentUser
-                every { authorizationService.visibleEpicIds(currentUser) } returns listOf(epic.requiredId)
+                every { currentUserProvider.get() } returns currentUser
+                every { accessPolicy.visibleEpicIds(currentUser) } returns listOf(epic.requiredId)
                 every { epicRepository.findAllById(any<List<Long>>()) } returns listOf(epic)
                 every { taskRepository.findByAssigneeId(userId) } returns tasks
 
@@ -353,8 +356,8 @@ class DashboardServiceTest :
             val epic = dummyEpic(id = 10L, project = project)
 
             When("태스크가 여러 개인 경우") {
-                every { authorizationService.currentUser() } returns currentUser
-                every { authorizationService.visibleEpicIds(currentUser) } returns listOf(epic.requiredId)
+                every { currentUserProvider.get() } returns currentUser
+                every { accessPolicy.visibleEpicIds(currentUser) } returns listOf(epic.requiredId)
                 every { epicRepository.findAllById(any<List<Long>>()) } returns listOf(epic)
                 every { taskRepository.findByAssigneeId(userId) } returns
                     listOf(
@@ -370,8 +373,8 @@ class DashboardServiceTest :
             }
 
             When("태스크가 1개인 경우") {
-                every { authorizationService.currentUser() } returns currentUser
-                every { authorizationService.visibleEpicIds(currentUser) } returns listOf(epic.requiredId)
+                every { currentUserProvider.get() } returns currentUser
+                every { accessPolicy.visibleEpicIds(currentUser) } returns listOf(epic.requiredId)
                 every { epicRepository.findAllById(any<List<Long>>()) } returns listOf(epic)
                 every { taskRepository.findByAssigneeId(userId) } returns listOf(dummyTask(id = 100L, epic = epic, progress = 65))
 
@@ -383,8 +386,8 @@ class DashboardServiceTest :
             }
 
             When("태스크가 없는 경우") {
-                every { authorizationService.currentUser() } returns currentUser
-                every { authorizationService.visibleEpicIds(currentUser) } returns listOf(epic.requiredId)
+                every { currentUserProvider.get() } returns currentUser
+                every { accessPolicy.visibleEpicIds(currentUser) } returns listOf(epic.requiredId)
                 every { epicRepository.findAllById(any<List<Long>>()) } returns listOf(epic)
                 every { taskRepository.findByAssigneeId(userId) } returns emptyList()
 
@@ -406,8 +409,8 @@ class DashboardServiceTest :
             When("dueDate가 있는 경우") {
                 val futureDate = LocalDate.now().plusDays(3)
                 val task = dummyTask(id = 100L, epic = epic, dueDate = futureDate)
-                every { authorizationService.currentUser() } returns currentUser
-                every { authorizationService.visibleEpicIds(currentUser) } returns listOf(epic.requiredId)
+                every { currentUserProvider.get() } returns currentUser
+                every { accessPolicy.visibleEpicIds(currentUser) } returns listOf(epic.requiredId)
                 every { epicRepository.findAllById(any<List<Long>>()) } returns listOf(epic)
                 every { taskRepository.findByAssigneeId(userId) } returns listOf(task)
 
@@ -421,8 +424,8 @@ class DashboardServiceTest :
 
             When("dueDate가 null인 경우") {
                 val task = dummyTask(id = 100L, epic = epic, dueDate = null)
-                every { authorizationService.currentUser() } returns currentUser
-                every { authorizationService.visibleEpicIds(currentUser) } returns listOf(epic.requiredId)
+                every { currentUserProvider.get() } returns currentUser
+                every { accessPolicy.visibleEpicIds(currentUser) } returns listOf(epic.requiredId)
                 every { epicRepository.findAllById(any<List<Long>>()) } returns listOf(epic)
                 every { taskRepository.findByAssigneeId(userId) } returns listOf(task)
 
@@ -444,8 +447,8 @@ class DashboardServiceTest :
             val reviewRequestedAt = LocalDateTime.of(2026, 4, 10, 14, 30, 0)
 
             When("대시보드를 조회하면") {
-                every { authorizationService.currentUser() } returns currentUser
-                every { authorizationService.visibleEpicIds(currentUser) } returns listOf(epic.requiredId)
+                every { currentUserProvider.get() } returns currentUser
+                every { accessPolicy.visibleEpicIds(currentUser) } returns listOf(epic.requiredId)
                 every { epicRepository.findAllById(any<List<Long>>()) } returns listOf(epic)
                 every { taskRepository.findByAssigneeId(userId) } returns listOf(task)
                 every {
@@ -469,8 +472,8 @@ class DashboardServiceTest :
             val task = dummyTask(id = 100L, epic = epic)
 
             When("대시보드를 조회하면") {
-                every { authorizationService.currentUser() } returns currentUser
-                every { authorizationService.visibleEpicIds(currentUser) } returns listOf(epic.requiredId)
+                every { currentUserProvider.get() } returns currentUser
+                every { accessPolicy.visibleEpicIds(currentUser) } returns listOf(epic.requiredId)
                 every { epicRepository.findAllById(any<List<Long>>()) } returns listOf(epic)
                 every { taskRepository.findByAssigneeId(userId) } returns listOf(task)
                 every {
@@ -506,8 +509,8 @@ class DashboardServiceTest :
                 .setField(epic, "updatedAt", epicUpdatedAt)
 
             When("대시보드를 조회하면") {
-                every { authorizationService.currentUser() } returns currentUser
-                every { authorizationService.visibleEpicIds(currentUser) } returns listOf(epic.requiredId)
+                every { currentUserProvider.get() } returns currentUser
+                every { accessPolicy.visibleEpicIds(currentUser) } returns listOf(epic.requiredId)
                 every { epicRepository.findAllById(any<List<Long>>()) } returns listOf(epic)
                 every { taskRepository.findByAssigneeId(userId) } returns emptyList()
 

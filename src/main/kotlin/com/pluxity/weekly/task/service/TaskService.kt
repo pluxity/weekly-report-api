@@ -1,6 +1,8 @@
 package com.pluxity.weekly.task.service
 
-import com.pluxity.weekly.auth.authorization.AuthorizationService
+import com.pluxity.weekly.auth.authorization.AccessAction
+import com.pluxity.weekly.auth.authorization.AccessPolicy
+import com.pluxity.weekly.auth.authorization.CurrentUserProvider
 import com.pluxity.weekly.auth.user.entity.User
 import com.pluxity.weekly.auth.user.repository.UserRepository
 import com.pluxity.weekly.chat.dto.TaskSearchFilter
@@ -28,29 +30,34 @@ class TaskService(
     private val taskRepository: TaskRepository,
     private val epicRepository: EpicRepository,
     private val userRepository: UserRepository,
-    private val authorizationService: AuthorizationService,
+    private val currentUserProvider: CurrentUserProvider,
+    private val accessPolicy: AccessPolicy,
     private val assignmentService: EpicAssignmentService,
     private val eventPublisher: ApplicationEventPublisher,
 ) {
     fun findAll(): List<TaskResponse> = search(TaskSearchFilter())
 
     fun search(filter: TaskSearchFilter): List<TaskResponse> {
-        val user = authorizationService.currentUser()
-        val restrictedId = authorizationService.restrictedAssigneeId(user)
+        val user = currentUserProvider.get()
+        val restrictedId = accessPolicy.restrictedAssigneeId(user)
         val scoped =
             filter.copy(
-                epicIds = filter.epicIds ?: authorizationService.visibleEpicIds(user),
+                epicIds = filter.epicIds ?: accessPolicy.visibleEpicIds(user),
                 assigneeId = restrictedId ?: filter.assigneeId,
             )
         if (scoped.epicIds?.isEmpty() == true) return emptyList()
         return taskRepository.findByFilter(scoped).map { it.toResponse() }
     }
 
-    fun findById(id: Long): TaskResponse = getTaskById(id).toResponse()
+    fun findById(id: Long): TaskResponse {
+        val task = getTaskById(id)
+        accessPolicy.require(currentUserProvider.get(), task, AccessAction.VIEW)
+        return task.toResponse()
+    }
 
     @Transactional
     fun create(request: TaskRequest): Long {
-        val user = authorizationService.currentUser()
+        val user = currentUserProvider.get()
         val epic = validateAndLoadEpic(user, request)
         val newAssigneeId = resolveAssigneeId(user, request, epic)
         val savedTask =
@@ -79,9 +86,9 @@ class TaskService(
         id: Long,
         request: TaskUpdateRequest,
     ) {
-        val user = authorizationService.currentUser()
+        val user = currentUserProvider.get()
         val task = getTaskById(id)
-        authorizationService.requireTaskOwner(user, task)
+        accessPolicy.require(user, task, AccessAction.EDIT)
         task.ensureMutable()
         request.status?.let { task.changeStatus(it) }
         request.name?.takeIf { it != task.name }?.let { newName ->
@@ -101,15 +108,15 @@ class TaskService(
 
     @Transactional
     fun delete(id: Long) {
-        val user = authorizationService.currentUser()
+        val user = currentUserProvider.get()
         val task = getTaskById(id)
-        authorizationService.requireTaskOwner(user, task)
+        accessPolicy.require(user, task, AccessAction.DELETE)
         taskRepository.delete(task)
     }
 
     @Transactional
     fun restore(id: Long): TaskResponse {
-        val user = authorizationService.currentUser()
+        val user = currentUserProvider.get()
         val task =
             taskRepository.findRawById(id)
                 ?: throw CustomException(ErrorCode.NOT_FOUND_TASK, id)
@@ -119,7 +126,7 @@ class TaskService(
         if (taskRepository.isParentEpicDeletedByTaskId(id)) {
             throw CustomException(ErrorCode.PARENT_EPIC_DELETED)
         }
-        authorizationService.requireTaskOwner(user, task)
+        accessPolicy.require(user, task, AccessAction.EDIT)
 
         taskRepository.restoreById(id)
 
@@ -130,11 +137,11 @@ class TaskService(
         user: User,
         request: TaskRequest,
     ): Epic {
-        authorizationService.requireEpicAccess(user, request.epicId)
+        val epic = getEpicById(request.epicId)
+        accessPolicy.requireCreateTask(user, epic)
         if (request.status != TaskStatus.TODO) {
             throw CustomException(ErrorCode.INVALID_INITIAL_STATUS, request.status)
         }
-        val epic = getEpicById(request.epicId)
         epic.ensureMutable("create task")
         ensureUniqueTaskName(request.epicId, request.name)
         return epic

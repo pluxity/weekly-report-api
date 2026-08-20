@@ -1,6 +1,9 @@
 package com.pluxity.weekly.dashboard.service
 
-import com.pluxity.weekly.auth.authorization.AuthorizationService
+import com.pluxity.weekly.auth.authorization.AccessAction
+import com.pluxity.weekly.auth.authorization.AccessPolicy
+import com.pluxity.weekly.auth.authorization.CurrentUserProvider
+import com.pluxity.weekly.auth.authorization.UserType
 import com.pluxity.weekly.auth.user.repository.UserRepository
 import com.pluxity.weekly.core.constant.ErrorCode
 import com.pluxity.weekly.core.delay.DelayInfo
@@ -41,7 +44,8 @@ import java.time.temporal.ChronoUnit
 @Service
 @Transactional(readOnly = true)
 class DashboardService(
-    private val authorizationService: AuthorizationService,
+    private val currentUserProvider: CurrentUserProvider,
+    private val accessPolicy: AccessPolicy,
     private val projectRepository: ProjectRepository,
     private val epicRepository: EpicRepository,
     private val taskRepository: TaskRepository,
@@ -51,10 +55,10 @@ class DashboardService(
     private val taskApprovalLogRepository: TaskApprovalLogRepository,
 ) {
     fun getWorkerDashboard(): WorkerDashboardResponse {
-        val user = authorizationService.currentUser()
+        val user = currentUserProvider.get()
         val userId = user.requiredId
 
-        val visibleEpicIds = authorizationService.visibleEpicIds(user)
+        val visibleEpicIds = accessPolicy.visibleEpicIds(user)
         val epics = if (visibleEpicIds == null) epicRepository.findAll() else epicRepository.findAllById(visibleEpicIds)
         val tasks =
             taskRepository.findByAssigneeId(userId)
@@ -85,12 +89,11 @@ class DashboardService(
     }
 
     fun getPmDashboard(projectId: Long): PmDashboardResponse {
-        val user = authorizationService.currentUser()
-        authorizationService.requireProjectManager(user, projectId)
-
+        val user = currentUserProvider.get()
         val project =
             projectRepository.findByIdOrNull(projectId)
                 ?: throw CustomException(ErrorCode.NOT_FOUND_PROJECT, projectId)
+        accessPolicy.require(user, project, AccessAction.EDIT)
 
         val pmName =
             project.pmId?.let { userRepository.findByIdOrNull(it)?.name } ?: ""
@@ -137,8 +140,8 @@ class DashboardService(
     }
 
     fun getAdminDashboard(): AdminDashboardResponse {
-        val user = authorizationService.currentUser()
-        authorizationService.requireAdmin(user)
+        val user = currentUserProvider.get()
+        accessPolicy.requireAnyRole(user, UserType.ADMIN)
 
         val now = LocalDate.now()
 
@@ -207,8 +210,8 @@ class DashboardService(
     }
 
     fun getPersonDetail(userId: Long): PersonDetailResponse {
-        val currentUser = authorizationService.currentUser()
-        authorizationService.requireAdmin(currentUser)
+        val currentUser = currentUserProvider.get()
+        accessPolicy.requireAnyRole(currentUser, UserType.ADMIN)
 
         val targetUser =
             userRepository.findByIdOrNull(userId)
@@ -289,8 +292,8 @@ class DashboardService(
     }
 
     fun getTeamMemberTasks(teamId: Long): List<MemberTaskSummary> {
-        val currentUser = authorizationService.currentUser()
-        authorizationService.requireAdmin(currentUser)
+        val currentUser = currentUserProvider.get()
+        accessPolicy.requireAnyRole(currentUser, UserType.ADMIN)
 
         val team =
             teamRepository.findByIdOrNull(teamId)

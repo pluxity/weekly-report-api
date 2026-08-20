@@ -1,6 +1,7 @@
 package com.pluxity.weekly.project.service
 
-import com.pluxity.weekly.auth.authorization.AuthorizationService
+import com.pluxity.weekly.auth.authorization.AccessPolicy
+import com.pluxity.weekly.auth.authorization.CurrentUserProvider
 import com.pluxity.weekly.auth.user.entity.RoleType
 import com.pluxity.weekly.auth.user.repository.UserRepository
 import com.pluxity.weekly.core.constant.ErrorCode
@@ -36,7 +37,8 @@ class ProjectServiceTest :
         val epicRepository: EpicRepository = mockk()
         val taskRepository: TaskRepository = mockk()
         val userRepository: UserRepository = mockk()
-        val authorizationService: AuthorizationService = mockk()
+        val currentUserProvider: CurrentUserProvider = mockk()
+        val accessPolicy: AccessPolicy = mockk()
         val eventPublisher: ApplicationEventPublisher = mockk(relaxed = true)
         val service =
             ProjectService(
@@ -44,7 +46,8 @@ class ProjectServiceTest :
                 epicRepository,
                 taskRepository,
                 userRepository,
-                authorizationService,
+                currentUserProvider,
+                accessPolicy,
                 eventPublisher,
             )
 
@@ -54,11 +57,10 @@ class ProjectServiceTest :
             }
 
         beforeSpec {
-            every { authorizationService.currentUser() } returns adminUser
-            every { authorizationService.requireProjectManager(any(), any<Long>()) } just runs
-            every { authorizationService.requireProjectManager(any(), any<Project>()) } just runs
-            every { authorizationService.requireAdmin(any()) } just runs
-            every { authorizationService.visibleProjectIds(any()) } returns null
+            every { currentUserProvider.get() } returns adminUser
+            every { accessPolicy.require(any(), any<Project>(), any()) } just runs
+            every { accessPolicy.requireCreateProject(any()) } just runs
+            every { accessPolicy.visibleProjectIds(any()) } returns null
             // progress 집계는 케이스별로 덮어쓰며, 기본값은 "태스크 없음"(빈 결과 → 0)
             every { taskRepository.findAverageProgressByProjectIds(any()) } returns emptyList()
             // 완료일 파생용 하위 Epic 배치 로딩 기본값 (케이스별로 덮어씀)

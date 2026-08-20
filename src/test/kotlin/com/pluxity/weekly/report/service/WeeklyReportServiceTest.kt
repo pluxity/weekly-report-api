@@ -1,6 +1,9 @@
 package com.pluxity.weekly.report.service
 
-import com.pluxity.weekly.auth.authorization.AuthorizationService
+import com.pluxity.weekly.auth.authorization.AccessAction
+import com.pluxity.weekly.auth.authorization.AccessPolicy
+import com.pluxity.weekly.auth.authorization.CurrentUserProvider
+import com.pluxity.weekly.auth.authorization.UserType
 import com.pluxity.weekly.core.constant.ErrorCode
 import com.pluxity.weekly.core.exception.CustomException
 import com.pluxity.weekly.report.dto.FormattedReport
@@ -8,6 +11,7 @@ import com.pluxity.weekly.report.dto.ReportItem
 import com.pluxity.weekly.report.entity.dummyWeeklyReport
 import com.pluxity.weekly.report.repository.WeeklyReportRepository
 import com.pluxity.weekly.report.repository.WeeklyReportSummaryRow
+import com.pluxity.weekly.team.entity.Team
 import com.pluxity.weekly.team.entity.dummyTeam
 import com.pluxity.weekly.team.repository.TeamRepository
 import com.pluxity.weekly.test.entity.dummyUser
@@ -28,8 +32,9 @@ class WeeklyReportServiceTest :
 
         val weeklyReportRepository: WeeklyReportRepository = mockk()
         val teamRepository: TeamRepository = mockk()
-        val authorizationService: AuthorizationService = mockk()
-        val service = WeeklyReportService(weeklyReportRepository, teamRepository, authorizationService)
+        val currentUserProvider: CurrentUserProvider = mockk()
+        val accessPolicy: AccessPolicy = mockk()
+        val service = WeeklyReportService(weeklyReportRepository, teamRepository, currentUserProvider, accessPolicy)
 
         val adminUser = dummyUser(id = 1L, name = "관리자")
         val leaderUser = dummyUser(id = 2L, name = "리더")
@@ -37,10 +42,15 @@ class WeeklyReportServiceTest :
         val team10 = dummyTeam(id = 10L, name = "개발팀", leaderId = 2L)
         val team20 = dummyTeam(id = 20L, name = "디자인팀", leaderId = 99L)
 
+        beforeSpec {
+            every { teamRepository.findByIdOrNull(10L) } returns team10
+            every { teamRepository.findByIdOrNull(20L) } returns team20
+        }
+
         Given("findAll - ADMIN") {
-            every { authorizationService.currentUser() } returns adminUser
-            every { authorizationService.requireAdminOrLeader(adminUser) } just runs
-            every { authorizationService.visibleTeamIds(adminUser) } returns null
+            every { currentUserProvider.get() } returns adminUser
+            every { accessPolicy.requireAnyRole(adminUser, UserType.ADMIN, UserType.TEAM_LEADER) } just runs
+            every { accessPolicy.visibleTeamIds(adminUser) } returns null
 
             When("teamId 없이 조회하면") {
                 every {
@@ -58,7 +68,7 @@ class WeeklyReportServiceTest :
             }
 
             When("teamId를 지정하면") {
-                every { authorizationService.requireTeamAccess(adminUser, 10L) } just runs
+                every { accessPolicy.require(adminUser, match<Team> { t -> t.id == 10L }, AccessAction.VIEW) } just runs
                 every {
                     weeklyReportRepository.findByFilter(
                         match { it.teamId == 10L && it.teamIds == null },
@@ -75,9 +85,9 @@ class WeeklyReportServiceTest :
         }
 
         Given("findAll - Leader") {
-            every { authorizationService.currentUser() } returns leaderUser
-            every { authorizationService.requireAdminOrLeader(leaderUser) } just runs
-            every { authorizationService.visibleTeamIds(leaderUser) } returns listOf(10L)
+            every { currentUserProvider.get() } returns leaderUser
+            every { accessPolicy.requireAnyRole(leaderUser, UserType.ADMIN, UserType.TEAM_LEADER) } just runs
+            every { accessPolicy.visibleTeamIds(leaderUser) } returns listOf(10L)
 
             When("teamId 없이 조회하면") {
                 every {
@@ -95,7 +105,7 @@ class WeeklyReportServiceTest :
             }
 
             When("본인이 leader인 팀의 teamId를 지정하면") {
-                every { authorizationService.requireTeamAccess(leaderUser, 10L) } just runs
+                every { accessPolicy.require(leaderUser, match<Team> { t -> t.id == 10L }, AccessAction.VIEW) } just runs
                 every {
                     weeklyReportRepository.findByFilter(
                         match { it.teamId == 10L },
@@ -110,7 +120,7 @@ class WeeklyReportServiceTest :
             }
 
             When("본인이 leader가 아닌 teamId를 지정하면") {
-                every { authorizationService.requireTeamAccess(leaderUser, 20L) } throws
+                every { accessPolicy.require(leaderUser, match<Team> { t -> t.id == 20L }, AccessAction.VIEW) } throws
                     CustomException(ErrorCode.PERMISSION_DENIED)
 
                 val exception =
@@ -126,8 +136,8 @@ class WeeklyReportServiceTest :
 
         Given("findAll - 권한 없는 사용자") {
             When("ADMIN/Leader가 아닌 사용자가 호출하면") {
-                every { authorizationService.currentUser() } returns workerUser
-                every { authorizationService.requireAdminOrLeader(workerUser) } throws
+                every { currentUserProvider.get() } returns workerUser
+                every { accessPolicy.requireAnyRole(workerUser, UserType.ADMIN, UserType.TEAM_LEADER) } throws
                     CustomException(ErrorCode.PERMISSION_DENIED)
 
                 val exception =
@@ -142,12 +152,12 @@ class WeeklyReportServiceTest :
         }
 
         Given("findById") {
-            every { authorizationService.currentUser() } returns leaderUser
+            every { currentUserProvider.get() } returns leaderUser
 
             When("존재하는 보고를 본인 팀으로 조회하면") {
                 val report = dummyWeeklyReport(id = 1L, team = team10)
                 every { weeklyReportRepository.findByIdOrNull(1L) } returns report
-                every { authorizationService.requireTeamAccess(leaderUser, 10L) } just runs
+                every { accessPolicy.require(leaderUser, match<Team> { t -> t.id == 10L }, AccessAction.VIEW) } just runs
 
                 val result = service.findById(1L)
 
@@ -173,7 +183,7 @@ class WeeklyReportServiceTest :
             When("본인이 leader가 아닌 팀의 보고를 조회하면") {
                 val report = dummyWeeklyReport(id = 2L, team = team20)
                 every { weeklyReportRepository.findByIdOrNull(2L) } returns report
-                every { authorizationService.requireTeamAccess(leaderUser, 20L) } throws
+                every { accessPolicy.require(leaderUser, match<Team> { t -> t.id == 20L }, AccessAction.VIEW) } throws
                     CustomException(ErrorCode.PERMISSION_DENIED)
 
                 val exception =
@@ -188,7 +198,7 @@ class WeeklyReportServiceTest :
         }
 
         Given("findForChat") {
-            every { authorizationService.currentUser() } returns leaderUser
+            every { currentUserProvider.get() } returns leaderUser
 
             When("리더 팀에 해당 주차 보고가 있으면") {
                 every { teamRepository.findByLeaderId(2L) } returns listOf(team10)
@@ -318,9 +328,9 @@ class WeeklyReportServiceTest :
             val weekEnd = LocalDate.of(2026, 5, 18) // 5/11 + 5/18 = 2주
 
             When("ADMIN이 조회하면") {
-                every { authorizationService.currentUser() } returns adminUser
-                every { authorizationService.requireAdminOrLeader(adminUser) } just runs
-                every { authorizationService.visibleTeamIds(adminUser) } returns null
+                every { currentUserProvider.get() } returns adminUser
+                every { accessPolicy.requireAnyRole(adminUser, UserType.ADMIN, UserType.TEAM_LEADER) } just runs
+                every { accessPolicy.visibleTeamIds(adminUser) } returns null
                 every { teamRepository.findAll() } returns listOf(team10, team20)
                 every { weeklyReportRepository.findSummaryRows(weekStart, weekEnd) } returns emptyList()
 
@@ -333,9 +343,9 @@ class WeeklyReportServiceTest :
             }
 
             When("Leader가 조회하면") {
-                every { authorizationService.currentUser() } returns leaderUser
-                every { authorizationService.requireAdminOrLeader(leaderUser) } just runs
-                every { authorizationService.visibleTeamIds(leaderUser) } returns listOf(10L)
+                every { currentUserProvider.get() } returns leaderUser
+                every { accessPolicy.requireAnyRole(leaderUser, UserType.ADMIN, UserType.TEAM_LEADER) } just runs
+                every { accessPolicy.visibleTeamIds(leaderUser) } returns listOf(10L)
                 every { teamRepository.findAllById(listOf(10L)) } returns listOf(team10)
                 every { weeklyReportRepository.findSummaryRows(weekStart, weekEnd) } returns emptyList()
 
@@ -348,9 +358,9 @@ class WeeklyReportServiceTest :
             }
 
             When("실제 row가 일부 존재하면") {
-                every { authorizationService.currentUser() } returns leaderUser
-                every { authorizationService.requireAdminOrLeader(leaderUser) } just runs
-                every { authorizationService.visibleTeamIds(leaderUser) } returns listOf(10L)
+                every { currentUserProvider.get() } returns leaderUser
+                every { accessPolicy.requireAnyRole(leaderUser, UserType.ADMIN, UserType.TEAM_LEADER) } just runs
+                every { accessPolicy.visibleTeamIds(leaderUser) } returns listOf(10L)
                 every { teamRepository.findAllById(listOf(10L)) } returns listOf(team10)
                 val row =
                     mockk<WeeklyReportSummaryRow>().apply {
@@ -377,8 +387,8 @@ class WeeklyReportServiceTest :
             }
 
             When("권한 없는 사용자가 호출하면") {
-                every { authorizationService.currentUser() } returns workerUser
-                every { authorizationService.requireAdminOrLeader(workerUser) } throws
+                every { currentUserProvider.get() } returns workerUser
+                every { accessPolicy.requireAnyRole(workerUser, UserType.ADMIN, UserType.TEAM_LEADER) } throws
                     CustomException(ErrorCode.PERMISSION_DENIED)
 
                 val exception =
@@ -398,9 +408,9 @@ class WeeklyReportServiceTest :
                 val expectedStart = LocalDate.of(2026, 5, 11)
                 val expectedEnd = LocalDate.of(2026, 5, 18)
 
-                every { authorizationService.currentUser() } returns adminUser
-                every { authorizationService.requireAdminOrLeader(adminUser) } just runs
-                every { authorizationService.visibleTeamIds(adminUser) } returns null
+                every { currentUserProvider.get() } returns adminUser
+                every { accessPolicy.requireAnyRole(adminUser, UserType.ADMIN, UserType.TEAM_LEADER) } just runs
+                every { accessPolicy.visibleTeamIds(adminUser) } returns null
                 every { teamRepository.findAll() } returns listOf(team10)
                 every { weeklyReportRepository.findSummaryRows(expectedStart, expectedEnd) } returns emptyList()
 
@@ -416,8 +426,8 @@ class WeeklyReportServiceTest :
                 val laterStart = LocalDate.of(2026, 6, 1)
                 val earlierEnd = LocalDate.of(2026, 5, 18)
 
-                every { authorizationService.currentUser() } returns adminUser
-                every { authorizationService.requireAdminOrLeader(adminUser) } just runs
+                every { currentUserProvider.get() } returns adminUser
+                every { accessPolicy.requireAnyRole(adminUser, UserType.ADMIN, UserType.TEAM_LEADER) } just runs
 
                 val result = service.findSummary(laterStart, earlierEnd)
 
