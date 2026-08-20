@@ -76,11 +76,10 @@ class ProjectService(
     }
 
     fun findById(id: Long): ProjectResponse {
+        val user = currentUserProvider.get()
         val project = getById(id)
-        accessPolicy.require(currentUserProvider.get(), project, AccessAction.VIEW)
-        val pmName = project.pmId?.let { userRepository.findByIdOrNull(it)?.name }
-        val progress = averageProgressByProjectIds(listOf(id))[id] ?: 0
-        return project.toResponse(projectRepository.findMembersByProjectIds(listOf(project.requiredId)), pmName, progress)
+        accessPolicy.require(user, project, AccessAction.VIEW)
+        return toDetailResponse(project)
     }
 
     @Transactional
@@ -162,7 +161,15 @@ class ProjectService(
         epicRepository.restoreByProjectId(id)
         taskRepository.restoreByProjectId(id)
 
-        return findById(id)
+        return toDetailResponse(project)
+    }
+
+    /** PM 이름·진행률·구성원까지 채운 단건 응답. findById 와 restore 가 공유한다 */
+    private fun toDetailResponse(project: Project): ProjectResponse {
+        val id = project.requiredId
+        val pmName = project.pmId?.let { userRepository.findByIdOrNull(it)?.name }
+        val progress = averageProgressByProjectIds(listOf(id))[id] ?: 0
+        return project.toResponse(projectRepository.findMembersByProjectIds(listOf(id)), pmName, progress)
     }
 
     private fun getById(id: Long): Project =

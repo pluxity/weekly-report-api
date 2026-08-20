@@ -45,8 +45,9 @@ class EpicService(
     }
 
     fun findById(id: Long): EpicResponse {
+        val user = currentUserProvider.get()
         val epic = getEpicById(id)
-        accessPolicy.require(currentUserProvider.get(), epic, AccessAction.VIEW)
+        accessPolicy.require(user, epic, AccessAction.VIEW)
         return epic.toResponse()
     }
 
@@ -127,7 +128,8 @@ class EpicService(
         epicRepository.restoreById(id)
         taskRepository.restoreByEpicId(id)
 
-        return findById(id)
+        // 복구 직후라 권한은 위에서 이미 확인했다. findById 를 다시 타면 사용자 조회가 한 번 더 돈다
+        return getEpicById(id).toResponse()
     }
 
     private fun getEpicById(id: Long): Epic =

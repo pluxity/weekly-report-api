@@ -50,8 +50,9 @@ class TaskService(
     }
 
     fun findById(id: Long): TaskResponse {
+        val user = currentUserProvider.get()
         val task = getTaskById(id)
-        accessPolicy.require(currentUserProvider.get(), task, AccessAction.VIEW)
+        accessPolicy.require(user, task, AccessAction.VIEW)
         return task.toResponse()
     }
 
@@ -130,7 +131,8 @@ class TaskService(
 
         taskRepository.restoreById(id)
 
-        return findById(id)
+        // 복구 직후라 권한은 위에서 이미 확인했다. findById 를 다시 타면 사용자 조회가 한 번 더 돈다
+        return task.toResponse()
     }
 
     private fun validateAndLoadEpic(
