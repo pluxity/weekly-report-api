@@ -20,6 +20,11 @@ interface EpicRepository :
         epicId: Long,
     ): Boolean
 
+    fun existsByAssignmentsUserIdAndProjectId(
+        userId: Long,
+        projectId: Long,
+    ): Boolean
+
     fun findByProjectIdIn(projectIds: List<Long>): List<Epic>
 
     @Query(value = "SELECT project_id FROM epics WHERE id = :id", nativeQuery = true)
