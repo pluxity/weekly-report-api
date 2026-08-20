@@ -1,6 +1,6 @@
 package com.pluxity.weekly.chat.service
 
-import com.pluxity.weekly.auth.authorization.AuthorizationService
+import com.pluxity.weekly.auth.authorization.CurrentUserProvider
 import com.pluxity.weekly.auth.user.entity.User
 import com.pluxity.weekly.chat.dto.ChatActionResponse
 import com.pluxity.weekly.chat.dto.ChatResolveRequest
@@ -21,7 +21,7 @@ class ChatResolveServiceTest :
         val clarifyStore: ClarifyStore = mockk()
         val chatActionRouter: ChatActionRouter = mockk()
         val chatHistoryStore: ChatHistoryStore = mockk(relaxed = true)
-        val authorizationService: AuthorizationService = mockk()
+        val currentUserProvider: CurrentUserProvider = mockk()
         val objectMapper = JsonMapper()
 
         val service =
@@ -29,13 +29,13 @@ class ChatResolveServiceTest :
                 clarifyStore,
                 chatActionRouter,
                 chatHistoryStore,
-                authorizationService,
+                currentUserProvider,
                 objectMapper,
             )
 
         val userId = 42L
         val user = mockk<User> { every { requiredId } returns userId }
-        every { authorizationService.currentUser() } returns user
+        every { currentUserProvider.get() } returns user
 
         Given("정상 resolve - 단일 id 필드") {
             val clarifyId = "clarify-xyz"

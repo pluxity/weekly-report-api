@@ -1,6 +1,7 @@
 package com.pluxity.weekly.chat.service
 
-import com.pluxity.weekly.auth.authorization.AuthorizationService
+import com.pluxity.weekly.auth.authorization.AccessPolicy
+import com.pluxity.weekly.auth.authorization.CurrentUserProvider
 import com.pluxity.weekly.auth.user.entity.User
 import com.pluxity.weekly.chat.dto.ChatActionResponse
 import com.pluxity.weekly.chat.dto.ChatActionType
@@ -25,7 +26,8 @@ class ChatActionRouter(
     private val chatDtoMapper: ChatDtoMapper,
     private val selectFieldResolver: SelectFieldResolver,
     private val clarifyStore: ClarifyStore,
-    private val authorizationService: AuthorizationService,
+    private val currentUserProvider: CurrentUserProvider,
+    private val accessPolicy: AccessPolicy,
     private val taskService: TaskService,
     private val epicService: EpicService,
     private val projectService: ProjectService,
@@ -74,8 +76,8 @@ class ChatActionRouter(
             throw ChatClarifyException("팀 관리는 웹페이지에서 이용해주세요.")
         }
         if (type == ChatActionType.CREATE && target == ChatTarget.TASK) {
-            val user = authorizationService.currentUser()
-            val visibleEpics = authorizationService.visibleEpicIds(user)
+            val user = currentUserProvider.get()
+            val visibleEpics = accessPolicy.visibleEpicIds(user)
             if (visibleEpics != null && visibleEpics.isEmpty()) {
                 throw ChatClarifyException("태스크를 생성할 수 있는 업무 그룹이 없습니다. 먼저 업무 그룹에 참여해주세요.")
             }
@@ -116,7 +118,7 @@ class ChatActionRouter(
         val resolved = selectFieldResolver.resolveCandidates(field, action)
         if (resolved.isEmpty()) throw ChatClarifyException(message)
 
-        val userId = authorizationService.currentUser().requiredId
+        val userId = currentUserProvider.get().requiredId
         val normalized =
             action.copy(
                 missingFields = listOf(field),

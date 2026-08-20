@@ -3,6 +3,7 @@ package com.pluxity.weekly.auth.config
 import com.pluxity.weekly.auth.authentication.security.CustomUserDetails
 import com.pluxity.weekly.auth.authentication.security.JwtAuthenticationFilter
 import com.pluxity.weekly.auth.authentication.security.JwtProvider
+import com.pluxity.weekly.auth.authorization.UserType
 import com.pluxity.weekly.auth.properties.JwtProperties
 import com.pluxity.weekly.auth.properties.UserProperties
 import com.pluxity.weekly.auth.user.repository.UserRepository
@@ -45,6 +46,8 @@ class SecurityConfig(
                     ).permitAll()
                     .requestMatchers("/auth/**")
                     .permitAll()
+                    .requestMatchers("/admin/**", "/roles/**")
+                    .hasRole(UserType.ADMIN.roleName)
                     .anyRequest()
                     .authenticated()
             }.addFilterBefore(jwtAuthenticationFilter(), UsernamePasswordAuthenticationFilter::class.java)

@@ -1,6 +1,7 @@
 package com.pluxity.weekly.task.service
 
-import com.pluxity.weekly.auth.authorization.AuthorizationService
+import com.pluxity.weekly.auth.authorization.AccessPolicy
+import com.pluxity.weekly.auth.authorization.CurrentUserProvider
 import com.pluxity.weekly.auth.user.entity.RoleType
 import com.pluxity.weekly.auth.user.repository.UserRepository
 import com.pluxity.weekly.core.constant.ErrorCode
@@ -37,7 +38,8 @@ class TaskServiceTest :
         val taskRepository: TaskRepository = mockk()
         val epicRepository: EpicRepository = mockk()
         val userRepository: UserRepository = mockk()
-        val authorizationService: AuthorizationService = mockk()
+        val currentUserProvider: CurrentUserProvider = mockk()
+        val accessPolicy: AccessPolicy = mockk()
         val assignmentService: EpicAssignmentService = mockk(relaxed = true)
         val eventPublisher: ApplicationEventPublisher = mockk(relaxed = true)
         val service =
@@ -45,7 +47,8 @@ class TaskServiceTest :
                 taskRepository,
                 epicRepository,
                 userRepository,
-                authorizationService,
+                currentUserProvider,
+                accessPolicy,
                 assignmentService,
                 eventPublisher,
             )
@@ -56,11 +59,11 @@ class TaskServiceTest :
             }
 
         beforeSpec {
-            every { authorizationService.currentUser() } returns adminUser
-            every { authorizationService.requireEpicAccess(any(), any()) } just runs
-            every { authorizationService.requireTaskOwner(any(), any()) } just runs
-            every { authorizationService.visibleEpicIds(any()) } returns null
-            every { authorizationService.restrictedAssigneeId(any()) } returns null
+            every { currentUserProvider.get() } returns adminUser
+            every { accessPolicy.requireCreateTask(any(), any()) } just runs
+            every { accessPolicy.require(any(), any<Task>(), any()) } just runs
+            every { accessPolicy.visibleEpicIds(any()) } returns null
+            every { accessPolicy.restrictedAssigneeId(any()) } returns null
         }
 
         Given("태스크 전체 조회") {

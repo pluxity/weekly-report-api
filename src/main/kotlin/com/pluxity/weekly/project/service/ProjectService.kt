@@ -1,6 +1,8 @@
 package com.pluxity.weekly.project.service
 
-import com.pluxity.weekly.auth.authorization.AuthorizationService
+import com.pluxity.weekly.auth.authorization.AccessAction
+import com.pluxity.weekly.auth.authorization.AccessPolicy
+import com.pluxity.weekly.auth.authorization.CurrentUserProvider
 import com.pluxity.weekly.auth.user.repository.UserRepository
 import com.pluxity.weekly.chat.dto.ProjectSearchFilter
 import com.pluxity.weekly.core.constant.ErrorCode
@@ -28,14 +30,15 @@ class ProjectService(
     private val epicRepository: EpicRepository,
     private val taskRepository: TaskRepository,
     private val userRepository: UserRepository,
-    private val authorizationService: AuthorizationService,
+    private val currentUserProvider: CurrentUserProvider,
+    private val accessPolicy: AccessPolicy,
     private val eventPublisher: ApplicationEventPublisher,
 ) {
     fun findAll(): List<ProjectResponse> = search(ProjectSearchFilter())
 
     fun search(filter: ProjectSearchFilter): List<ProjectResponse> {
-        val user = authorizationService.currentUser()
-        val scoped = filter.copy(projectIds = filter.projectIds ?: authorizationService.visibleProjectIds(user))
+        val user = currentUserProvider.get()
+        val scoped = filter.copy(projectIds = filter.projectIds ?: accessPolicy.visibleProjectIds(user))
         if (scoped.projectIds?.isEmpty() == true) return emptyList()
 
         val projects = projectRepository.findByFilter(scoped)
@@ -73,16 +76,16 @@ class ProjectService(
     }
 
     fun findById(id: Long): ProjectResponse {
+        val user = currentUserProvider.get()
         val project = getById(id)
-        val pmName = project.pmId?.let { userRepository.findByIdOrNull(it)?.name }
-        val progress = averageProgressByProjectIds(listOf(id))[id] ?: 0
-        return project.toResponse(projectRepository.findMembersByProjectIds(listOf(project.requiredId)), pmName, progress)
+        accessPolicy.require(user, project, AccessAction.VIEW)
+        return toDetailResponse(project)
     }
 
     @Transactional
     fun create(request: ProjectRequest): Long {
-        val user = authorizationService.currentUser()
-        authorizationService.requireAdmin(user)
+        val user = currentUserProvider.get()
+        accessPolicy.requireCreateProject(user)
         if (request.status !in ProjectStatus.initStates) {
             throw CustomException(ErrorCode.INVALID_INITIAL_STATUS, request.status)
         }
@@ -108,9 +111,9 @@ class ProjectService(
         id: Long,
         request: ProjectUpdateRequest,
     ) {
-        val user = authorizationService.currentUser()
-        authorizationService.requireProjectManager(user, id)
+        val user = currentUserProvider.get()
         val project = getById(id)
+        accessPolicy.require(user, project, AccessAction.EDIT)
         project.ensureMutable()
         request.pmId?.let { ensurePmExists(it) }
         val previousPmId = project.pmId
@@ -140,24 +143,33 @@ class ProjectService(
 
     @Transactional
     fun delete(id: Long) {
-        val user = authorizationService.currentUser()
-        authorizationService.requireProjectManager(user, id)
-        projectRepository.delete(getById(id))
+        val user = currentUserProvider.get()
+        val project = getById(id)
+        accessPolicy.require(user, project, AccessAction.DELETE)
+        projectRepository.delete(project)
     }
 
     @Transactional
     fun restore(id: Long): ProjectResponse {
-        val user = authorizationService.currentUser()
+        val user = currentUserProvider.get()
         val project =
             projectRepository.findRawById(id)
                 ?: throw CustomException(ErrorCode.NOT_FOUND_PROJECT, id)
-        authorizationService.requireProjectManager(user, project)
+        accessPolicy.require(user, project, AccessAction.EDIT)
 
         projectRepository.restoreById(id)
         epicRepository.restoreByProjectId(id)
         taskRepository.restoreByProjectId(id)
 
-        return findById(id)
+        return toDetailResponse(project)
+    }
+
+    /** PM 이름·진행률·구성원까지 채운 단건 응답. findById 와 restore 가 공유한다 */
+    private fun toDetailResponse(project: Project): ProjectResponse {
+        val id = project.requiredId
+        val pmName = project.pmId?.let { userRepository.findByIdOrNull(it)?.name }
+        val progress = averageProgressByProjectIds(listOf(id))[id] ?: 0
+        return project.toResponse(projectRepository.findMembersByProjectIds(listOf(id)), pmName, progress)
     }
 
     private fun getById(id: Long): Project =

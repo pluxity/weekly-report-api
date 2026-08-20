@@ -1,6 +1,9 @@
 package com.pluxity.weekly.report.service
 
-import com.pluxity.weekly.auth.authorization.AuthorizationService
+import com.pluxity.weekly.auth.authorization.AccessAction
+import com.pluxity.weekly.auth.authorization.AccessPolicy
+import com.pluxity.weekly.auth.authorization.CurrentUserProvider
+import com.pluxity.weekly.auth.authorization.UserType
 import com.pluxity.weekly.chat.dto.WeeklyReportSearchFilter
 import com.pluxity.weekly.chat.llm.dto.WeeklyReportClassifyResult
 import com.pluxity.weekly.core.constant.ErrorCode
@@ -26,21 +29,22 @@ import java.time.temporal.TemporalAdjusters
 class WeeklyReportService(
     private val weeklyReportRepository: WeeklyReportRepository,
     private val teamRepository: TeamRepository,
-    private val authorizationService: AuthorizationService,
+    private val currentUserProvider: CurrentUserProvider,
+    private val accessPolicy: AccessPolicy,
 ) {
     fun findAll(
         teamId: Long?,
         weekStart: LocalDate?,
         weekEnd: LocalDate?,
     ): List<WeeklyReportResponse> {
-        val user = authorizationService.currentUser()
-        authorizationService.requireAdminOrLeader(user)
+        val user = currentUserProvider.get()
+        accessPolicy.requireAnyRole(user, UserType.ADMIN, UserType.TEAM_LEADER)
 
-        val visibleTeams = authorizationService.visibleTeamIds(user)
+        val visibleTeams = accessPolicy.visibleTeamIds(user)
         val filter =
             when {
                 teamId != null -> {
-                    authorizationService.requireTeamAccess(user, teamId)
+                    accessPolicy.require(user, getTeamById(teamId), AccessAction.VIEW)
                     WeeklyReportSearchFilter(teamId = teamId, weekStart = weekStart, weekEnd = weekEnd)
                 }
                 visibleTeams == null -> {
@@ -57,7 +61,7 @@ class WeeklyReportService(
     }
 
     fun findForChat(week: String?): WeeklyReportResponse? {
-        val user = authorizationService.currentUser()
+        val user = currentUserProvider.get()
         val team = teamRepository.findByLeaderId(user.requiredId).firstOrNull() ?: return null
         val weekStart = resolveWeekStart(week)
         return weeklyReportRepository
@@ -153,8 +157,8 @@ class WeeklyReportService(
             weeklyReportRepository.findByIdOrNull(id)
                 ?: throw CustomException(ErrorCode.NOT_FOUND_WEEKLY_REPORT, id)
 
-        val user = authorizationService.currentUser()
-        authorizationService.requireTeamAccess(user, report.team.requiredId)
+        val user = currentUserProvider.get()
+        accessPolicy.require(user, report.team, AccessAction.VIEW)
 
         return report.toResponse()
     }
@@ -167,14 +171,14 @@ class WeeklyReportService(
         weekStart: LocalDate,
         weekEnd: LocalDate,
     ): List<WeeklyReportSummaryResponse> {
-        val user = authorizationService.currentUser()
-        authorizationService.requireAdminOrLeader(user)
+        val user = currentUserProvider.get()
+        accessPolicy.requireAnyRole(user, UserType.ADMIN, UserType.TEAM_LEADER)
 
         val normalizedStart = weekStart.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
         val normalizedEnd = weekEnd.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
         if (normalizedStart.isAfter(normalizedEnd)) return emptyList()
 
-        val visibleTeams = authorizationService.visibleTeamIds(user)
+        val visibleTeams = accessPolicy.visibleTeamIds(user)
         val teams =
             if (visibleTeams == null) {
                 teamRepository.findAll()
@@ -214,4 +218,8 @@ class WeeklyReportService(
         }
         return list
     }
+
+    private fun getTeamById(id: Long): Team =
+        teamRepository.findByIdOrNull(id)
+            ?: throw CustomException(ErrorCode.NOT_FOUND_TEAM, id)
 }

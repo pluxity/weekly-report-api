@@ -1,6 +1,7 @@
 package com.pluxity.weekly.epic.service
 
-import com.pluxity.weekly.auth.authorization.AuthorizationService
+import com.pluxity.weekly.auth.authorization.AccessPolicy
+import com.pluxity.weekly.auth.authorization.CurrentUserProvider
 import com.pluxity.weekly.auth.user.entity.RoleType
 import com.pluxity.weekly.core.constant.ErrorCode
 import com.pluxity.weekly.core.exception.CustomException
@@ -10,6 +11,7 @@ import com.pluxity.weekly.epic.entity.Epic
 import com.pluxity.weekly.epic.entity.EpicStatus
 import com.pluxity.weekly.epic.entity.dummyEpic
 import com.pluxity.weekly.epic.repository.EpicRepository
+import com.pluxity.weekly.project.entity.Project
 import com.pluxity.weekly.project.entity.dummyProject
 import com.pluxity.weekly.project.repository.ProjectRepository
 import com.pluxity.weekly.task.repository.TaskRepository
@@ -32,9 +34,18 @@ class EpicServiceTest :
         val epicRepository: EpicRepository = mockk()
         val projectRepository: ProjectRepository = mockk()
         val taskRepository: TaskRepository = mockk()
-        val authorizationService: AuthorizationService = mockk()
+        val currentUserProvider: CurrentUserProvider = mockk()
+        val accessPolicy: AccessPolicy = mockk()
         val assignmentService: EpicAssignmentService = mockk(relaxed = true)
-        val service = EpicService(epicRepository, projectRepository, taskRepository, authorizationService, assignmentService)
+        val service =
+            EpicService(
+                epicRepository,
+                projectRepository,
+                taskRepository,
+                currentUserProvider,
+                accessPolicy,
+                assignmentService,
+            )
 
         val adminUser =
             dummyUser(id = 1L, name = "관리자").apply {
@@ -42,11 +53,11 @@ class EpicServiceTest :
             }
 
         beforeSpec {
-            every { authorizationService.currentUser() } returns adminUser
-            every { authorizationService.requireEpicManage(any(), any()) } just runs
-            every { authorizationService.requireEpicAccess(any(), any()) } just runs
-            every { authorizationService.requireEpicAssign(any(), any()) } just runs
-            every { authorizationService.visibleEpicIds(any()) } returns null
+            every { currentUserProvider.get() } returns adminUser
+            every { accessPolicy.require(any(), any<Epic>(), any()) } just runs
+            every { accessPolicy.require(any(), any<Project>(), any()) } just runs
+            every { accessPolicy.requireCreateEpic(any(), any()) } just runs
+            every { accessPolicy.visibleEpicIds(any()) } returns null
         }
 
         Given("에픽 전체 조회") {
@@ -382,6 +393,7 @@ class EpicServiceTest :
                 val parent = dummyProject(id = 700L)
                 val entity = dummyEpic(id = 710L, project = parent, name = "복구 대상")
                 every { epicRepository.findProjectIdRawById(710L) } returns 700L
+                every { projectRepository.findByIdOrNull(700L) } returns parent
                 every { epicRepository.isParentProjectDeletedByEpicId(710L) } returns false
                 every { epicRepository.restoreById(710L) } returns 1
                 every { taskRepository.restoreByEpicId(710L) } returns 0

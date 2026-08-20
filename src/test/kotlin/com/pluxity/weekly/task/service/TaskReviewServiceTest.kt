@@ -1,11 +1,14 @@
 package com.pluxity.weekly.task.service
 
-import com.pluxity.weekly.auth.authorization.AuthorizationService
+import com.pluxity.weekly.auth.authorization.AccessPolicy
+import com.pluxity.weekly.auth.authorization.CurrentUserProvider
 import com.pluxity.weekly.auth.user.entity.RoleType
 import com.pluxity.weekly.core.constant.ErrorCode
 import com.pluxity.weekly.core.exception.CustomException
+import com.pluxity.weekly.epic.entity.Epic
 import com.pluxity.weekly.epic.entity.dummyEpic
 import com.pluxity.weekly.project.entity.dummyProject
+import com.pluxity.weekly.task.entity.Task
 import com.pluxity.weekly.task.entity.TaskApprovalAction
 import com.pluxity.weekly.task.entity.TaskApprovalLog
 import com.pluxity.weekly.task.entity.TaskStatus
@@ -35,13 +38,15 @@ class TaskReviewServiceTest :
 
         val taskRepository: TaskRepository = mockk()
         val taskApprovalLogRepository: TaskApprovalLogRepository = mockk(relaxed = true)
-        val authorizationService: AuthorizationService = mockk()
+        val currentUserProvider: CurrentUserProvider = mockk()
+        val accessPolicy: AccessPolicy = mockk()
         val eventPublisher: ApplicationEventPublisher = mockk(relaxed = true)
         val service =
             TaskReviewService(
                 taskRepository,
                 taskApprovalLogRepository,
-                authorizationService,
+                currentUserProvider,
+                accessPolicy,
                 eventPublisher,
             )
 
@@ -51,11 +56,10 @@ class TaskReviewServiceTest :
             }
 
         beforeSpec {
-            every { authorizationService.currentUser() } returns adminUser
-            every { authorizationService.requireEpicAccess(any(), any()) } just runs
-            every { authorizationService.requireTaskOwner(any(), any()) } just runs
-            every { authorizationService.requireTaskReviewer(any(), any()) } just runs
-            every { authorizationService.pmScopedProjectIds(any()) } returns null
+            every { currentUserProvider.get() } returns adminUser
+            every { accessPolicy.require(any(), any<Task>(), any()) } just runs
+            every { accessPolicy.require(any(), any<Epic>(), any()) } just runs
+            every { accessPolicy.pmScopedProjectIds(any()) } returns null
             every { taskApprovalLogRepository.save(any<TaskApprovalLog>()) } answers { firstArg() }
         }
 
@@ -244,7 +248,7 @@ class TaskReviewServiceTest :
                 val t1 = dummyTask(id = 100L, epic = epic, name = "먼저 요청", status = TaskStatus.IN_REVIEW)
                 val t2 = dummyTask(id = 101L, epic = epic, name = "나중 요청", status = TaskStatus.IN_REVIEW)
 
-                every { authorizationService.pmScopedProjectIds(any()) } returns null
+                every { accessPolicy.pmScopedProjectIds(any()) } returns null
                 every { taskRepository.findByStatus(TaskStatus.IN_REVIEW) } returns listOf(t2, t1)
                 every {
                     taskApprovalLogRepository.findLatestCreatedAtByTaskIdsAndAction(
@@ -275,7 +279,7 @@ class TaskReviewServiceTest :
                 val epic = dummyEpic(id = 50L, project = project)
                 val t = dummyTask(id = 200L, epic = epic, status = TaskStatus.IN_REVIEW)
 
-                every { authorizationService.pmScopedProjectIds(any()) } returns listOf(5L)
+                every { accessPolicy.pmScopedProjectIds(any()) } returns listOf(5L)
                 every {
                     taskRepository.findByStatusAndEpicProjectIdIn(TaskStatus.IN_REVIEW, listOf(5L))
                 } returns listOf(t)
@@ -296,7 +300,7 @@ class TaskReviewServiceTest :
             }
 
             When("PM 이 담당 프로젝트가 없으면") {
-                every { authorizationService.pmScopedProjectIds(any()) } returns emptyList()
+                every { accessPolicy.pmScopedProjectIds(any()) } returns emptyList()
 
                 val result = service.findPendingReviews()
 

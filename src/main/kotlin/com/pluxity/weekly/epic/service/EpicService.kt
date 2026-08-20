@@ -1,6 +1,8 @@
 package com.pluxity.weekly.epic.service
 
-import com.pluxity.weekly.auth.authorization.AuthorizationService
+import com.pluxity.weekly.auth.authorization.AccessAction
+import com.pluxity.weekly.auth.authorization.AccessPolicy
+import com.pluxity.weekly.auth.authorization.CurrentUserProvider
 import com.pluxity.weekly.chat.dto.EpicSearchFilter
 import com.pluxity.weekly.core.constant.ErrorCode
 import com.pluxity.weekly.core.exception.CustomException
@@ -26,14 +28,15 @@ class EpicService(
     private val epicRepository: EpicRepository,
     private val projectRepository: ProjectRepository,
     private val taskRepository: TaskRepository,
-    private val authorizationService: AuthorizationService,
+    private val currentUserProvider: CurrentUserProvider,
+    private val accessPolicy: AccessPolicy,
     private val assignmentService: EpicAssignmentService,
 ) {
     fun findAll(): List<EpicResponse> = search(EpicSearchFilter())
 
     fun search(filter: EpicSearchFilter): List<EpicResponse> {
-        val user = authorizationService.currentUser()
-        val scoped = filter.copy(epicIds = filter.epicIds ?: authorizationService.visibleEpicIds(user))
+        val user = currentUserProvider.get()
+        val scoped = filter.copy(epicIds = filter.epicIds ?: accessPolicy.visibleEpicIds(user))
         if (scoped.epicIds?.isEmpty() == true) return emptyList()
         val epics = epicRepository.findByFilter(scoped)
         if (epics.isEmpty()) return emptyList()
@@ -41,16 +44,21 @@ class EpicService(
         return epics.map { it.toResponse(completedAt = it.derivedCompletedAt(tasksByEpicId[it.requiredId].orEmpty())) }
     }
 
-    fun findById(id: Long): EpicResponse = getEpicById(id).toResponse()
+    fun findById(id: Long): EpicResponse {
+        val user = currentUserProvider.get()
+        val epic = getEpicById(id)
+        accessPolicy.require(user, epic, AccessAction.VIEW)
+        return epic.toResponse()
+    }
 
     @Transactional
     fun create(request: EpicRequest): Long {
-        val user = authorizationService.currentUser()
-        authorizationService.requireEpicManage(user, request.projectId)
+        val user = currentUserProvider.get()
+        val project = getProjectById(request.projectId)
+        accessPolicy.requireCreateEpic(user, project)
         if (request.status !in EpicStatus.initStates) {
             throw CustomException(ErrorCode.INVALID_INITIAL_STATUS, request.status)
         }
-        val project = getProjectById(request.projectId)
         if (project.status == ProjectStatus.DONE) {
             throw CustomException(ErrorCode.INVALID_STATUS_TRANSITION, project.status, "create epic")
         }
@@ -74,9 +82,9 @@ class EpicService(
         id: Long,
         request: EpicUpdateRequest,
     ) {
-        val user = authorizationService.currentUser()
+        val user = currentUserProvider.get()
         val epic = getEpicById(id)
-        authorizationService.requireEpicManage(user, epic.project.requiredId)
+        accessPolicy.require(user, epic, AccessAction.EDIT)
         epic.ensureMutable()
 
         request.status?.let { newStatus ->
@@ -100,27 +108,28 @@ class EpicService(
 
     @Transactional
     fun delete(id: Long) {
-        val user = authorizationService.currentUser()
+        val user = currentUserProvider.get()
         val epic = getEpicById(id)
-        authorizationService.requireEpicManage(user, epic.project.requiredId)
+        accessPolicy.require(user, epic, AccessAction.DELETE)
         epicRepository.delete(epic)
     }
 
     @Transactional
     fun restore(id: Long): EpicResponse {
-        val user = authorizationService.currentUser()
+        val user = currentUserProvider.get()
         val projectId =
             epicRepository.findProjectIdRawById(id)
                 ?: throw CustomException(ErrorCode.NOT_FOUND_EPIC, id)
         if (epicRepository.isParentProjectDeletedByEpicId(id)) {
             throw CustomException(ErrorCode.PARENT_PROJECT_DELETED)
         }
-        authorizationService.requireEpicManage(user, projectId)
+        accessPolicy.require(user, getProjectById(projectId), AccessAction.EDIT)
 
         epicRepository.restoreById(id)
         taskRepository.restoreByEpicId(id)
 
-        return findById(id)
+        // 복구 직후라 권한은 위에서 이미 확인했다. findById 를 다시 타면 사용자 조회가 한 번 더 돈다
+        return getEpicById(id).toResponse()
     }
 
     private fun getEpicById(id: Long): Epic =

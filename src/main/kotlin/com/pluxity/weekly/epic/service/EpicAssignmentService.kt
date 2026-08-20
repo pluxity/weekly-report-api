@@ -1,6 +1,9 @@
 package com.pluxity.weekly.epic.service
 
-import com.pluxity.weekly.auth.authorization.AuthorizationService
+import com.pluxity.weekly.auth.authorization.AccessAction
+import com.pluxity.weekly.auth.authorization.AccessPolicy
+import com.pluxity.weekly.auth.authorization.CurrentUserProvider
+import com.pluxity.weekly.auth.authorization.UserType
 import com.pluxity.weekly.auth.user.entity.User
 import com.pluxity.weekly.auth.user.repository.UserRepository
 import com.pluxity.weekly.core.constant.ErrorCode
@@ -23,7 +26,8 @@ class EpicAssignmentService(
     private val epicRepository: EpicRepository,
     private val userRepository: UserRepository,
     private val taskRepository: TaskRepository,
-    private val authorizationService: AuthorizationService,
+    private val currentUserProvider: CurrentUserProvider,
+    private val accessPolicy: AccessPolicy,
     private val eventPublisher: ApplicationEventPublisher,
 ) {
     fun findByEpic(epicId: Long): List<EpicAssignmentResponse> = getEpicById(epicId).assignments.map { it.toResponse() }
@@ -33,9 +37,9 @@ class EpicAssignmentService(
         epicId: Long,
         userId: Long,
     ) {
-        val user = authorizationService.currentUser()
-        authorizationService.requireEpicAssign(user, epicId)
+        val user = currentUserProvider.get()
         val epic = getEpicById(epicId)
+        accessPolicy.require(user, epic, AccessAction.ASSIGN)
         epic.ensureMutable("assign")
         val assignee = getUserById(userId)
         if (epic.assignments.any { it.user == assignee }) {
@@ -49,9 +53,9 @@ class EpicAssignmentService(
         epicId: Long,
         userId: Long,
     ) {
-        val user = authorizationService.currentUser()
-        authorizationService.requireEpicAssign(user, epicId)
+        val user = currentUserProvider.get()
         val epic = getEpicById(epicId)
+        accessPolicy.require(user, epic, AccessAction.ASSIGN)
         epic.ensureMutable("unassign")
         val assignee = getUserById(userId)
         if (epic.assignments.none { it.user == assignee }) {
@@ -84,7 +88,7 @@ class EpicAssignmentService(
         epic: Epic,
     ) {
         if (assigneeId == null) return
-        authorizationService.requireAdminOrPm(actor)
+        accessPolicy.requireAnyRole(actor, UserType.ADMIN, UserType.PM, UserType.PO)
         if (!epicRepository.existsByAssignmentsUserIdAndId(assigneeId, epic.requiredId)) {
             val assignee = getUserById(assigneeId)
             assignAndNotify(epic, assignee)

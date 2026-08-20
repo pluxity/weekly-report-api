@@ -1,6 +1,8 @@
 package com.pluxity.weekly.task.service
 
-import com.pluxity.weekly.auth.authorization.AuthorizationService
+import com.pluxity.weekly.auth.authorization.AccessAction
+import com.pluxity.weekly.auth.authorization.AccessPolicy
+import com.pluxity.weekly.auth.authorization.CurrentUserProvider
 import com.pluxity.weekly.auth.user.entity.User
 import com.pluxity.weekly.core.constant.ErrorCode
 import com.pluxity.weekly.core.exception.CustomException
@@ -28,14 +30,15 @@ import java.time.LocalDateTime
 class TaskReviewService(
     private val taskRepository: TaskRepository,
     private val taskApprovalLogRepository: TaskApprovalLogRepository,
-    private val authorizationService: AuthorizationService,
+    private val currentUserProvider: CurrentUserProvider,
+    private val accessPolicy: AccessPolicy,
     private val eventPublisher: ApplicationEventPublisher,
 ) {
     @Transactional
     fun requestReview(id: Long) {
-        val user = authorizationService.currentUser()
+        val user = currentUserProvider.get()
         val task = getTaskById(id)
-        authorizationService.requireTaskOwner(user, task)
+        accessPolicy.require(user, task, AccessAction.EDIT)
         task.requestReview()
         writeLog(task, user, TaskApprovalAction.REVIEW_REQUEST)
         task.epic.project.pmId?.let { pmId ->
@@ -54,9 +57,9 @@ class TaskReviewService(
 
     @Transactional
     fun approve(id: Long) {
-        val user = authorizationService.currentUser()
+        val user = currentUserProvider.get()
         val task = getTaskById(id)
-        authorizationService.requireTaskReviewer(user, task)
+        accessPolicy.require(user, task, AccessAction.APPROVE)
         task.approve()
         writeLog(task, user, TaskApprovalAction.APPROVE)
         task.assignee?.requiredId?.let { assigneeId ->
@@ -74,9 +77,9 @@ class TaskReviewService(
         id: Long,
         reason: String?,
     ) {
-        val user = authorizationService.currentUser()
+        val user = currentUserProvider.get()
         val task = getTaskById(id)
-        authorizationService.requireTaskReviewer(user, task)
+        accessPolicy.require(user, task, AccessAction.APPROVE)
         task.reject()
         val normalizedReason = reason?.takeIf { it.isNotBlank() }
         writeLog(task, user, TaskApprovalAction.REJECT, normalizedReason)
@@ -92,8 +95,8 @@ class TaskReviewService(
     }
 
     fun findPendingReviews(): List<PendingReviewResponse> {
-        val user = authorizationService.currentUser()
-        val scopedProjectIds = authorizationService.pmScopedProjectIds(user)
+        val user = currentUserProvider.get()
+        val scopedProjectIds = accessPolicy.pmScopedProjectIds(user)
         val tasks =
             when {
                 scopedProjectIds == null -> taskRepository.findByStatus(TaskStatus.IN_REVIEW)
@@ -134,9 +137,9 @@ class TaskReviewService(
     }
 
     fun findApprovalLogs(id: Long): List<TaskApprovalLogResponse> {
-        val user = authorizationService.currentUser()
+        val user = currentUserProvider.get()
         val task = getTaskById(id)
-        authorizationService.requireEpicAccess(user, task.epic.requiredId)
+        accessPolicy.require(user, task.epic, AccessAction.VIEW)
         return taskApprovalLogRepository.findByTaskIdOrderByIdAsc(id).map { it.toResponse() }
     }
 

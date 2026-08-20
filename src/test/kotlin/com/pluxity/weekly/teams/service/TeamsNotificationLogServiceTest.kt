@@ -1,6 +1,8 @@
 package com.pluxity.weekly.teams.service
 
-import com.pluxity.weekly.auth.authorization.AuthorizationService
+import com.pluxity.weekly.auth.authorization.AccessPolicy
+import com.pluxity.weekly.auth.authorization.CurrentUserProvider
+import com.pluxity.weekly.auth.authorization.UserType
 import com.pluxity.weekly.core.constant.ErrorCode
 import com.pluxity.weekly.core.exception.CustomException
 import com.pluxity.weekly.teams.entity.TeamsNotificationLog
@@ -29,9 +31,10 @@ class TeamsNotificationLogServiceTest :
     BehaviorSpec({
 
         val logRepository: TeamsNotificationLogRepository = mockk()
-        val authorizationService: AuthorizationService = mockk()
+        val currentUserProvider: CurrentUserProvider = mockk()
+        val accessPolicy: AccessPolicy = mockk()
         val eventPublisher: ApplicationEventPublisher = mockk()
-        val service = TeamsNotificationLogService(logRepository, authorizationService, eventPublisher)
+        val service = TeamsNotificationLogService(logRepository, currentUserProvider, accessPolicy, eventPublisher)
 
         Given("savePending") {
             When("로그를 PENDING 상태로 저장하면") {
@@ -128,7 +131,7 @@ class TeamsNotificationLogServiceTest :
                 val pageable = PageRequest.of(0, 20)
                 val page = PageImpl(listOf(log1, log2), pageable, 2)
 
-                every { authorizationService.currentUser() } returns user
+                every { currentUserProvider.get() } returns user
                 every { logRepository.findByUserId(10L, pageable) } returns page
 
                 val result = service.findMine(pageable)
@@ -146,7 +149,7 @@ class TeamsNotificationLogServiceTest :
 
             When("현재 사용자의 id 가 null 이면") {
                 val orphanUser = dummyUser(id = null, name = "고아")
-                every { authorizationService.currentUser() } returns orphanUser
+                every { currentUserProvider.get() } returns orphanUser
 
                 val exception =
                     shouldThrow<CustomException> {
@@ -177,8 +180,8 @@ class TeamsNotificationLogServiceTest :
                 val pageable = PageRequest.of(0, 20)
                 val page = PageImpl(listOf(log1, log2), pageable, 2)
 
-                every { authorizationService.currentUser() } returns admin
-                every { authorizationService.requireAdmin(admin) } just runs
+                every { currentUserProvider.get() } returns admin
+                every { accessPolicy.requireAnyRole(admin, UserType.ADMIN) } just runs
                 every { logRepository.findAll(pageable) } returns page
 
                 val result = service.findAllForAdmin(null, pageable)
@@ -202,8 +205,8 @@ class TeamsNotificationLogServiceTest :
                 val pageable = PageRequest.of(0, 20)
                 val page = PageImpl(listOf(failedLog), pageable, 1)
 
-                every { authorizationService.currentUser() } returns admin
-                every { authorizationService.requireAdmin(admin) } just runs
+                every { currentUserProvider.get() } returns admin
+                every { accessPolicy.requireAnyRole(admin, UserType.ADMIN) } just runs
                 every { logRepository.findByStatus(TeamsNotificationStatus.FAILED, pageable) } returns page
 
                 val result = service.findAllForAdmin(TeamsNotificationStatus.FAILED, pageable)
@@ -218,9 +221,9 @@ class TeamsNotificationLogServiceTest :
 
             When("ADMIN 권한이 없으면") {
                 val nonAdmin = dummyUser(id = 5L, name = "일반")
-                every { authorizationService.currentUser() } returns nonAdmin
+                every { currentUserProvider.get() } returns nonAdmin
                 every {
-                    authorizationService.requireAdmin(nonAdmin)
+                    accessPolicy.requireAnyRole(nonAdmin, UserType.ADMIN)
                 } throws CustomException(ErrorCode.PERMISSION_DENIED)
 
                 val exception =
@@ -246,8 +249,8 @@ class TeamsNotificationLogServiceTest :
                     ).withId(3L)
                 val admin = dummyUser(id = 1L, name = "admin")
 
-                every { authorizationService.currentUser() } returns admin
-                every { authorizationService.requireAdmin(admin) } just runs
+                every { currentUserProvider.get() } returns admin
+                every { accessPolicy.requireAnyRole(admin, UserType.ADMIN) } just runs
                 every { logRepository.findByIdOrNull(3L) } returns log
                 val captured = slot<TeamsNotificationEvent>()
                 every { eventPublisher.publishEvent(capture(captured)) } just runs
@@ -267,8 +270,8 @@ class TeamsNotificationLogServiceTest :
 
             When("존재하지 않는 logId 이면") {
                 val admin = dummyUser(id = 1L, name = "admin")
-                every { authorizationService.currentUser() } returns admin
-                every { authorizationService.requireAdmin(admin) } just runs
+                every { currentUserProvider.get() } returns admin
+                every { accessPolicy.requireAnyRole(admin, UserType.ADMIN) } just runs
                 every { logRepository.findByIdOrNull(999L) } returns null
 
                 val exception =
@@ -290,8 +293,8 @@ class TeamsNotificationLogServiceTest :
                         status = TeamsNotificationStatus.SENT,
                     ).withId(8L)
                 val admin = dummyUser(id = 1L, name = "admin")
-                every { authorizationService.currentUser() } returns admin
-                every { authorizationService.requireAdmin(admin) } just runs
+                every { currentUserProvider.get() } returns admin
+                every { accessPolicy.requireAnyRole(admin, UserType.ADMIN) } just runs
                 every { logRepository.findByIdOrNull(8L) } returns log
 
                 val exception =
@@ -306,9 +309,9 @@ class TeamsNotificationLogServiceTest :
 
             When("ADMIN 권한이 없으면") {
                 val nonAdmin = dummyUser(id = 5L, name = "일반")
-                every { authorizationService.currentUser() } returns nonAdmin
+                every { currentUserProvider.get() } returns nonAdmin
                 every {
-                    authorizationService.requireAdmin(nonAdmin)
+                    accessPolicy.requireAnyRole(nonAdmin, UserType.ADMIN)
                 } throws CustomException(ErrorCode.PERMISSION_DENIED)
 
                 val exception =

@@ -1,6 +1,7 @@
 package com.pluxity.weekly.team.service
 
-import com.pluxity.weekly.auth.authorization.AuthorizationService
+import com.pluxity.weekly.auth.authorization.AccessPolicy
+import com.pluxity.weekly.auth.authorization.CurrentUserProvider
 import com.pluxity.weekly.auth.user.repository.UserRepository
 import com.pluxity.weekly.core.constant.ErrorCode
 import com.pluxity.weekly.core.exception.CustomException
@@ -26,17 +27,18 @@ import org.springframework.data.repository.findByIdOrNull
 class TeamServiceTest :
     BehaviorSpec({
 
+        val accessPolicy: AccessPolicy = mockk()
         val repository: TeamRepository = mockk()
         val memberRepository: TeamMemberRepository = mockk()
         val userRepository: UserRepository = mockk()
-        val authorizationService: AuthorizationService = mockk()
-        val service = TeamService(repository, memberRepository, userRepository, authorizationService)
+        val currentUserProvider: CurrentUserProvider = mockk()
+        val service = TeamService(repository, memberRepository, userRepository, currentUserProvider, accessPolicy)
 
         val adminUser = dummyUser(id = 1L, name = "관리자")
 
         beforeSpec {
-            every { authorizationService.currentUser() } returns adminUser
-            every { authorizationService.requireAdmin(any()) } just runs
+            every { currentUserProvider.get() } returns adminUser
+            every { accessPolicy.requireAnyRole(any(), *anyVararg()) } just runs
         }
 
         Given("팀 전체 조회") {

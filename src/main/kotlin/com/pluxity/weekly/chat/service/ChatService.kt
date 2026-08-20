@@ -1,6 +1,6 @@
 package com.pluxity.weekly.chat.service
 
-import com.pluxity.weekly.auth.authorization.AuthorizationService
+import com.pluxity.weekly.auth.authorization.CurrentUserProvider
 import com.pluxity.weekly.chat.context.ContextBuilder
 import com.pluxity.weekly.chat.dto.ChatActionResponse
 import com.pluxity.weekly.chat.dto.ChatActionType
@@ -33,7 +33,7 @@ class ChatService(
     private val chatHistoryStore: ChatHistoryStore,
     private val objectMapper: ObjectMapper,
     private val redisTemplate: RedisTemplate<String, Any>,
-    private val authorizationService: AuthorizationService,
+    private val currentUserProvider: CurrentUserProvider,
     private val weeklyReportChatHandler: WeeklyReportChatHandler,
     private val chatLogService: ChatLogService,
 ) {
@@ -46,7 +46,7 @@ class ChatService(
     }
 
     fun chat(message: String): List<ChatActionResponse> {
-        val userId = authorizationService.currentUser().requiredId
+        val userId = currentUserProvider.get().requiredId
         val lockKey = "chat:lock:$userId"
         val lockValue = UUID.randomUUID().toString()
 
@@ -89,7 +89,7 @@ class ChatService(
         userKey: String,
         logData: ChatLogData,
     ): List<ChatActionResponse> {
-        val user = authorizationService.currentUser()
+        val user = currentUserProvider.get()
         val roleNames = user.getRoles().map { it.name }
         val result = llmService.answerChat(promptBuilder.buildAnswerMessages(message, history, user.name, roleNames))
         logData.recordAction(result.usage, result.value)

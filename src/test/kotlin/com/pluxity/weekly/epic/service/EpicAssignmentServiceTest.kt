@@ -1,10 +1,13 @@
 package com.pluxity.weekly.epic.service
 
-import com.pluxity.weekly.auth.authorization.AuthorizationService
+import com.pluxity.weekly.auth.authorization.AccessPolicy
+import com.pluxity.weekly.auth.authorization.CurrentUserProvider
+import com.pluxity.weekly.auth.authorization.UserType
 import com.pluxity.weekly.auth.user.entity.RoleType
 import com.pluxity.weekly.auth.user.repository.UserRepository
 import com.pluxity.weekly.core.constant.ErrorCode
 import com.pluxity.weekly.core.exception.CustomException
+import com.pluxity.weekly.epic.entity.Epic
 import com.pluxity.weekly.epic.entity.EpicStatus
 import com.pluxity.weekly.epic.entity.dummyEpic
 import com.pluxity.weekly.epic.entity.dummyEpicAssignment
@@ -33,14 +36,16 @@ class EpicAssignmentServiceTest :
         val epicRepository: EpicRepository = mockk()
         val userRepository: UserRepository = mockk()
         val taskRepository: TaskRepository = mockk(relaxed = true)
-        val authorizationService: AuthorizationService = mockk()
+        val currentUserProvider: CurrentUserProvider = mockk()
+        val accessPolicy: AccessPolicy = mockk()
         val eventPublisher: ApplicationEventPublisher = mockk(relaxed = true)
         val service =
             EpicAssignmentService(
                 epicRepository,
                 userRepository,
                 taskRepository,
-                authorizationService,
+                currentUserProvider,
+                accessPolicy,
                 eventPublisher,
             )
 
@@ -50,9 +55,9 @@ class EpicAssignmentServiceTest :
             }
 
         beforeSpec {
-            every { authorizationService.currentUser() } returns adminUser
-            every { authorizationService.requireEpicAssign(any(), any()) } just runs
-            every { authorizationService.requireAdminOrPm(any()) } just runs
+            every { currentUserProvider.get() } returns adminUser
+            every { accessPolicy.require(any(), any<Epic>(), any()) } just runs
+            every { accessPolicy.requireAnyRole(any(), *anyVararg()) } just runs
         }
 
         Given("에픽 배정 목록 조회") {
@@ -267,7 +272,7 @@ class EpicAssignmentServiceTest :
                 service.ensureAssigned(adminUser, null, epic)
 
                 Then("권한 체크도 호출되지 않는다") {
-                    verify(exactly = 0) { authorizationService.requireAdminOrPm(adminUser) }
+                    verify(exactly = 0) { accessPolicy.requireAnyRole(adminUser, UserType.ADMIN, UserType.PM, UserType.PO) }
                 }
             }
 
@@ -312,7 +317,8 @@ class EpicAssignmentServiceTest :
                 val epic = dummyEpic(id = 23L)
                 val generalUser = dummyUser(id = 99L, name = "일반")
 
-                every { authorizationService.requireAdminOrPm(generalUser) } throws CustomException(ErrorCode.PERMISSION_DENIED)
+                every { accessPolicy.requireAnyRole(generalUser, UserType.ADMIN, UserType.PM, UserType.PO) } throws
+                    CustomException(ErrorCode.PERMISSION_DENIED)
 
                 val exception =
                     shouldThrow<CustomException> {

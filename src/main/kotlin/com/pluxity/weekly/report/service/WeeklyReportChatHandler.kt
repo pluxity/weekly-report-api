@@ -1,6 +1,6 @@
 package com.pluxity.weekly.report.service
 
-import com.pluxity.weekly.auth.authorization.AuthorizationService
+import com.pluxity.weekly.auth.authorization.CurrentUserProvider
 import com.pluxity.weekly.chat.dto.ChatActionResponse
 import com.pluxity.weekly.chat.dto.ChatActionType
 import com.pluxity.weekly.chat.dto.ChatReadResponse
@@ -30,7 +30,7 @@ private const val EMPTY_BODY_GUIDE =
  */
 @Component
 class WeeklyReportChatHandler(
-    private val authorizationService: AuthorizationService,
+    private val currentUserProvider: CurrentUserProvider,
     private val teamRepository: TeamRepository,
     private val promptBuilder: ChatPromptBuilder,
     private val llmService: LlmService,
@@ -55,7 +55,7 @@ class WeeklyReportChatHandler(
     }
 
     private fun handleRead(intent: IntentResult): LlmResult<List<ChatActionResponse>> {
-        val user = authorizationService.currentUser()
+        val user = currentUserProvider.get()
         teamRepository.findByLeaderId(user.requiredId).firstOrNull()
             ?: throw ChatClarifyException("주간보고는 팀 리더만 조회할 수 있습니다.")
 
@@ -79,7 +79,7 @@ class WeeklyReportChatHandler(
     }
 
     private fun handleDelete(intent: IntentResult): LlmResult<List<ChatActionResponse>> {
-        val user = authorizationService.currentUser()
+        val user = currentUserProvider.get()
         val team =
             teamRepository.findByLeaderId(user.requiredId).firstOrNull()
                 ?: throw ChatClarifyException("주간보고는 팀 리더만 삭제할 수 있습니다.")
@@ -116,7 +116,7 @@ class WeeklyReportChatHandler(
         requireClassifiedItems(classify.value)
 
         // 작성자 leader 팀 (다중 팀 leader는 후속 — 일단 첫 팀)
-        val user = authorizationService.currentUser()
+        val user = currentUserProvider.get()
         val teams = teamRepository.findByLeaderId(user.requiredId)
         if (teams.isEmpty()) {
             throw ChatClarifyException("주간보고는 팀 리더만 작성할 수 있습니다.")

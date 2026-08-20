@@ -1,6 +1,7 @@
 package com.pluxity.weekly.chat.service
 
-import com.pluxity.weekly.auth.authorization.AuthorizationService
+import com.pluxity.weekly.auth.authorization.AccessPolicy
+import com.pluxity.weekly.auth.authorization.CurrentUserProvider
 import com.pluxity.weekly.auth.user.entity.User
 import com.pluxity.weekly.chat.dto.Candidate
 import com.pluxity.weekly.chat.dto.ChatReadResponse
@@ -30,7 +31,8 @@ class ChatActionRouterTest :
         val chatDtoMapper: ChatDtoMapper = mockk()
         val selectFieldResolver: SelectFieldResolver = mockk()
         val clarifyStore: ClarifyStore = mockk()
-        val authorizationService: AuthorizationService = mockk()
+        val currentUserProvider: CurrentUserProvider = mockk()
+        val accessPolicy: AccessPolicy = mockk()
         val taskService: TaskService = mockk()
         val epicService: EpicService = mockk()
         val projectService: ProjectService = mockk()
@@ -42,7 +44,8 @@ class ChatActionRouterTest :
                 chatDtoMapper,
                 selectFieldResolver,
                 clarifyStore,
-                authorizationService,
+                currentUserProvider,
+                accessPolicy,
                 taskService,
                 epicService,
                 projectService,
@@ -105,8 +108,8 @@ class ChatActionRouterTest :
                 val action = LlmAction(action = "create", target = "task", name = "새 태스크")
                 val dto = TaskChatDto("새 태스크", null, null, null, null, null, null, null)
                 val user = mockk<User>()
-                every { authorizationService.currentUser() } returns user
-                every { authorizationService.visibleEpicIds(user) } returns listOf(1L)
+                every { currentUserProvider.get() } returns user
+                every { accessPolicy.visibleEpicIds(user) } returns listOf(1L)
                 every { chatDtoMapper.toDto(action) } returns dto
                 every { selectFieldResolver.resolve(action) } returns emptyList()
 
@@ -127,8 +130,8 @@ class ChatActionRouterTest :
                 val selectFields =
                     listOf(SelectField("epicId", listOf(Candidate("1", "에픽A"))))
                 val user = mockk<User>()
-                every { authorizationService.currentUser() } returns user
-                every { authorizationService.visibleEpicIds(user) } returns listOf(1L)
+                every { currentUserProvider.get() } returns user
+                every { accessPolicy.visibleEpicIds(user) } returns listOf(1L)
                 every { chatDtoMapper.toDto(action) } returns dto
                 every { selectFieldResolver.resolve(action) } returns selectFields
 
@@ -144,8 +147,8 @@ class ChatActionRouterTest :
             When("할당된 에픽이 없는 사용자가 태스크 생성을 시도하면") {
                 val action = LlmAction(action = "create", target = "task", name = "새 태스크")
                 val user = mockk<User>()
-                every { authorizationService.currentUser() } returns user
-                every { authorizationService.visibleEpicIds(user) } returns emptyList()
+                every { currentUserProvider.get() } returns user
+                every { accessPolicy.visibleEpicIds(user) } returns emptyList()
 
                 Then("ChatClarifyException 이 발생하고 form 이 만들어지지 않는다") {
                     val ex = shouldThrow<ChatClarifyException> { router.route(action) }
@@ -158,8 +161,8 @@ class ChatActionRouterTest :
                 val action = LlmAction(action = "create", target = "task", name = "새 태스크")
                 val dto = TaskChatDto("새 태스크", null, null, null, null, null, null, null)
                 val user = mockk<User>()
-                every { authorizationService.currentUser() } returns user
-                every { authorizationService.visibleEpicIds(user) } returns null
+                every { currentUserProvider.get() } returns user
+                every { accessPolicy.visibleEpicIds(user) } returns null
                 every { chatDtoMapper.toDto(action) } returns dto
                 every { selectFieldResolver.resolve(action) } returns emptyList()
 
@@ -179,8 +182,8 @@ class ChatActionRouterTest :
                     mockk<EpicResponse> {
                         every { members } returns listOf(EpicMemberResponse(userId = 7L, userName = "철수"))
                     }
-                every { authorizationService.currentUser() } returns user
-                every { authorizationService.visibleEpicIds(user) } returns listOf(10L)
+                every { currentUserProvider.get() } returns user
+                every { accessPolicy.visibleEpicIds(user) } returns listOf(10L)
                 every { epicService.findAll() } returns listOf(epic)
                 every { chatDtoMapper.toDto(action) } returns dto
                 every { selectFieldResolver.resolve(action) } returns emptyList()
@@ -196,8 +199,8 @@ class ChatActionRouterTest :
                 val action = LlmAction(action = "create", target = "task", name = "새 태스크", assigneeId = 1L)
                 val dto = TaskChatDto("새 태스크", null, null, null, null, null, null, 1L)
                 val user = mockk<User> { every { requiredId } returns 1L }
-                every { authorizationService.currentUser() } returns user
-                every { authorizationService.visibleEpicIds(user) } returns listOf(10L)
+                every { currentUserProvider.get() } returns user
+                every { accessPolicy.visibleEpicIds(user) } returns listOf(10L)
                 every { chatDtoMapper.toDto(action) } returns dto
                 every { selectFieldResolver.resolve(action) } returns emptyList()
 
@@ -216,8 +219,8 @@ class ChatActionRouterTest :
                     mockk<EpicResponse> {
                         every { members } returns listOf(EpicMemberResponse(userId = 7L, userName = "철수"))
                     }
-                every { authorizationService.currentUser() } returns user
-                every { authorizationService.visibleEpicIds(user) } returns listOf(10L)
+                every { currentUserProvider.get() } returns user
+                every { accessPolicy.visibleEpicIds(user) } returns listOf(10L)
                 every { epicService.findAll() } returns listOf(epic)
 
                 Then("ChatClarifyException 이 발생하고 form 이 만들어지지 않는다") {
@@ -265,7 +268,7 @@ class ChatActionRouterTest :
                     listOf(Candidate("1", "태스크A"), Candidate("2", "태스크B"))
                 val user = mockk<User> { every { requiredId } returns 42L }
                 every { selectFieldResolver.resolveCandidates("id", action) } returns resolvedCandidates
-                every { authorizationService.currentUser() } returns user
+                every { currentUserProvider.get() } returns user
                 every { clarifyStore.save(42L, action) } returns "turn-id-xyz"
 
                 Then("ChatSelectRequiredException 이 clarifyId/field/candidates 와 함께 발생한다") {
@@ -365,7 +368,7 @@ class ChatActionRouterTest :
                 val normalized = action.copy(missingFields = listOf("user_ids"), candidates = listOf(10L, 20L))
                 val user = mockk<User> { every { requiredId } returns 42L }
                 every { selectFieldResolver.resolveCandidates("user_ids", action) } returns resolvedCandidates
-                every { authorizationService.currentUser() } returns user
+                every { currentUserProvider.get() } returns user
                 every { clarifyStore.save(42L, normalized) } returns "turn-id-xyz"
 
                 Then("user_ids 후보가 담긴 ChatSelectRequiredException 이 발생한다") {
@@ -383,7 +386,7 @@ class ChatActionRouterTest :
                 val normalized = action.copy(missingFields = listOf("user_ids"), candidates = listOf(10L))
                 val user = mockk<User> { every { requiredId } returns 42L }
                 every { selectFieldResolver.resolveCandidates("user_ids", action) } returns resolvedCandidates
-                every { authorizationService.currentUser() } returns user
+                every { currentUserProvider.get() } returns user
                 every { clarifyStore.save(42L, normalized) } returns "turn-id-xyz"
 
                 Then("nextMissingField 가 user_ids 를 감지해 clarify 로 이어진다") {
@@ -399,7 +402,7 @@ class ChatActionRouterTest :
                 val normalized = action.copy(missingFields = listOf("user_ids"), candidates = listOf(10L))
                 val user = mockk<User> { every { requiredId } returns 42L }
                 every { selectFieldResolver.resolveCandidates("user_ids", action) } returns resolvedCandidates
-                every { authorizationService.currentUser() } returns user
+                every { currentUserProvider.get() } returns user
                 every { clarifyStore.save(42L, normalized) } returns "turn-id-xyz"
 
                 Then("빈 리스트도 누락으로 간주해 clarify 가 발생한다") {
@@ -441,7 +444,7 @@ class ChatActionRouterTest :
                 val normalized = action.copy(missingFields = listOf("remove_user_ids"), candidates = listOf(10L))
                 val user = mockk<User> { every { requiredId } returns 42L }
                 every { selectFieldResolver.resolveCandidates("remove_user_ids", action) } returns resolvedCandidates
-                every { authorizationService.currentUser() } returns user
+                every { currentUserProvider.get() } returns user
                 every { clarifyStore.save(42L, normalized) } returns "turn-id-xyz"
 
                 Then("nextMissingField 가 remove_user_ids 를 감지해 clarify 로 이어진다") {

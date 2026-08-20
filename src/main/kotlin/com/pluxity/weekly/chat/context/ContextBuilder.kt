@@ -1,6 +1,8 @@
 package com.pluxity.weekly.chat.context
 
-import com.pluxity.weekly.auth.authorization.AuthorizationService
+import com.pluxity.weekly.auth.authorization.AccessPolicy
+import com.pluxity.weekly.auth.authorization.CurrentUserProvider
+import com.pluxity.weekly.auth.authorization.UserType
 import com.pluxity.weekly.auth.user.entity.User
 import com.pluxity.weekly.auth.user.repository.UserRepository
 import com.pluxity.weekly.chat.dto.ChatActionType
@@ -35,7 +37,7 @@ import java.util.Locale
  * task    → create: projects > epics / 그 외: projects > epics > tasks
  * team    → teams + users(전체)
  *
- * 조회 범위는 Service.search()에서 AuthorizationService 기반으로 제한
+ * 조회 범위는 Service.search()에서 AccessPolicy 기반으로 제한
  */
 @Component
 @Transactional(readOnly = true)
@@ -47,16 +49,39 @@ class ContextBuilder(
     private val teamService: TeamService,
     private val teamRepository: TeamRepository,
     private val teamMemberRepository: TeamMemberRepository,
-    private val authorizationService: AuthorizationService,
+    private val currentUserProvider: CurrentUserProvider,
+    private val accessPolicy: AccessPolicy,
     private val objectMapper: ObjectMapper,
 ) {
+    /**
+     * chat 의 변경 요청에 대한 거친 사전 체크 — 컨텍스트를 빌드하기 전에 막는다.
+     * 리소스가 아직 특정되지 않은 시점이라 역할로만 판정하고, 실제 판정은 서비스 계층이 한다.
+     */
+    private fun requireChatMutationAllowed(
+        user: User,
+        target: ChatTarget,
+        action: ChatActionType?,
+    ) {
+        if (action?.isMutating != true) return
+        when (target) {
+            ChatTarget.PROJECT ->
+                if (action == ChatActionType.CREATE) {
+                    accessPolicy.requireAnyRole(user, UserType.ADMIN)
+                } else {
+                    accessPolicy.requireAnyRole(user, UserType.ADMIN, UserType.PM, UserType.PO)
+                }
+            ChatTarget.EPIC -> accessPolicy.requireAnyRole(user, UserType.ADMIN, UserType.PM, UserType.PO)
+            else -> Unit
+        }
+    }
+
     fun build(
         target: ChatTarget,
         action: ChatActionType?,
     ): String {
-        val user = authorizationService.currentUser()
+        val user = currentUserProvider.get()
 
-        authorizationService.checkChatPermission(user, target, action)
+        requireChatMutationAllowed(user, target, action)
 
         val today = LocalDate.now().toString()
         val todayDayOfWeek = LocalDate.now().dayOfWeek.getDisplayName(TextStyle.FULL, Locale.KOREAN)
