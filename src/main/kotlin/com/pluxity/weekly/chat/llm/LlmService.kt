@@ -9,6 +9,7 @@ import com.pluxity.weekly.chat.llm.dto.Message
 import com.pluxity.weekly.chat.llm.dto.OpenAiChatRequest
 import com.pluxity.weekly.chat.llm.dto.OpenAiChatResponse
 import com.pluxity.weekly.chat.llm.dto.ProviderPreferences
+import com.pluxity.weekly.chat.llm.dto.ReasoningConfig
 import com.pluxity.weekly.chat.llm.dto.ResponseFormat
 import com.pluxity.weekly.chat.llm.dto.TokenUsage
 import com.pluxity.weekly.chat.llm.dto.WeeklyReportClassifyResult
@@ -50,7 +51,7 @@ class LlmService(
     fun generate(messages: List<Message>): LlmResult<List<LlmAction>> = callWithRetry(messages, "LLM 액션 생성", parse = ::parseActions)
 
     fun classifyWeeklyReport(messages: List<Message>): LlmResult<WeeklyReportClassifyResult> =
-        callWithRetry(messages, "LLM classify", CLASSIFY_RESPONSE_FORMAT, ::parseClassify)
+        callWithRetry(messages, "LLM classify", CLASSIFY_RESPONSE_FORMAT, REASONING_OFF, ::parseClassify)
 
     fun matchWeeklyReport(messages: List<Message>): LlmResult<WeeklyReportMatchResult> =
         callWithRetry(messages, "LLM match", parse = ::parseMatch)
@@ -64,12 +65,13 @@ class LlmService(
         messages: List<Message>,
         label: String,
         responseFormat: ResponseFormat? = null,
+        reasoning: ReasoningConfig? = null,
         parse: (String) -> T,
     ): LlmResult<T> {
         var lastException: Exception? = null
         repeat(MAX_RETRIES) { attempt ->
             try {
-                val result = callOpenRouter(messages, responseFormat)
+                val result = callOpenRouter(messages, responseFormat, reasoning)
                 log.info { "$label 응답: ${result.value}" }
                 return LlmResult(parse(result.value), result.usage)
             } catch (e: Exception) {
@@ -92,6 +94,7 @@ class LlmService(
     private fun callOpenRouter(
         messages: List<Message>,
         responseFormat: ResponseFormat?,
+        reasoning: ReasoningConfig?,
     ): LlmResult<String> {
         val props = properties.openrouter
         val request =
@@ -101,6 +104,7 @@ class LlmService(
                 temperature = properties.temperature,
                 responseFormat = responseFormat,
                 provider = responseFormat?.let { ProviderPreferences() },
+                reasoning = reasoning,
             )
 
         val client =
@@ -121,12 +125,17 @@ class LlmService(
                 .block()
                 ?: throw CustomException(ErrorCode.LLM_INVALID_RESPONSE)
 
-        val content =
-            response.choices
-                ?.firstOrNull()
-                ?.message
-                ?.content
-                ?: throw CustomException(ErrorCode.LLM_INVALID_RESPONSE)
+        val choice = response.choices?.firstOrNull()
+        val content = choice?.message?.content
+        // 파싱 실패 시 LlmResult 가 버려지므로, 진단 정보는 여기서 남긴다 (응답 잘림 원인 추적용)
+        log.info {
+            "OpenRouter id=${response.id}, finish=${choice?.finishReason}/${choice?.nativeFinishReason}, " +
+                "completion=${response.usage?.completionTokens}, " +
+                "reasoning=${response.usage?.completionTokensDetails?.reasoningTokens}, length=${content?.length}"
+        }
+        if (content == null) {
+            throw CustomException(ErrorCode.LLM_INVALID_RESPONSE)
+        }
         val usage =
             response.usage
                 ?.let { TokenUsage(it.promptTokens, it.completionTokens, it.totalTokens) }
@@ -179,6 +188,9 @@ class LlmService(
         /** classify 응답을 스키마 JSON 하나로 강제 — 팀별로 객체를 나눠 내보내는 출력이 불가능해진다. */
         private val CLASSIFY_RESPONSE_FORMAT =
             ResponseFormat(jsonSchema = JsonSchemaSpec(name = ClassifySchema.NAME, schema = ClassifySchema.SCHEMA))
+
+        /** 분류·추출엔 추론이 불필요하다. 추론이 출력 예산을 먹어 본문이 잘리는 것도 막는다. */
+        private val REASONING_OFF = ReasoningConfig()
 
         private const val MAX_RETRIES = 3
         private const val INITIAL_BACKOFF_MS = 1000L
