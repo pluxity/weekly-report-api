@@ -3,13 +3,17 @@ package com.pluxity.weekly.chat.llm
 import com.pluxity.weekly.chat.config.LlmProperties
 import com.pluxity.weekly.chat.dto.LlmAction
 import com.pluxity.weekly.chat.llm.dto.IntentResult
+import com.pluxity.weekly.chat.llm.dto.JsonSchemaSpec
 import com.pluxity.weekly.chat.llm.dto.LlmResult
 import com.pluxity.weekly.chat.llm.dto.Message
 import com.pluxity.weekly.chat.llm.dto.OpenAiChatRequest
 import com.pluxity.weekly.chat.llm.dto.OpenAiChatResponse
+import com.pluxity.weekly.chat.llm.dto.ProviderPreferences
+import com.pluxity.weekly.chat.llm.dto.ResponseFormat
 import com.pluxity.weekly.chat.llm.dto.TokenUsage
 import com.pluxity.weekly.chat.llm.dto.WeeklyReportClassifyResult
 import com.pluxity.weekly.chat.llm.dto.WeeklyReportMatchResult
+import com.pluxity.weekly.chat.llm.schema.ClassifySchema
 import com.pluxity.weekly.config.WebClientFactory
 import com.pluxity.weekly.core.constant.ErrorCode
 import com.pluxity.weekly.core.exception.CustomException
@@ -41,14 +45,15 @@ class LlmService(
         log.info { "LLM OpenRouter: ${properties.openrouter.isEnabled}" }
     }
 
-    fun extractIntent(messages: List<Message>): LlmResult<IntentResult> = callWithRetry(messages, "Intent 추출", ::parseIntent)
+    fun extractIntent(messages: List<Message>): LlmResult<IntentResult> = callWithRetry(messages, "Intent 추출", parse = ::parseIntent)
 
-    fun generate(messages: List<Message>): LlmResult<List<LlmAction>> = callWithRetry(messages, "LLM 액션 생성", ::parseActions)
+    fun generate(messages: List<Message>): LlmResult<List<LlmAction>> = callWithRetry(messages, "LLM 액션 생성", parse = ::parseActions)
 
     fun classifyWeeklyReport(messages: List<Message>): LlmResult<WeeklyReportClassifyResult> =
-        callWithRetry(messages, "LLM classify", ::parseClassify)
+        callWithRetry(messages, "LLM classify", CLASSIFY_RESPONSE_FORMAT, ::parseClassify)
 
-    fun matchWeeklyReport(messages: List<Message>): LlmResult<WeeklyReportMatchResult> = callWithRetry(messages, "LLM match", ::parseMatch)
+    fun matchWeeklyReport(messages: List<Message>): LlmResult<WeeklyReportMatchResult> =
+        callWithRetry(messages, "LLM match", parse = ::parseMatch)
 
     /**
      * LLM 호출 + 재시도 공통 골격. 타입별로 변하는 parse 만 주입받는다.
@@ -58,12 +63,13 @@ class LlmService(
     private fun <T> callWithRetry(
         messages: List<Message>,
         label: String,
+        responseFormat: ResponseFormat? = null,
         parse: (String) -> T,
     ): LlmResult<T> {
         var lastException: Exception? = null
         repeat(MAX_RETRIES) { attempt ->
             try {
-                val result = callOpenRouter(messages)
+                val result = callOpenRouter(messages, responseFormat)
                 log.info { "$label 응답: ${result.value}" }
                 return LlmResult(parse(result.value), result.usage)
             } catch (e: Exception) {
@@ -83,13 +89,18 @@ class LlmService(
         throw CustomException(ErrorCode.LLM_SERVICE_UNAVAILABLE)
     }
 
-    private fun callOpenRouter(messages: List<Message>): LlmResult<String> {
+    private fun callOpenRouter(
+        messages: List<Message>,
+        responseFormat: ResponseFormat?,
+    ): LlmResult<String> {
         val props = properties.openrouter
         val request =
             OpenAiChatRequest(
                 model = props.model,
                 messages = messages,
                 temperature = properties.temperature,
+                responseFormat = responseFormat,
+                provider = responseFormat?.let { ProviderPreferences() },
             )
 
         val client =
@@ -165,6 +176,10 @@ class LlmService(
     }
 
     companion object {
+        /** classify 응답을 스키마 JSON 하나로 강제 — 팀별로 객체를 나눠 내보내는 출력이 불가능해진다. */
+        private val CLASSIFY_RESPONSE_FORMAT =
+            ResponseFormat(jsonSchema = JsonSchemaSpec(name = ClassifySchema.NAME, schema = ClassifySchema.SCHEMA))
+
         private const val MAX_RETRIES = 3
         private const val INITIAL_BACKOFF_MS = 1000L
 

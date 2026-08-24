@@ -1,5 +1,6 @@
 package com.pluxity.weekly.chat.llm.dto
 
+import com.fasterxml.jackson.annotation.JsonInclude
 import com.fasterxml.jackson.annotation.JsonProperty
 
 data class Message(
@@ -27,10 +28,33 @@ data class TokenUsage(
 }
 
 // OpenAI 호환
+@JsonInclude(JsonInclude.Include.NON_NULL)
 data class OpenAiChatRequest(
     val model: String,
     val messages: List<Message>,
     val temperature: Double,
+    @param:JsonProperty("response_format")
+    val responseFormat: ResponseFormat? = null,
+    val provider: ProviderPreferences? = null,
+)
+
+/** 응답을 스키마에 맞는 JSON 하나로 강제한다 (OpenAI 호환 structured outputs). */
+data class ResponseFormat(
+    val type: String = "json_schema",
+    @param:JsonProperty("json_schema")
+    val jsonSchema: JsonSchemaSpec,
+)
+
+data class JsonSchemaSpec(
+    val name: String,
+    val strict: Boolean = true,
+    val schema: Map<String, Any>,
+)
+
+/** 스키마를 지원하지 않는 엔드포인트로 라우팅되는 것을 막는다. */
+data class ProviderPreferences(
+    @param:JsonProperty("require_parameters")
+    val requireParameters: Boolean = true,
 )
 
 data class OpenAiChatResponse(
