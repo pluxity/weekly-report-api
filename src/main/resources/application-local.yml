@@ -1,3 +1,4 @@
+
 spring:
   data:
     redis:
@@ -21,7 +22,7 @@ llm:
     model: ${OLLAMA_MODEL}
   openrouter:
     api-key: ${OPENROUTER_API_KEY:}
-    model: ${OPENROUTER_MODEL:}
+    model: ${OPENROUTER_MODEL:google/gemini-2.5-flash}
     input-price-per-million: ${OPENROUTER_INPUT_PRICE:0.30}
     output-price-per-million: ${OPENROUTER_OUTPUT_PRICE:2.50}
     site-url: ${OPENROUTER_SITE_URL:http://192.168.10.152:8080}
@@ -61,4 +62,5 @@ user:
 logging:
   level:
     com: DEBUG
-
+server:
+  port: 8081

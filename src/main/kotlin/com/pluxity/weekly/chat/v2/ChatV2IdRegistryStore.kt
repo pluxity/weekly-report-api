@@ -12,7 +12,7 @@ private val log = KotlinLogging.logger {}
  * [ChatV2IdRegistry]의 유저별 세션 저장소. 히스토리([ChatV2HistoryStore])와 같은 수명(24h)으로 Redis에 둬,
  * 이전 턴 검색으로 확인된 id가 다음 턴에도 유효하도록 한다 ("보여줘 → 자세히" 멀티턴).
  *
- * 저장 형태는 {종류키: [id...]} — 예: {"task":[10,11],"project":[3]}.
+ * 저장 형태는 {종류키: ['id'...]} — 예: {"task":[10,11],"project":[3]}.
  * 로드/저장 실패는 삼켜서 빈 레지스트리로 진행한다 (조회는 막히지 않고, 지어낸 id 차단만 잠깐 느슨).
  */
 @Component
