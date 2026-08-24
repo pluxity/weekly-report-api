@@ -13,12 +13,6 @@ spring:
     driver-class-name: org.postgresql.Driver
 
 llm:
-  gemini:
-    api-key: ${GEMINI_API_KEY:}
-    model: ${GEMINI_MODEL:}
-  ollama:
-    base-url: ${OLLAMA_URL}
-    model: ${OLLAMA_MODEL}
   openrouter:
     api-key: ${OPENROUTER_API_KEY:}
     model: ${OPENROUTER_MODEL:}

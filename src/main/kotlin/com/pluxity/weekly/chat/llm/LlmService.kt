@@ -2,17 +2,9 @@ package com.pluxity.weekly.chat.llm
 
 import com.pluxity.weekly.chat.config.LlmProperties
 import com.pluxity.weekly.chat.dto.LlmAction
-import com.pluxity.weekly.chat.llm.dto.GeminiContent
-import com.pluxity.weekly.chat.llm.dto.GeminiGenerationConfig
-import com.pluxity.weekly.chat.llm.dto.GeminiPart
-import com.pluxity.weekly.chat.llm.dto.GeminiRequest
-import com.pluxity.weekly.chat.llm.dto.GeminiResponse
 import com.pluxity.weekly.chat.llm.dto.IntentResult
 import com.pluxity.weekly.chat.llm.dto.LlmResult
 import com.pluxity.weekly.chat.llm.dto.Message
-import com.pluxity.weekly.chat.llm.dto.OllamaChatRequest
-import com.pluxity.weekly.chat.llm.dto.OllamaChatResponse
-import com.pluxity.weekly.chat.llm.dto.OllamaOptions
 import com.pluxity.weekly.chat.llm.dto.OpenAiChatRequest
 import com.pluxity.weekly.chat.llm.dto.OpenAiChatResponse
 import com.pluxity.weekly.chat.llm.dto.TokenUsage
@@ -36,24 +28,6 @@ class LlmService(
     private val objectMapper: ObjectMapper,
     webClientFactory: WebClientFactory,
 ) {
-    private val ollamaClient: WebClient? =
-        properties.ollama.takeIf { it.isEnabled }?.let {
-            webClientFactory.createClient(
-                baseUrl = it.baseUrl,
-                responseTimeoutMs = properties.timeoutMs,
-                readTimeoutMs = properties.timeoutMs,
-            )
-        }
-
-    private val geminiClient: WebClient? =
-        properties.gemini.takeIf { it.isEnabled }?.let {
-            webClientFactory.createClient(
-                baseUrl = "https://generativelanguage.googleapis.com",
-                responseTimeoutMs = properties.timeoutMs,
-                readTimeoutMs = properties.timeoutMs,
-            )
-        }
-
     private val openRouterClient: WebClient? =
         properties.openrouter.takeIf { it.isEnabled }?.let {
             webClientFactory.createClient(
@@ -64,10 +38,7 @@ class LlmService(
         }
 
     init {
-        log.info {
-            "LLM Ollama: ${properties.ollama.isEnabled}, Gemini: ${properties.gemini.isEnabled}, " +
-                "OpenRouter: ${properties.openrouter.isEnabled}"
-        }
+        log.info { "LLM OpenRouter: ${properties.openrouter.isEnabled}" }
     }
 
     fun extractIntent(messages: List<Message>): LlmResult<IntentResult> = callWithRetry(messages, "Intent 추출", ::parseIntent)
@@ -92,7 +63,7 @@ class LlmService(
         var lastException: Exception? = null
         repeat(MAX_RETRIES) { attempt ->
             try {
-                val result = callLlm(messages)
+                val result = callOpenRouter(messages)
                 log.info { "$label 응답: ${result.value}" }
                 return LlmResult(parse(result.value), result.usage)
             } catch (e: Exception) {
@@ -111,14 +82,6 @@ class LlmService(
         log.error(lastException) { "$label $MAX_RETRIES 회 재시도 실패" }
         throw CustomException(ErrorCode.LLM_SERVICE_UNAVAILABLE)
     }
-
-    private fun callLlm(messages: List<Message>): LlmResult<String> =
-        when {
-            properties.openrouter.isEnabled -> callOpenRouter(messages)
-            properties.gemini.isEnabled -> callGemini(messages)
-            properties.ollama.isEnabled -> callOllama(messages)
-            else -> throw CustomException(ErrorCode.LLM_SERVICE_UNAVAILABLE)
-        }
 
     private fun callOpenRouter(messages: List<Message>): LlmResult<String> {
         val props = properties.openrouter
@@ -158,88 +121,6 @@ class LlmService(
                 ?.let { TokenUsage(it.promptTokens, it.completionTokens, it.totalTokens) }
                 ?: TokenUsage()
         return LlmResult(content, usage)
-    }
-
-    private fun callOllama(messages: List<Message>): LlmResult<String> {
-        val props = properties.ollama
-        val request =
-            OllamaChatRequest(
-                model = props.model,
-                messages = messages,
-                stream = false,
-                options = OllamaOptions(temperature = properties.temperature),
-            )
-
-        val client =
-            ollamaClient
-                ?: throw CustomException(ErrorCode.LLM_SERVICE_UNAVAILABLE)
-
-        val response =
-            client
-                .post()
-                .uri("/api/chat")
-                .contentType(MediaType.APPLICATION_JSON)
-                .bodyValue(request)
-                .retrieve()
-                .bodyToMono<OllamaChatResponse>()
-                .block()
-                ?: throw CustomException(ErrorCode.LLM_INVALID_RESPONSE)
-
-        val content =
-            response.message?.content
-                ?: throw CustomException(ErrorCode.LLM_INVALID_RESPONSE)
-        // TODO: Ollama 토큰 사용량(prompt_eval_count/eval_count) 추출 — 현재는 OpenRouter만 실값
-        return LlmResult(content)
-    }
-
-    private fun callGemini(messages: List<Message>): LlmResult<String> {
-        val props = properties.gemini
-        val systemMessage = messages.firstOrNull { it.role == "system" }
-        val userMessages = messages.filter { it.role != "system" }
-
-        val request =
-            GeminiRequest(
-                systemInstruction =
-                    systemMessage?.let {
-                        GeminiContent(parts = listOf(GeminiPart(text = it.content)))
-                    },
-                contents =
-                    userMessages.map {
-                        GeminiContent(
-                            role = "user",
-                            parts = listOf(GeminiPart(text = it.content)),
-                        )
-                    },
-                generationConfig = GeminiGenerationConfig(temperature = properties.temperature),
-            )
-
-        val client =
-            geminiClient
-                ?: throw CustomException(ErrorCode.LLM_SERVICE_UNAVAILABLE)
-
-        val response =
-            client
-                .post()
-                .uri("/v1beta/models/${props.model}:generateContent")
-                .header("x-goog-api-key", props.apiKey)
-                .contentType(MediaType.APPLICATION_JSON)
-                .bodyValue(request)
-                .retrieve()
-                .bodyToMono<GeminiResponse>()
-                .block()
-                ?: throw CustomException(ErrorCode.LLM_INVALID_RESPONSE)
-
-        val content =
-            response
-                .candidates
-                ?.firstOrNull()
-                ?.content
-                ?.parts
-                ?.firstOrNull()
-                ?.text
-                ?: throw CustomException(ErrorCode.LLM_INVALID_RESPONSE)
-        // TODO: Gemini 토큰 사용량(usageMetadata) 추출 — 현재는 OpenRouter만 실값
-        return LlmResult(content)
     }
 
     private fun parseClassify(raw: String): WeeklyReportClassifyResult =
