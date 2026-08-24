@@ -39,7 +39,7 @@ class ChatLogService(
 
 /**
  * processChat 진행 중 누적되는 로그 데이터. 단계별로 채워지다가 마지막에 [toEntity] 로 영속화된다.
- * OpenRouter 외 provider(Gemini/Ollama)는 아직 사용량 미추출이라 토큰·cost 가 0으로 남는다.
+ * 응답에 usage 가 없으면 토큰·cost 는 0으로 남는다.
  */
 data class ChatLogData(
     val userId: Long,
