@@ -16,9 +16,6 @@ spring:
     password: ${DB_PASSWORD:pluxity0304}
 
 llm:
-  ollama:
-    base-url: ${OLLAMA_URL:}
-    model: ${OLLAMA_MODEL:}
   openrouter:
     api-key: ${OPENROUTER_API_KEY:}
     model: ${OPENROUTER_MODEL:}

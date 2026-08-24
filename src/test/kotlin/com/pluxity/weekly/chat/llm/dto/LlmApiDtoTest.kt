@@ -21,6 +21,46 @@ class LlmApiDtoTest :
             }
         }
 
+        Given("OpenAiChatRequest 직렬화") {
+            val objectMapper = JsonMapper()
+            val base =
+                OpenAiChatRequest(
+                    model = "google/gemini-2.5-flash",
+                    messages = listOf(Message(role = "user", content = "hi")),
+                    temperature = 0.1,
+                )
+
+            When("response_format 없이 직렬화하면") {
+                val json = objectMapper.writeValueAsString(base)
+
+                Then("response_format/provider/reasoning 키가 빠진다 (기존 호출 바디 유지)") {
+                    json.contains("response_format") shouldBe false
+                    json.contains("provider") shouldBe false
+                    json.contains("reasoning") shouldBe false
+                }
+            }
+
+            When("response_format 을 실어 직렬화하면") {
+                val request =
+                    base.copy(
+                        responseFormat =
+                            ResponseFormat(
+                                jsonSchema = JsonSchemaSpec(name = "weekly_report_classify", schema = mapOf("type" to "object")),
+                            ),
+                        provider = ProviderPreferences(),
+                        reasoning = ReasoningConfig(),
+                    )
+                val json = objectMapper.writeValueAsString(request)
+
+                Then("OpenAI 호환 snake_case 키로 나간다") {
+                    json.contains(""""response_format":{"type":"json_schema"""") shouldBe true
+                    json.contains(""""json_schema":{"name":"weekly_report_classify","strict":true""") shouldBe true
+                    json.contains(""""provider":{"require_parameters":true}""") shouldBe true
+                    json.contains(""""reasoning":{"enabled":false}""") shouldBe true
+                }
+            }
+        }
+
         Given("OpenAiChatResponse usage 역직렬화") {
             val objectMapper = JsonMapper()
 
