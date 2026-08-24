@@ -81,7 +81,7 @@ weekly_report_classify (object, strict)
 - `application-{local,prod,stage}.yml`: `llm.gemini`, `llm.ollama` 블록 제거. (local의 `${OLLAMA_URL}`은 기본값이 없어 미설정 시 기동 실패 — 같이 해소)
 - 배포 환경변수 `OLLAMA_URL/OLLAMA_MODEL/GEMINI_API_KEY/GEMINI_MODEL` 제거.
 - `ChatLogService.kt:42` 주석("OpenRouter 외 provider…") 수정.
-- `docs/llm-chat.md` 60~78행 프로바이더 표/우선순위, `README.md` 84~86·114행 환경변수 표 갱신.
+- `docs/llm-chat.md` 프로바이더 표·토큰 주석, `README.md` 기능 소개·환경변수 표 갱신 — **main 에 두 파일이 없어 PR #96 에서 제외했고, develop 머지 시점에 반영했다**.
 - 삭제 대상 테스트 없음 (`chat/llm` 하위 테스트는 `dto`뿐, `LlmServiceTest` 부재). `ChatLogServiceTest`는 `OpenRouterProperties`만 써서 무영향.
 
 ## 3. `stripCodeFence` — 손대지 않는다

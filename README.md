@@ -12,7 +12,7 @@
 - **태스크 관리**: 태스크 CRUD, `IN_PROGRESS → IN_REVIEW → DONE/REJECTED` 상태 흐름, PM 리뷰 승인/반려, 승인 이력 조회
 - **팀 관리**: 팀 CRUD, 팀원 추가/제거
 - **주간보고**: Chat 라우터를 통한 LLM 기반 작성·수정·삭제, 주간보고 목록·단건·요약 조회
-- **자연어 채팅 (Chat)**: LLM 의도 분류 → 폼 조립용 JSON 반환, clarify 세션 처리 (Gemini / Ollama / OpenRouter 지원) → [상세](docs/llm-chat.md)
+- **자연어 채팅 (Chat)**: LLM 의도 분류 → 폼 조립용 JSON 반환, clarify 세션 처리 (OpenRouter) → [상세](docs/llm-chat.md)
 - **대시보드**: 작업자·PM·ADMIN 역할별 대시보드, 개인 KPI 상세
 - **Microsoft Teams 연동**: 도메인 이벤트 기반 Adaptive Card 알림 발송, Teams Bot Webhook 수신, 알림 이력 관리 및 실패 재발사 → [상세](docs/teams-integration.md)
 
@@ -81,9 +81,7 @@ npm run prompt:view   # 결과 웹 UI로 확인
 |------|-------|------|
 | `server.servlet.context-path` | `/api` | `/api` |
 | DB URL | `jdbc:postgresql://${DB_HOST}:${DB_PORT}/weekly_report` | `jdbc:postgresql://${DB_HOST}:${DB_PORT}/weekly_report` |
-| LLM — Gemini | 미설정 (환경 변수 없음) | `${GEMINI_API_KEY}` / `${GEMINI_MODEL}` 지원 |
 | LLM — OpenRouter | `${OPENROUTER_API_KEY}` / `${OPENROUTER_MODEL}` | `${OPENROUTER_API_KEY}` / `${OPENROUTER_MODEL}` |
-| LLM — Ollama | `${OLLAMA_URL}` / `${OLLAMA_MODEL}` | `${OLLAMA_URL}` / `${OLLAMA_MODEL}` |
 | Teams 알림 | **비활성** (테스트 메시지 발송 방지를 위해 서버에 환경 변수 미주입) | 활성 (`${TEAMS_APP_ID}` 등 주입) |
 
 
@@ -111,7 +109,7 @@ GitHub Actions가 Docker 이미지를 빌드하고 원격 서버에 tar로 전�
 
 ### 런타임 환경 변수 주입
 
-DB 접속 정보, LLM API 키(`GEMINI_API_KEY`, `OPENROUTER_API_KEY` 등), Teams 자격 증명 같은
+DB 접속 정보, LLM API 키(`OPENROUTER_API_KEY`), Teams 자격 증명 같은
 런타임 환경 변수는 GitHub Secrets가 아니라 **각 배포 서버의 `api.yml`(docker compose 파일) `environment` 블록**에 정의되어 있다.
 새 환경 변수를 추가할 때는 yml 매핑 추가 후 서버의 `api.yml`도 함께 갱신해야 한다.
 

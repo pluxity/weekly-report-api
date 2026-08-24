@@ -57,14 +57,11 @@ sequenceDiagram
 
 ## LLM 제공자 설정
 
-세 제공자를 모두 설정해도 **우선순위: OpenRouter > Gemini > Ollama** 순으로 활성화된 첫 번째가 사용된다.
-`isEnabled` 조건은 `apiKey`(또는 `baseUrl`) + `model` 둘 다 비어 있지 않아야 한다.
+제공자는 **OpenRouter 하나**다. 폴백이 없어 미설정 시 `LLM_SERVICE_UNAVAILABLE` 이다.
 
 | 제공자 | 활성화 조건 | 설정 키 접두사 |
 |--------|------------|--------------|
 | OpenRouter | `OPENROUTER_API_KEY` + `OPENROUTER_MODEL` | `llm.openrouter` |
-| Gemini | `GEMINI_API_KEY` + `GEMINI_MODEL` | `llm.gemini` |
-| Ollama | `OLLAMA_URL` + `OLLAMA_MODEL` | `llm.ollama` |
 
 공통 설정:
 
@@ -75,7 +72,9 @@ sequenceDiagram
 
 > LLM 호출 실패 시 최대 3회 지수 backoff(1s → 2s → 4s) 재시도 후 `LLM_SERVICE_UNAVAILABLE` 반환.
 
-> **토큰 사용량**: 현재 OpenRouter만 실값 집계. Gemini / Ollama는 응답에 사용량 정보가 포함되지 않아 0으로 기록된다 (TODO: 추출 구현 예정).
+> **토큰 사용량**: 응답의 `usage` 를 그대로 기록한다. 재시도가 발생하면 **성공한 시도만** 집계되므로 실패분은 누락된다.
+
+> **classify 만 structured output**: 주간보고 분류 호출은 `response_format`(json_schema, strict)으로 응답을 스키마 JSON 하나로 강제하고 `reasoning` 을 끈다. 나머지 호출(intent/match/generate/answer)은 프롬프트 기반이라 `stripCodeFence` + 파싱 재시도 방어층이 유효하다. → `docs/notes/structured-outputs-spec.md`
 
 ## chat_logs 테이블
 
