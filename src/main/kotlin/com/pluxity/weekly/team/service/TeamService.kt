@@ -29,11 +29,13 @@ class TeamService(
     private val authorizationService: AuthorizationService,
 ) {
     fun findAll(): List<TeamResponse> =
-        teamRepository.findAll().map { team ->
-            val members = memberRepository.findByTeam(team).map { it.user.toResponse() }
-            val leaderName = team.leaderId?.let { getUserById(it).name }
-            team.toResponse(leaderName = leaderName, members = members)
-        }
+        teamRepository.findAll()
+            .sortedWith(compareBy({ it.name.endsWith("_archive") }, { it.id }))
+            .map { team ->
+                val members = memberRepository.findByTeam(team).map { it.user.toResponse() }
+                val leaderName = team.leaderId?.let { getUserById(it).name }
+                team.toResponse(leaderName = leaderName, members = members)
+            }
 
     fun search(filter: TeamSearchFilter): List<TeamResponse> =
         teamRepository

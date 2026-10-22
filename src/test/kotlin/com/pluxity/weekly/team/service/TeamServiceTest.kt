@@ -76,6 +76,21 @@ class TeamServiceTest :
                     result[2].members shouldBe emptyList()
                 }
             }
+
+            When("_archive 팀이 섞여 있으면") {
+                val archived = dummyTeam(id = 1L, name = "유승현_archive")
+                val active1 = dummyTeam(id = 2L, name = "개발1팀")
+                val active2 = dummyTeam(id = 3L, name = "마케팅팀")
+
+                every { repository.findAll() } returns listOf(archived, active2, active1)
+                every { memberRepository.findByTeam(any()) } returns emptyList()
+
+                val result = service.findAll()
+
+                Then("archive 팀은 뒤로, 나머지는 id 순으로 반환된다") {
+                    result.map { it.name } shouldBe listOf("개발1팀", "마케팅팀", "유승현_archive")
+                }
+            }
         }
 
         Given("팀 단건 조회") {
