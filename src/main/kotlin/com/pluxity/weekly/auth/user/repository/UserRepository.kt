@@ -35,7 +35,7 @@ interface UserRepository : JpaRepository<User, Long> {
             "userRoles", "userRoles.role",
         ],
     )
-    fun findByEmail(email: String): User?
+    fun findByEmailIgnoreCase(email: String): User?
 
     @EntityGraph(
         attributePaths = [
@@ -56,6 +56,18 @@ interface UserRepository : JpaRepository<User, Long> {
         nativeQuery = true,
     )
     fun findByAadObjectIdIncludingDeleted(aadObjectId: String): User?
+
+    /** Microsoft ID 또는 email이 같은 삭제(퇴사) 처리된 사용자가 있는지. email은 대소문자를 무시한다. */
+    @Query(
+        value =
+            "SELECT EXISTS(SELECT 1 FROM users WHERE deleted = true " +
+                "AND (aad_object_id = :aadObjectId OR LOWER(email) = LOWER(:email)))",
+        nativeQuery = true,
+    )
+    fun existsDeletedByAadObjectIdOrEmail(
+        aadObjectId: String,
+        email: String?,
+    ): Boolean
 
     @Modifying(clearAutomatically = true)
     @Query(

@@ -145,7 +145,7 @@ class UserServiceTest :
 
             When("기존 사용자가 없고 email도 매칭 안 되면") {
                 every { userRepository.findByAadObjectIdIncludingDeleted("aad-new") } returns null
-                every { userRepository.findByEmail("new@pluxity.com") } returns null
+                every { userRepository.findByEmailIgnoreCase("new@pluxity.com") } returns null
                 val saveSlot = mutableListOf<User>()
                 every { userRepository.save(capture(saveSlot)) } answers { firstArg() }
 
@@ -165,6 +165,39 @@ class UserServiceTest :
                     saved.email shouldBe "new@pluxity.com"
                     saved.aadObjectId shouldBe "aad-new"
                     saved.userRoles.any { it.role.name == RoleType.USER.roleName } shouldBe true
+                }
+            }
+        }
+
+        Given("UserService.provisionFromMicrosoft") {
+            every { userProperties.allowedEmailDomains } returns listOf("pluxity.com")
+            every { userProperties.initPassword } returns "pluxity123!@#"
+            every { roleRepository.findByName(RoleType.USER.roleName) } returns
+                dummyRole(id = 2L, name = RoleType.USER.roleName)
+
+            When("같은 Microsoft ID나 email의 삭제(퇴사) 처리된 사용자가 있으면") {
+                every { userRepository.existsDeletedByAadObjectIdOrEmail("aad-retired", "old@pluxity.com") } returns true
+
+                Then("되살리지 않고 RETIRED_USER로 거절") {
+                    shouldThrow<CustomException> {
+                        service.provisionFromMicrosoft("aad-retired", "퇴사자", "old@pluxity.com")
+                    }.code shouldBe ErrorCode.RETIRED_USER
+                    verify(exactly = 0) { userRepository.restoreById(any()) }
+                    verify(exactly = 0) { userRepository.save(any<User>()) }
+                }
+            }
+
+            When("email 대소문자만 다른 기존 사용자가 있으면") {
+                val existing = dummyUser(id = 40L, username = "hong", email = "Hong@pluxity.com")
+                every { userRepository.existsDeletedByAadObjectIdOrEmail("aad-40", "hong@pluxity.com") } returns false
+                every { userRepository.findByAadObjectIdIncludingDeleted("aad-40") } returns null
+                every { userRepository.findByEmailIgnoreCase("hong@pluxity.com") } returns existing
+
+                Then("새로 만들지 않고 기존 사용자에 Microsoft ID를 연결") {
+                    val result = service.provisionFromMicrosoft("aad-40", "홍길동", "hong@pluxity.com")
+                    result shouldBe existing
+                    existing.aadObjectId shouldBe "aad-40"
+                    verify(exactly = 0) { userRepository.save(any<User>()) }
                 }
             }
         }

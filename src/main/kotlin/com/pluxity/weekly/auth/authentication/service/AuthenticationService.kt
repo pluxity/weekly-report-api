@@ -1,14 +1,17 @@
 package com.pluxity.weekly.auth.authentication.service
 
+import com.pluxity.weekly.auth.authentication.dto.MicrosoftSignInRequest
 import com.pluxity.weekly.auth.authentication.dto.SignInRequest
 import com.pluxity.weekly.auth.authentication.dto.SignUpRequest
 import com.pluxity.weekly.auth.authentication.entity.RefreshToken
 import com.pluxity.weekly.auth.authentication.repository.RefreshTokenRepository
 import com.pluxity.weekly.auth.authentication.security.JwtProvider
+import com.pluxity.weekly.auth.authentication.security.MicrosoftIdTokenVerifier
 import com.pluxity.weekly.auth.properties.CookieProperties
 import com.pluxity.weekly.auth.properties.JwtProperties
 import com.pluxity.weekly.auth.user.entity.User
 import com.pluxity.weekly.auth.user.repository.UserRepository
+import com.pluxity.weekly.auth.user.service.UserService
 import com.pluxity.weekly.core.constant.ErrorCode
 import com.pluxity.weekly.core.exception.CustomException
 import jakarta.servlet.http.HttpServletRequest
@@ -31,6 +34,8 @@ class AuthenticationService(
     private val passwordEncoder: PasswordEncoder,
     private val jwtProperties: JwtProperties,
     private val cookieProperties: CookieProperties,
+    private val microsoftIdTokenVerifier: MicrosoftIdTokenVerifier,
+    private val userService: UserService,
 ) {
     @Transactional
     fun signUp(signUpRequest: SignUpRequest): Long {
@@ -55,6 +60,27 @@ class AuthenticationService(
     ) {
         authenticateUser(signInRequest)
         val user = findUserByUsername(signInRequest.username)
+        publishToken(user, request, response)
+    }
+
+    /**
+     * Microsoft(회사 계정) 로그인.
+     * ID 토큰을 검증한 뒤 사용자를 찾거나(oid → email) 회사 도메인이면 새로 등록하고,
+     * 아이디/비밀번호 로그인과 같은 access/refresh 쿠키를 발급한다.
+     */
+    @Transactional
+    fun signInWithMicrosoft(
+        signInRequest: MicrosoftSignInRequest,
+        request: HttpServletRequest,
+        response: HttpServletResponse,
+    ) {
+        val identity = microsoftIdTokenVerifier.verify(signInRequest.idToken)
+
+        val user =
+            userRepository.findByAadObjectId(identity.objectId)
+                ?: userService.provisionFromMicrosoft(identity.objectId, identity.name, identity.email)
+                ?: throw CustomException(ErrorCode.MICROSOFT_SIGN_IN_NOT_ALLOWED)
+
         publishToken(user, request, response)
     }
 
