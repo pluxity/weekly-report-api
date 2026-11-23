@@ -162,7 +162,7 @@ class UserService(
             return restoreAndSync(existing, displayName, teamsServiceUrl, teamsConversationId)
         }
 
-        userRepository.findByEmail(email)?.let { existing ->
+        userRepository.findByEmailIgnoreCase(email)?.let { existing ->
             log.info { "기존 email 사용자에 Teams 정보 연결 - userId: ${existing.requiredId}, email: $email" }
             if (teamsServiceUrl != null && teamsConversationId != null) {
                 existing.updateTeamsInfo(aadObjectId, teamsServiceUrl, teamsConversationId)
@@ -173,6 +173,33 @@ class UserService(
         }
 
         return createTeamsUser(aadObjectId, displayName, email, phoneNumber, teamsServiceUrl, teamsConversationId)
+    }
+
+    /**
+     * Microsoft(Entra ID) 웹 로그인을 통한 자동 가입/연결.
+     * Teams 봇과 같은 규칙(aadObjectId → email 매칭 → 회사 도메인이면 신규 생성)을 쓴다.
+     * Teams 대화 정보는 없으므로 비워 두고, 사용자가 봇을 쓰면 그때 채워진다.
+     *
+     * 단, 봇과 달리 삭제(퇴사) 처리된 계정은 되살리지 않고 거절한다. 복원은 관리자만 할 수 있다.
+     */
+    @Transactional
+    fun provisionFromMicrosoft(
+        aadObjectId: String,
+        displayName: String?,
+        email: String?,
+    ): User? {
+        if (userRepository.existsDeletedByAadObjectIdOrEmail(aadObjectId, email)) {
+            log.warn { "Microsoft 로그인 거부 - 퇴사(삭제) 처리된 사용자 (aadObjectId: $aadObjectId, email: $email)" }
+            throw CustomException(ErrorCode.RETIRED_USER)
+        }
+        return provisionFromTeams(
+            aadObjectId = aadObjectId,
+            displayName = displayName,
+            email = email,
+            phoneNumber = null,
+            teamsServiceUrl = null,
+            teamsConversationId = null,
+        )
     }
 
     private fun isEmailDomainAllowed(email: String): Boolean {

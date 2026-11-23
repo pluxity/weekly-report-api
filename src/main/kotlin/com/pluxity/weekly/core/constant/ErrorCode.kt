@@ -13,6 +13,9 @@ enum class ErrorCode(
     EXPIRED_ACCESS_TOKEN(HttpStatus.UNAUTHORIZED, "ACCESS 토큰이 만료되었습니다."),
     EXPIRED_REFRESH_TOKEN(HttpStatus.UNAUTHORIZED, "REFRESH 토큰이 만료되었습니다."),
     PERMISSION_DENIED(HttpStatus.FORBIDDEN, "해당 작업에 대한 권한이 없습니다."),
+    INVALID_MICROSOFT_TOKEN(HttpStatus.UNAUTHORIZED, "Microsoft 로그인 정보가 유효하지 않습니다. 다시 로그인해주세요."),
+    MICROSOFT_SIGN_IN_NOT_ALLOWED(HttpStatus.FORBIDDEN, "회사 계정으로만 로그인할 수 있습니다."),
+    MICROSOFT_SIGN_IN_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "지금은 Microsoft 로그인을 사용할 수 없습니다. 잠시 후 다시 시도해주세요."),
 
     // ── User / Role ──
     DUPLICATE_USERNAME(HttpStatus.BAD_REQUEST, "이미 존재하는 아이디입니다."),
@@ -24,6 +27,7 @@ enum class ErrorCode(
         HttpStatus.CONFLICT,
         "사용자가 프로젝트 PM 또는 팀 리더로 배정되어 있어 삭제할 수 없습니다. 먼저 다른 사용자로 인계해주세요.",
     ),
+    RETIRED_USER(HttpStatus.FORBIDDEN, "퇴사 처리된 계정입니다."),
 
     // ── Team ──
     NOT_FOUND_TEAM(HttpStatus.NOT_FOUND, "요청하신 팀을 찾을 수 없습니다."),

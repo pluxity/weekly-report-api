@@ -1,5 +1,6 @@
 package com.pluxity.weekly.auth.authentication.controller
 
+import com.pluxity.weekly.auth.authentication.dto.MicrosoftSignInRequest
 import com.pluxity.weekly.auth.authentication.dto.SignInRequest
 import com.pluxity.weekly.auth.authentication.dto.SignUpRequest
 import com.pluxity.weekly.auth.authentication.service.AuthenticationService
@@ -83,6 +84,41 @@ class AuthenticationController(
         response: HttpServletResponse,
     ): ResponseEntity<Void> {
         authenticationService.signIn(signInRequestDto, request, response)
+        return ResponseEntity.noContent().build()
+    }
+
+    // 경로가 auth/sign-in 으로 시작하므로 JWT 필터 화이트리스트(WhiteListPath.AUTH_IN)에 포함된다
+    @Operation(
+        summary = "Microsoft 로그인",
+        description = "회사 Microsoft 계정(Entra ID)의 ID 토큰으로 로그인합니다. 처음 로그인하는 회사 계정은 자동으로 등록됩니다.",
+    )
+    @ApiResponses(
+        value = [
+            ApiResponse(responseCode = "204", description = "로그인 성공"),
+            ApiResponse(
+                responseCode = "401",
+                description = "유효하지 않은 ID 토큰",
+                content = [Content(mediaType = "application/json", schema = Schema(implementation = ErrorResponseBody::class))],
+            ),
+            ApiResponse(
+                responseCode = "403",
+                description = "회사 계정이 아님",
+                content = [Content(mediaType = "application/json", schema = Schema(implementation = ErrorResponseBody::class))],
+            ),
+            ApiResponse(
+                responseCode = "503",
+                description = "Microsoft 로그인 사용 불가 (설정 누락 또는 공개키 조회 실패)",
+                content = [Content(mediaType = "application/json", schema = Schema(implementation = ErrorResponseBody::class))],
+            ),
+        ],
+    )
+    @PostMapping("/sign-in/microsoft", produces = ["application/json"])
+    fun signInWithMicrosoft(
+        @Parameter(description = "Microsoft ID 토큰", required = true) @RequestBody @Valid dto: MicrosoftSignInRequest,
+        request: HttpServletRequest,
+        response: HttpServletResponse,
+    ): ResponseEntity<Void> {
+        authenticationService.signInWithMicrosoft(dto, request, response)
         return ResponseEntity.noContent().build()
     }
 

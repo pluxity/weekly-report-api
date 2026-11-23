@@ -50,6 +50,11 @@ springdoc:
 
 user:
   init-password: ${USER_INIT_PASSWORD}
-  # Teams 자동 가입 시 허용할 회사 이메일 도메인
+  # Teams 봇 / Microsoft 로그인 자동 가입 시 허용할 회사 이메일 도메인
   allowed-email-domains:
     - pluxity.com
+
+# Microsoft(Entra ID) 회사 계정 로그인. 프론트(MSAL)와 같은 앱 등록 값이며 비밀값이 아니다.
+entra:
+  client-id: ${ENTRA_CLIENT_ID:7b703591-e4f9-4660-8d31-5d04100e16ad}
+  tenant-id: ${ENTRA_TENANT_ID:3cfa784c-8af1-4ae8-8623-c1a800bc488b}
