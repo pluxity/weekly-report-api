@@ -102,7 +102,7 @@ class AuthenticationController(
             ),
             ApiResponse(
                 responseCode = "403",
-                description = "회사 계정이 아님",
+                description = "회사 계정이 아니거나 퇴사 처리된 계정 (MICROSOFT_SIGN_IN_NOT_ALLOWED / RETIRED_USER)",
                 content = [Content(mediaType = "application/json", schema = Schema(implementation = ErrorResponseBody::class))],
             ),
             ApiResponse(
